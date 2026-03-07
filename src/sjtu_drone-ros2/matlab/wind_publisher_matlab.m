@@ -53,6 +53,14 @@ catch
     error('Failed to create ros2 service client for /set_wind. Ensure service type is built and available.');
 end
 
+% create a backup publisher to /wind_command in case service is unavailable
+try
+	pub = ros2publisher(node, '/wind_command', 'std_msgs/Float32MultiArray');
+catch
+	pub = [];
+	warning('Failed to create backup publisher for /wind_command');
+end
+
 % Wait for service to become available / responsive (simple retry with backoff)
 service_ready = false;
 try
@@ -171,18 +179,34 @@ function tick(~,~)
 	w_speed = sqrt(Wx^2 + Wy^2);
 	w_dir = atan2(Wy, Wx) * 180.0 / pi; % degrees
 
-		% call service /set_wind with generated values
-		try
-			req = ros2message(client);
-			% service fields: speed (float32), direction (float32)
-			req.speed = single(w_speed);
-			req.direction = single(w_dir);
-			% call the service (non-blocking/may throw if unavailable)
-			resp = call(client, req);
-			% optionally inspect resp.success / resp.message
-		catch
-			% ignore service call errors (service may not be up yet)
-		end
+			% Prefer calling the /set_wind service; if it fails, fallback to publishing /wind_command
+			did_service = false;
+			try
+				req = ros2message(client);
+				req.speed = single(w_speed);
+				req.direction = single(w_dir);
+				resp = call(client, req);
+				% if call returned a response structure or object with success field, consider it OK
+				if ~isempty(resp)
+					did_service = true;
+					service_ready = true;
+				end
+			catch
+				% service call failed; will fallback to topic publish below
+				did_service = false;
+			end
+
+			if ~did_service
+				if ~isempty(pub)
+					try
+						msg = ros2message(pub);
+						msg.data = single([w_speed, w_dir]);
+						send(pub, msg);
+					catch
+						% if even topic publish fails, ignore silently (MATLAB may not have ROS env)
+					end
+				end
+			end
 end
 
 % create and start timer
