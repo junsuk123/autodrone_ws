@@ -104,3 +104,19 @@ namespace:  /drone
 [gzserver-4] [INFO] [1772897252.461314472] [drone.simple_drone]: Quadrotor takes off!!
 [gzserver-4] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m5[0m[1;36m dir=[0m[1;36m90[0m[1;36m
 [gzserver-4] [0mEntering flying model!
+[gzclient-5] [0m[1;33m[Wrn] [Event.cc:61] [0m[1;33mWarning: Deleting a connection right after creation. [0m[1;33mMake sure to save the ConnectionPtr from a Connect call
+[INFO] [gzclient-5]: process has finished cleanly [pid 90454]
+[gzclient-5] [0m[1;32m[0m[1;32m[0m[1;36m[0m[1;32m[0m
+[gzclient-5] [0m[1;33m[0m[1;31m[0m
+[INFO] [xterm-9]: process has finished cleanly [pid 90463]
+[gzserver-4] Exception sending a multicast message:Network is unreachable
+[gzserver-4] Exception sending a multicast message:Network is unreachable
+[gzserver-4] Exception sending a multicast message:Network is unreachable
+[gzserver-4] Exception sending a multicast message:Network is unreachable
+[gzserver-4] Exception sending a multicast message:Network is unreachable
+[gzserver-4] Exception sending a multicast message:Network is unreachable
+[gzserver-4] Exception sending a multicast message:Network is unreachable
+[gzserver-4] Exception sending a multicast message:Network is unreachable
+[gzserver-4] Exception sending a multicast message:Network is unreachable
+[gzserver-4] Exception sending a multicast message:Network is unreachable
+[gzserver-4] Exception sending a multicast message:Network is unreachable

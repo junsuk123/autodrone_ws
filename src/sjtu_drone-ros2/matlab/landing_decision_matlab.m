@@ -15,6 +15,12 @@
 
 clear; clc; close all;
 
+% Ensure helper functions in this folder are resolvable regardless of current folder.
+thisDir = fileparts(mfilename('fullpath'));
+if ~isempty(thisDir)
+    addpath(thisDir);
+end
+
 %% Configuration
 cfg.use_launch = false; % if true the script will attempt to start the configured launch command
 cfg.launchCMD = '';
@@ -35,8 +41,15 @@ params.max_vz_land = 0.5;         % vertical speed limit for safe landing
 params.decision_rate = 2.0;       % Hz
 
 % Wind publisher integration: if true, MATLAB will generate and publish wind to /wind_command
-cfg.start_wind_publisher = false; % set true to enable built-in wind generator
+cfg.start_wind_publisher = true; % enable built-in wind generator
 cfg.wind_pub_params = struct();   % see wind_publisher_matlab.startWindPublisher options (rate, steady_speed, etc.)
+cfg.wind_pub_params.use_set_wind_service = false;   % publish /wind_command continuously
+cfg.wind_pub_params.topic_publish_mode = 'matlab';  % 'matlab' publisher per tick, or 'cli'
+% Optional topic fallback mode inside startWindPublisher:
+% cfg.wind_pub_params.topic_publish_mode = 'cli';
+% cfg.wind_pub_params.cli_setup_cmd = 'source /home/j/INCSL/IICC26_ws/install/setup.bash';
+% When enabled and /set_wind service fails, MATLAB runs:
+% ros2 topic pub /wind_command std_msgs/msg/Float32MultiArray "data: [speed, direction]" -1
 
 % Bayesian model params (simple Gaussian assumptions)
 bayes.mu_safe = [0.0, 0.0];        % mean [wind_speed, attitude_score]
