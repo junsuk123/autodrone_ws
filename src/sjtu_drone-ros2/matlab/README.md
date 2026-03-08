@@ -197,7 +197,7 @@ run('/home/j/INCSL/IICC26_ws/src/sjtu_drone-ros2/matlab/landing_decision_matlab.
 - `params.tag_hold_timeout_sec = 0.6`
 - `params.pre_takeoff_zero_wind_enabled = true`
 - `params.pre_takeoff_zero_wind_settle_sec = 2.0`
-- `params.pre_takeoff_require_tag_centered = true`
+- `params.pre_takeoff_require_tag_centered = false`
 - `params.pre_takeoff_tag_center_tolerance = 0.03`
 - `params.pre_takeoff_tag_center_hold_sec = 1.0`
 - `params.xy_pid_kp = 1.2`
