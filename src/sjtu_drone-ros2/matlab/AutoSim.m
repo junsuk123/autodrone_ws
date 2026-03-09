@@ -154,7 +154,7 @@ function cfg = autosimDefaultConfig()
         'ros2 launch sjtu_drone_bringup sjtu_drone_bringup.launch.py ' ...
         'takeoff_hover_height:=%0.2f ' ...
         'takeoff_vertical_speed:=0.2 ' ...
-        'use_gui:=true use_rviz:=true controller:=joystick ' ...
+        'use_gui:=false use_rviz:=true controller:=joystick ' ...
         'use_apriltag:=true apriltag_camera:=/drone/bottom ' ...
         'apriltag_image:=image_raw apriltag_tags:=tags apriltag_type:=umich ' ...
         'apriltag_bridge_topic:=/landing_tag_state ' ...
@@ -163,6 +163,7 @@ function cfg = autosimDefaultConfig()
         'apriltag_bridge_target_id:=0' ...
     ];
     cfg.launch.warmup_sec = 10.0;
+    cfg.launch.ready_timeout_sec = 15.0;
 
     cfg.scenario = struct();
     cfg.scenario.count = 30;
@@ -191,14 +192,24 @@ function cfg = autosimDefaultConfig()
     cfg.wind.model_dir_noise_std_deg = 2.5;
     cfg.wind.model_dir_osc_amp_deg = 10.0;
     cfg.wind.model_dir_osc_freq_hz = 0.09;
+    cfg.wind.source = "kma_csv"; % "kma_csv" | "random"
+    cfg.wind.kma_csv = fullfile(cfg.paths.data_dir, 'OBS_ASOS_MI_20260309231031.csv');
+    cfg.wind.kma_time_column = 'time';
+    cfg.wind.kma_speed_column = 'wind_speed';
+    cfg.wind.kma_direction_column = 'wind_dir';
+    cfg.wind.kma_speed_scale = 1.0;
+    cfg.wind.kma_direction_offset_deg = 0.0;
+    cfg.wind.kma_interp_noise_std_speed = 0.10;
+    cfg.wind.kma_interp_noise_std_dir_deg = 1.5;
+    cfg.wind.kma_use_profile_direct = true;
 
     cfg.control = struct();
     cfg.control.takeoff_retry_sec = 1.0;
     cfg.control.hover_settle_sec = 2.0;
     cfg.control.flying_altitude_threshold = 0.25;
-    cfg.control.xy_kp = 1.15;
+    cfg.control.xy_kp = 1.75;
     cfg.control.xy_ki = 0.0;
-    cfg.control.xy_kd = 1.05;
+    cfg.control.xy_kd = 1.75;
     cfg.control.xy_i_limit = 1.0;
     cfg.control.xy_cmd_limit = 0.7;
     cfg.control.target_u = 0.0;
@@ -228,32 +239,40 @@ function cfg = autosimDefaultConfig()
 
     cfg.agent = struct();
     cfg.agent.enable_model_decision = true;
-    cfg.agent.prob_land_threshold = 0.67;
-    cfg.agent.min_samples_before_decision = 15;
-    cfg.agent.min_altitude_before_land = 0.18;
-    cfg.agent.max_tag_error_before_land = 0.35;
-    cfg.agent.decision_cooldown_sec = 0.8;
-    cfg.agent.block_landing_if_unstable = true;
+    cfg.agent.prob_land_threshold = 0.50;
+    cfg.agent.min_samples_before_decision = 8;
+    cfg.agent.min_altitude_before_land = 0.10;
+    cfg.agent.max_tag_error_before_land = 0.70;
+    cfg.agent.decision_cooldown_sec = 0.5;
+    cfg.agent.block_landing_if_unstable = false;
     cfg.agent.freeze_xy_if_unstable = false;
     cfg.agent.no_model_fallback_enable = true;
-    cfg.agent.no_model_min_samples_before_land = 12;
-    cfg.agent.no_model_max_tag_error = 0.45;
-    cfg.agent.no_model_eval_window_sec = 2.5;
-    cfg.agent.no_model_max_abs_vz = 0.45;
-    cfg.agent.no_model_max_z_osc_std = 0.12;
-    cfg.agent.no_model_max_z_flip_rate_hz = 1.8;
-    cfg.agent.no_model_max_xy_std = 0.10;
-    cfg.agent.no_model_max_xy_speed_rms = 0.22;
-    cfg.agent.no_model_max_xy_radius = 0.22;
-    cfg.agent.no_model_max_abs_roll_pitch_deg = 18.0;
-    cfg.agent.no_model_max_wind_speed = 6.5;
+    cfg.agent.no_model_min_samples_before_land = 6;
+    cfg.agent.no_model_max_tag_error = 0.90;
+    cfg.agent.no_model_eval_window_sec = 1.8;
+    cfg.agent.no_model_max_abs_vz = 0.90;
+    cfg.agent.no_model_max_z_osc_std = 0.30;
+    cfg.agent.no_model_max_z_flip_rate_hz = 4.0;
+    cfg.agent.no_model_max_xy_std = 0.24;
+    cfg.agent.no_model_max_xy_speed_rms = 0.55;
+    cfg.agent.no_model_max_xy_radius = 0.55;
+    cfg.agent.no_model_max_abs_roll_pitch_deg = 35.0;
+    cfg.agent.no_model_max_wind_speed = 10.0;
     cfg.agent.no_model_require_semantic_safe = false;
+    cfg.agent.model_min_total_samples_for_use = 10;
+    cfg.agent.model_min_class_samples_for_use = 2;
+    cfg.agent.model_minority_ratio_for_use = 0.12;
 
     cfg.learning = struct();
     cfg.learning.enable = true;
-    cfg.learning.save_every_scenario = true;
+    cfg.learning.save_every_scenario = false;
+    cfg.learning.update_every_n_scenarios = 3;
+    cfg.learning.min_scenarios_before_first_update = 4;
     cfg.learning.bootstrap_min_samples = 1;
-    cfg.learning.tag_lock_error_max = 0.12;
+    cfg.learning.min_stable_samples_for_update = 2;
+    cfg.learning.min_unstable_samples_for_update = 2;
+    cfg.learning.minority_ratio_floor_for_update = 0.15;
+    cfg.learning.tag_lock_error_max = 0.16;
     cfg.learning.tag_lock_hold_sec = 1.2;
     cfg.learning.random_landing_wait_min_sec = 1.0;
     cfg.learning.random_landing_wait_max_sec = 4.0;
@@ -273,12 +292,16 @@ function cfg = autosimDefaultConfig()
 
     cfg.thresholds = struct();
     cfg.thresholds.land_state_value = 0;
-    cfg.thresholds.landed_altitude_max_m = 0.30;
-    cfg.thresholds.final_speed_max_mps = 0.40;
-    cfg.thresholds.final_attitude_max_deg = 15.0;
-    cfg.thresholds.final_tag_error_max = 0.35;
-    cfg.thresholds.final_stability_std_z_max = 0.18;
-    cfg.thresholds.final_stability_std_vz_max = 0.22;
+    cfg.thresholds.landed_altitude_max_m = 0.60;
+    cfg.thresholds.final_speed_max_mps = 0.90;
+    cfg.thresholds.final_attitude_max_deg = 35.0;
+    cfg.thresholds.final_tag_error_max = 0.90;
+    cfg.thresholds.final_stability_std_z_max = 0.45;
+    cfg.thresholds.final_stability_std_vz_max = 0.55;
+    cfg.thresholds.final_imu_ang_vel_rms_max = 6.0;
+    cfg.thresholds.final_imu_lin_acc_rms_max = 11.0;
+    cfg.thresholds.final_contact_force_max_n = 50.0;
+    cfg.thresholds.final_arm_force_imbalance_max_n = 40.0;
 
     cfg.model = struct();
     cfg.model.feature_names = [ ...
@@ -286,7 +309,9 @@ function cfg = autosimDefaultConfig()
         "mean_abs_vz", "max_abs_vz", "mean_tag_error", "max_tag_error", ...
         "final_altitude", "final_abs_speed", "final_abs_roll_deg", "final_abs_pitch_deg", ...
         "final_tag_error", "stability_std_z", "stability_std_vz", "stability_std_vz_osc", ...
-        "touchdown_accel_rms", "contact_count" ...
+        "touchdown_accel_rms", "contact_count", ...
+        "mean_imu_ang_vel", "max_imu_ang_vel", "mean_imu_lin_acc", "max_imu_lin_acc", ...
+        "max_contact_force", "arm_force_imbalance" ...
     ];
 
     cfg.ontology = struct();
@@ -306,12 +331,18 @@ function cfg = autosimDefaultConfig()
     cfg.topics.state = '/drone/state';
     cfg.topics.pose = '/drone/gt_pose';
     cfg.topics.vel = '/drone/gt_vel';
+    cfg.topics.imu = '/drone/imu';
+    cfg.topics.bumpers = '/drone/bumper_states';
     cfg.topics.tag_state = '/landing_tag_state';
     cfg.topics.wind_condition = '/wind_condition';
     cfg.topics.wind_command = '/wind_command';
     cfg.topics.land_cmd = '/drone/land';
     cfg.topics.takeoff_cmd = '/drone/takeoff';
     cfg.topics.cmd_vel = '/drone/cmd_vel';
+
+    cfg.ros = struct();
+    cfg.ros.enable_imu_subscription = true;
+    cfg.ros.enable_bumper_subscription = true;
 
     cfg.shell = struct();
     cfg.shell.setup_cmd = [ ...
@@ -427,9 +458,10 @@ function scenarioCfg = autosimBuildScenarioConfig(cfg, scenarioId)
     scenarioCfg = struct();
     scenarioCfg.id = scenarioId;
     scenarioCfg.hover_height_m = autosimRandRange(cfg.scenario.hover_height_min_m, cfg.scenario.hover_height_max_m);
+    scenarioCfg.wind_profile_offset_sec = 0;
     if cfg.wind.enable
-        scenarioCfg.wind_speed = autosimRandRange(cfg.wind.speed_min, cfg.wind.speed_max);
-        scenarioCfg.wind_dir = autosimRandRange(cfg.wind.direction_min, cfg.wind.direction_max);
+        [scenarioCfg.wind_speed, scenarioCfg.wind_dir] = autosimPickScenarioWind(cfg, scenarioId);
+        scenarioCfg.wind_profile_offset_sec = autosimPickScenarioWindOffsetSec(cfg, scenarioId);
     else
         scenarioCfg.wind_speed = 0.0;
         scenarioCfg.wind_dir = 0.0;
@@ -484,6 +516,22 @@ function [res, traceTbl] = autosimRunScenario(cfg, scenarioCfg, scenarioId, mode
     subVel = ros2subscriber(node, cfg.topics.vel, 'geometry_msgs/Twist');
     subTag = ros2subscriber(node, cfg.topics.tag_state, 'std_msgs/Float32MultiArray');
     subWind = ros2subscriber(node, cfg.topics.wind_condition, 'std_msgs/Float32MultiArray');
+    subImu = [];
+    if isfield(cfg, 'ros') && isfield(cfg.ros, 'enable_imu_subscription') && cfg.ros.enable_imu_subscription
+        try
+            subImu = ros2subscriber(node, cfg.topics.imu, 'sensor_msgs/msg/Imu');
+        catch
+            subImu = [];
+        end
+    end
+    subBumpers = [];
+    if isfield(cfg, 'ros') && isfield(cfg.ros, 'enable_bumper_subscription') && cfg.ros.enable_bumper_subscription
+        try
+            subBumpers = ros2subscriber(node, cfg.topics.bumpers, 'gazebo_msgs/msg/ContactsState');
+        catch
+            subBumpers = [];
+        end
+    end
 
     pubWind = ros2publisher(node, cfg.topics.wind_command, 'std_msgs/Float32MultiArray');
     pubTakeoff = ros2publisher(node, cfg.topics.takeoff_cmd, 'std_msgs/Empty');
@@ -511,6 +559,13 @@ function [res, traceTbl] = autosimRunScenario(cfg, scenarioCfg, scenarioId, mode
     windCmdDir = nan(sampleN,1);
     stateVal = nan(sampleN,1);
     contact = zeros(sampleN,1);
+    imuAngVel = nan(sampleN,1);
+    imuLinAcc = nan(sampleN,1);
+    contactForce = nan(sampleN,1);
+    armForceFL = nan(sampleN,1);
+    armForceFR = nan(sampleN,1);
+    armForceRL = nan(sampleN,1);
+    armForceRR = nan(sampleN,1);
     predStableProb = nan(sampleN,1);
     decisionTxt = strings(sampleN,1);
     phaseTxt = strings(sampleN,1);
@@ -559,7 +614,7 @@ function [res, traceTbl] = autosimRunScenario(cfg, scenarioCfg, scenarioId, mode
     kLast = 0;
 
     liveViz = autosimInitScenarioRealtimePlot(cfg, scenarioId, scenarioCfg);
-    hasTrainedModel = ~(isfield(model, 'placeholder') && logical(model.placeholder));
+    hasTrainedModel = autosimIsModelReliable(model, cfg);
 
     t0 = tic;
     k = 0;
@@ -581,6 +636,13 @@ function [res, traceTbl] = autosimRunScenario(cfg, scenarioCfg, scenarioId, mode
             windCmdDir = [windCmdDir; nan(growN,1)]; %#ok<AGROW>
             stateVal = [stateVal; nan(growN,1)]; %#ok<AGROW>
             contact = [contact; zeros(growN,1)]; %#ok<AGROW>
+            imuAngVel = [imuAngVel; nan(growN,1)]; %#ok<AGROW>
+            imuLinAcc = [imuLinAcc; nan(growN,1)]; %#ok<AGROW>
+            contactForce = [contactForce; nan(growN,1)]; %#ok<AGROW>
+            armForceFL = [armForceFL; nan(growN,1)]; %#ok<AGROW>
+            armForceFR = [armForceFR; nan(growN,1)]; %#ok<AGROW>
+            armForceRL = [armForceRL; nan(growN,1)]; %#ok<AGROW>
+            armForceRR = [armForceRR; nan(growN,1)]; %#ok<AGROW>
             predStableProb = [predStableProb; nan(growN,1)]; %#ok<AGROW>
             decisionTxt = [decisionTxt; strings(growN,1)]; %#ok<AGROW>
             phaseTxt = [phaseTxt; strings(growN,1)]; %#ok<AGROW>
@@ -658,6 +720,20 @@ function [res, traceTbl] = autosimRunScenario(cfg, scenarioCfg, scenarioId, mode
         windMsg = autosimTryReceive(subWind, 0.01);
         if ~isempty(windMsg)
             windSpeed(k) = autosimParseWind(windMsg);
+        end
+
+        if ~isempty(subImu)
+            imuMsg = autosimTryReceive(subImu, 0.01);
+            if ~isempty(imuMsg)
+                [imuAngVel(k), imuLinAcc(k)] = autosimParseImuMetrics(imuMsg);
+            end
+        end
+
+        if ~isempty(subBumpers)
+            bumpMsg = autosimTryReceive(subBumpers, 0.01);
+            if ~isempty(bumpMsg)
+                [contact(k), contactForce(k), armForceFL(k), armForceFR(k), armForceRL(k), armForceRR(k)] = autosimParseContactForces(bumpMsg);
+            end
         end
 
         windSpNow = windSpeed(k);
@@ -892,8 +968,13 @@ function [res, traceTbl] = autosimRunScenario(cfg, scenarioCfg, scenarioId, mode
         end
 
         feat = autosimBuildOnlineFeatureVector(z(1:k), vz(1:k), speedAbs(1:k), rollDeg(1:k), pitchDeg(1:k), ...
-            tagErr(1:k), windSpeed(1:k), contact(1:k));
-        [predLabel, predScore] = autosimPredictModel(model, feat, cfg.model.feature_names);
+            tagErr(1:k), windSpeed(1:k), contact(1:k), imuAngVel(1:k), imuLinAcc(1:k), ...
+            contactForce(1:k), armForceFL(1:k), armForceFR(1:k), armForceRL(1:k), armForceRR(1:k));
+        featureSchema = cfg.model.feature_names;
+        if isfield(model, 'feature_names') && ~isempty(model.feature_names)
+            featureSchema = model.feature_names;
+        end
+        [predLabel, predScore] = autosimPredictModel(model, feat, featureSchema);
         if predLabel == "stable"
             predStableProb(k) = predScore;
         else
@@ -1025,6 +1106,13 @@ function [res, traceTbl] = autosimRunScenario(cfg, scenarioCfg, scenarioId, mode
     windSpeed = windSpeed(1:kLast);
     stateVal = stateVal(1:kLast);
     contact = contact(1:kLast);
+    imuAngVel = imuAngVel(1:kLast);
+    imuLinAcc = imuLinAcc(1:kLast);
+    contactForce = contactForce(1:kLast);
+    armForceFL = armForceFL(1:kLast);
+    armForceFR = armForceFR(1:kLast);
+    armForceRL = armForceRL(1:kLast);
+    armForceRR = armForceRR(1:kLast);
     predStableProb = predStableProb(1:kLast);
     decisionTxt = decisionTxt(1:kLast);
     phaseTxt = phaseTxt(1:kLast);
@@ -1101,7 +1189,48 @@ function [res, traceTbl] = autosimRunScenario(cfg, scenarioCfg, scenarioId, mode
             windSpeed(end+1,1) = nan; %#ok<AGROW>
         end
 
-        contact(end+1,1) = 0; %#ok<AGROW>
+        if ~isempty(subImu)
+            imuMsg = autosimTryReceive(subImu, 0.01);
+            if ~isempty(imuMsg)
+                [angNow, accNow] = autosimParseImuMetrics(imuMsg);
+                imuAngVel(end+1,1) = angNow; %#ok<AGROW>
+                imuLinAcc(end+1,1) = accNow; %#ok<AGROW>
+            else
+                imuAngVel(end+1,1) = nan; %#ok<AGROW>
+                imuLinAcc(end+1,1) = nan; %#ok<AGROW>
+            end
+        else
+            imuAngVel(end+1,1) = nan; %#ok<AGROW>
+            imuLinAcc(end+1,1) = nan; %#ok<AGROW>
+        end
+
+        if ~isempty(subBumpers)
+            bumpMsg = autosimTryReceive(subBumpers, 0.01);
+            if ~isempty(bumpMsg)
+                [cNow, fNow, flNow, frNow, rlNow, rrNow] = autosimParseContactForces(bumpMsg);
+                contact(end+1,1) = cNow; %#ok<AGROW>
+                contactForce(end+1,1) = fNow; %#ok<AGROW>
+                armForceFL(end+1,1) = flNow; %#ok<AGROW>
+                armForceFR(end+1,1) = frNow; %#ok<AGROW>
+                armForceRL(end+1,1) = rlNow; %#ok<AGROW>
+                armForceRR(end+1,1) = rrNow; %#ok<AGROW>
+            else
+                contact(end+1,1) = 0; %#ok<AGROW>
+                contactForce(end+1,1) = nan; %#ok<AGROW>
+                armForceFL(end+1,1) = nan; %#ok<AGROW>
+                armForceFR(end+1,1) = nan; %#ok<AGROW>
+                armForceRL(end+1,1) = nan; %#ok<AGROW>
+                armForceRR(end+1,1) = nan; %#ok<AGROW>
+            end
+        else
+            contact(end+1,1) = 0; %#ok<AGROW>
+            contactForce(end+1,1) = nan; %#ok<AGROW>
+            armForceFL(end+1,1) = nan; %#ok<AGROW>
+            armForceFR(end+1,1) = nan; %#ok<AGROW>
+            armForceRL(end+1,1) = nan; %#ok<AGROW>
+            armForceRR(end+1,1) = nan; %#ok<AGROW>
+        end
+
         predStableProb(end+1,1) = nan; %#ok<AGROW>
         decisionTxt(end+1,1) = "post_observe"; %#ok<AGROW>
         t(end+1,1) = toc(t0); %#ok<AGROW>
@@ -1113,7 +1242,8 @@ function [res, traceTbl] = autosimRunScenario(cfg, scenarioCfg, scenarioId, mode
         pause(cfg.scenario.sample_period_sec);
     end
 
-    res = autosimSummarizeAndLabel(cfg, scenarioId, scenarioCfg, z, vz, speedAbs, rollDeg, pitchDeg, tagErr, windSpeed, stateVal, contact);
+    res = autosimSummarizeAndLabel(cfg, scenarioId, scenarioCfg, z, vz, speedAbs, rollDeg, pitchDeg, tagErr, windSpeed, stateVal, contact, ...
+        imuAngVel, imuLinAcc, contactForce, armForceFL, armForceFR, armForceRL, armForceRR);
     res.landing_cmd_time = landingSentT;
 
     n = numel(t);
@@ -1132,6 +1262,13 @@ function [res, traceTbl] = autosimRunScenario(cfg, scenarioCfg, scenarioId, mode
     traceTbl.wind_cmd_speed = autosimPadLen(windCmdSpeed, n);
     traceTbl.wind_cmd_dir = autosimPadLen(windCmdDir, n);
     traceTbl.state = autosimPadLen(stateVal, n);
+    traceTbl.imu_ang_vel = autosimPadLen(imuAngVel, n);
+    traceTbl.imu_lin_acc = autosimPadLen(imuLinAcc, n);
+    traceTbl.contact_force = autosimPadLen(contactForce, n);
+    traceTbl.arm_force_fl = autosimPadLen(armForceFL, n);
+    traceTbl.arm_force_fr = autosimPadLen(armForceFR, n);
+    traceTbl.arm_force_rl = autosimPadLen(armForceRL, n);
+    traceTbl.arm_force_rr = autosimPadLen(armForceRR, n);
     traceTbl.pred_stable_prob = autosimPadLen(predStableProb, n);
     traceTbl.decision = autosimPadLenString(decisionTxt, n);
     traceTbl.control_phase = autosimPadLenString(phaseTxt, n);
@@ -1168,7 +1305,7 @@ function out = autosimPadLenString(x, n)
 end
 
 
-function feat = autosimBuildOnlineFeatureVector(z, vz, speedAbs, rollDeg, pitchDeg, tagErr, windSpeed, contact)
+function feat = autosimBuildOnlineFeatureVector(z, vz, speedAbs, rollDeg, pitchDeg, tagErr, windSpeed, contact, imuAngVel, imuLinAcc, contactForce, armFL, armFR, armRL, armRR)
     feat = struct();
     feat.mean_wind_speed = autosimNanMean(windSpeed);
     feat.max_wind_speed = autosimNanMax(windSpeed);
@@ -1193,10 +1330,16 @@ function feat = autosimBuildOnlineFeatureVector(z, vz, speedAbs, rollDeg, pitchD
 
     [~, feat.stability_std_vz_osc, feat.touchdown_accel_rms] = autosimCalcVzMetrics(vzTail, 0.2);
     feat.contact_count = sum(contact > 0);
+    feat.mean_imu_ang_vel = autosimNanMean(imuAngVel);
+    feat.max_imu_ang_vel = autosimNanMax(imuAngVel);
+    feat.mean_imu_lin_acc = autosimNanMean(imuLinAcc);
+    feat.max_imu_lin_acc = autosimNanMax(imuLinAcc);
+    feat.max_contact_force = autosimNanMax(contactForce);
+    feat.arm_force_imbalance = autosimNanMax([abs(armFL-armFR), abs(armRL-armRR)]);
 end
 
 
-function out = autosimSummarizeAndLabel(cfg, scenarioId, scenarioCfg, z, vz, speedAbs, rollDeg, pitchDeg, tagErr, windSpeed, stateVal, bumperContact)
+function out = autosimSummarizeAndLabel(cfg, scenarioId, scenarioCfg, z, vz, speedAbs, rollDeg, pitchDeg, tagErr, windSpeed, stateVal, bumperContact, imuAngVel, imuLinAcc, contactForce, armFL, armFR, armRL, armRR)
     out = autosimEmptyScenarioResult();
     out.scenario_id = scenarioId;
     out.hover_height_cmd = scenarioCfg.hover_height_m;
@@ -1227,6 +1370,16 @@ function out = autosimSummarizeAndLabel(cfg, scenarioId, scenarioCfg, z, vz, spe
     out.stability_std_vz = autosimNanStd(vzStable);
     [~, out.stability_std_vz_osc, out.touchdown_accel_rms] = autosimCalcVzMetrics(vzStable, cfg.scenario.sample_period_sec);
     out.contact_count = sum(bumperContact > 0);
+    out.mean_imu_ang_vel = autosimNanMean(imuAngVel);
+    out.max_imu_ang_vel = autosimNanMax(imuAngVel);
+    out.mean_imu_lin_acc = autosimNanMean(imuLinAcc);
+    out.max_imu_lin_acc = autosimNanMax(imuLinAcc);
+    out.max_contact_force = autosimNanMax(contactForce);
+    out.arm_force_fl_mean = autosimNanMean(armFL);
+    out.arm_force_fr_mean = autosimNanMean(armFR);
+    out.arm_force_rl_mean = autosimNanMean(armRL);
+    out.arm_force_rr_mean = autosimNanMean(armRR);
+    out.arm_force_imbalance = autosimNanMax([abs(armFL-armFR), abs(armRL-armRR)]);
     out.final_state = autosimNanLast(stateVal);
 
     c = cfg.thresholds;
@@ -1238,8 +1391,13 @@ function out = autosimSummarizeAndLabel(cfg, scenarioId, scenarioCfg, z, vz, spe
     condTag = (~isfinite(out.final_tag_error)) || (out.final_tag_error <= c.final_tag_error_max);
     condStdZ = isfinite(out.stability_std_z) && out.stability_std_z <= c.final_stability_std_z_max;
     condStdVz = isfinite(out.stability_std_vz) && out.stability_std_vz <= c.final_stability_std_vz_max;
+    condImuAng = (~isfinite(out.max_imu_ang_vel)) || (out.max_imu_ang_vel <= c.final_imu_ang_vel_rms_max);
+    condImuAcc = (~isfinite(out.max_imu_lin_acc)) || (out.max_imu_lin_acc <= c.final_imu_lin_acc_rms_max);
+    condContactForce = (~isfinite(out.max_contact_force)) || (out.max_contact_force <= c.final_contact_force_max_n);
+    condArmBalance = (~isfinite(out.arm_force_imbalance)) || (out.arm_force_imbalance <= c.final_arm_force_imbalance_max_n);
 
-    passAll = condState && condAlt && condSpeed && condRoll && condPitch && condTag && condStdZ && condStdVz;
+    passAll = condState && condAlt && condSpeed && condRoll && condPitch && condTag && condStdZ && condStdVz && ...
+        condImuAng && condImuAcc && condContactForce && condArmBalance;
 
     if passAll
         out.label = "stable";
@@ -1248,12 +1406,13 @@ function out = autosimSummarizeAndLabel(cfg, scenarioId, scenarioCfg, z, vz, spe
     else
         out.label = "unstable";
         out.success = false;
-        out.failure_reason = autosimBuildFailureReason(condState, condAlt, condSpeed, condRoll, condPitch, condTag, condStdZ, condStdVz);
+        out.failure_reason = autosimBuildFailureReason(condState, condAlt, condSpeed, condRoll, condPitch, condTag, condStdZ, condStdVz, ...
+            condImuAng, condImuAcc, condContactForce, condArmBalance);
     end
 end
 
 
-function reason = autosimBuildFailureReason(condState, condAlt, condSpeed, condRoll, condPitch, condTag, condStdZ, condStdVz)
+function reason = autosimBuildFailureReason(condState, condAlt, condSpeed, condRoll, condPitch, condTag, condStdZ, condStdVz, condImuAng, condImuAcc, condContactForce, condArmBalance)
     parts = strings(0,1);
     if ~condState, parts(end+1,1) = "state_not_landed"; end %#ok<AGROW>
     if ~condAlt, parts(end+1,1) = "altitude_high"; end %#ok<AGROW>
@@ -1263,6 +1422,10 @@ function reason = autosimBuildFailureReason(condState, condAlt, condSpeed, condR
     if ~condTag, parts(end+1,1) = "tag_error_high"; end %#ok<AGROW>
     if ~condStdZ, parts(end+1,1) = "z_unstable"; end %#ok<AGROW>
     if ~condStdVz, parts(end+1,1) = "vz_unstable"; end %#ok<AGROW>
+    if ~condImuAng, parts(end+1,1) = "imu_angular_rate_high"; end %#ok<AGROW>
+    if ~condImuAcc, parts(end+1,1) = "imu_linear_accel_high"; end %#ok<AGROW>
+    if ~condContactForce, parts(end+1,1) = "contact_force_high"; end %#ok<AGROW>
+    if ~condArmBalance, parts(end+1,1) = "arm_force_imbalance"; end %#ok<AGROW>
 
     if isempty(parts)
         reason = "unknown";
@@ -1285,16 +1448,67 @@ function [model, info] = autosimIncrementalTrainAndSave(cfg, results, modelPrev,
     info.model_updated = false;
     info.n_train = sum(valid);
     info.stable_ratio = 0.0;
+    info.n_stable = 0;
+    info.n_unstable = 0;
+    info.skip_reason = "";
     info.model_path = "";
 
     if sum(valid) < cfg.learning.bootstrap_min_samples
         model = modelPrev;
+        info.skip_reason = "insufficient_total_samples";
         return;
+    end
+
+    if isfield(cfg.learning, 'min_scenarios_before_first_update') && isfinite(cfg.learning.min_scenarios_before_first_update)
+        if scenarioId < cfg.learning.min_scenarios_before_first_update
+            model = modelPrev;
+            info.skip_reason = "warmup_before_first_update";
+            return;
+        end
+    end
+
+    if isfield(cfg.learning, 'save_every_scenario') && ~cfg.learning.save_every_scenario
+        updateEvery = 1;
+        if isfield(cfg.learning, 'update_every_n_scenarios') && isfinite(cfg.learning.update_every_n_scenarios)
+            updateEvery = max(1, round(cfg.learning.update_every_n_scenarios));
+        end
+        if mod(max(1, scenarioId), updateEvery) ~= 0
+            model = modelPrev;
+            info.skip_reason = "cadence_skip";
+            return;
+        end
     end
 
     trainTbl = tbl(valid, :);
     y = string(trainTbl.label);
     y(y ~= "stable") = "unstable";
+
+    nStable = sum(y == "stable");
+    nUnstable = sum(y == "unstable");
+    nTrain = numel(y);
+    minorityRatio = min(nStable, nUnstable) / max(1, nTrain);
+    info.n_stable = nStable;
+    info.n_unstable = nUnstable;
+    info.stable_ratio = mean(y == "stable");
+
+    minStable = 1;
+    minUnstable = 1;
+    minMinorityRatio = 0.0;
+    if isfield(cfg.learning, 'min_stable_samples_for_update') && isfinite(cfg.learning.min_stable_samples_for_update)
+        minStable = max(1, round(cfg.learning.min_stable_samples_for_update));
+    end
+    if isfield(cfg.learning, 'min_unstable_samples_for_update') && isfinite(cfg.learning.min_unstable_samples_for_update)
+        minUnstable = max(1, round(cfg.learning.min_unstable_samples_for_update));
+    end
+    if isfield(cfg.learning, 'minority_ratio_floor_for_update') && isfinite(cfg.learning.minority_ratio_floor_for_update)
+        minMinorityRatio = max(0.0, min(0.5, cfg.learning.minority_ratio_floor_for_update));
+    end
+
+    if nStable < minStable || nUnstable < minUnstable || minorityRatio < minMinorityRatio
+        model = modelPrev;
+        info.skip_reason = "class_imbalance_guard";
+        return;
+    end
 
     featNames = cellstr(cfg.model.feature_names);
     X = zeros(height(trainTbl), numel(featNames));
@@ -1306,6 +1520,11 @@ function [model, info] = autosimIncrementalTrainAndSave(cfg, results, modelPrev,
     end
 
     model = autosimTrainGaussianNB(X, y, cfg.model.feature_names);
+    model.n_train = nTrain;
+    model.n_stable = nStable;
+    model.n_unstable = nUnstable;
+    model.stable_ratio = info.stable_ratio;
+    model.minority_ratio = minorityRatio;
 
     ts = autosimTimestamp();
     modelPath = fullfile(cfg.paths.model_dir, sprintf('autosim_model_%s_s%03d.mat', ts, scenarioId));
@@ -1313,7 +1532,46 @@ function [model, info] = autosimIncrementalTrainAndSave(cfg, results, modelPrev,
 
     info.model_updated = true;
     info.model_path = string(modelPath);
-    info.stable_ratio = mean(y == "stable");
+    info.skip_reason = "";
+end
+
+
+function tf = autosimIsModelReliable(model, cfg)
+    tf = false;
+    if isempty(model)
+        return;
+    end
+
+    if isfield(model, 'placeholder') && logical(model.placeholder)
+        return;
+    end
+
+    if ~isfield(model, 'n_train') || ~isfield(model, 'n_stable') || ~isfield(model, 'n_unstable')
+        return;
+    end
+
+    nTrain = double(model.n_train);
+    nStable = double(model.n_stable);
+    nUnstable = double(model.n_unstable);
+    if ~isfinite(nTrain) || ~isfinite(nStable) || ~isfinite(nUnstable)
+        return;
+    end
+
+    minTrain = 1;
+    minClass = 1;
+    minMinorityRatio = 0.0;
+    if isfield(cfg.agent, 'model_min_total_samples_for_use') && isfinite(cfg.agent.model_min_total_samples_for_use)
+        minTrain = max(1, round(cfg.agent.model_min_total_samples_for_use));
+    end
+    if isfield(cfg.agent, 'model_min_class_samples_for_use') && isfinite(cfg.agent.model_min_class_samples_for_use)
+        minClass = max(1, round(cfg.agent.model_min_class_samples_for_use));
+    end
+    if isfield(cfg.agent, 'model_minority_ratio_for_use') && isfinite(cfg.agent.model_minority_ratio_for_use)
+        minMinorityRatio = max(0.0, min(0.5, cfg.agent.model_minority_ratio_for_use));
+    end
+
+    minorityRatio = min(nStable, nUnstable) / max(1, nTrain);
+    tf = (nTrain >= minTrain) && (nStable >= minClass) && (nUnstable >= minClass) && (minorityRatio >= minMinorityRatio);
 end
 
 
@@ -1333,7 +1591,10 @@ function tbl = autosimSummaryTable(results)
         'mean_abs_vz','max_abs_vz', ...
         'mean_tag_error','max_tag_error', ...
         'final_altitude','final_abs_speed','final_abs_roll_deg','final_abs_pitch_deg','final_tag_error', ...
-        'stability_std_z','stability_std_vz','stability_std_vz_osc','touchdown_accel_rms','contact_count','final_state', ...
+        'stability_std_z','stability_std_vz','stability_std_vz_osc','touchdown_accel_rms','contact_count', ...
+        'mean_imu_ang_vel','max_imu_ang_vel','mean_imu_lin_acc','max_imu_lin_acc', ...
+        'max_contact_force','arm_force_fl_mean','arm_force_fr_mean','arm_force_rl_mean','arm_force_rr_mean','arm_force_imbalance', ...
+        'final_state', ...
         'landing_cmd_time','launch_pid','launch_log','exception_message'
     };
 
@@ -1553,7 +1814,12 @@ function autosimPrintStats(results, idx, totalCount, learnInfo)
         fprintf('[AUTOSIM] Model updated with n=%d, stableRatio=%.2f, path=%s\n', ...
             learnInfo.n_train, learnInfo.stable_ratio, learnInfo.model_path);
     else
-        fprintf('[AUTOSIM] Model not updated yet (waiting for labeled scenario data).\n');
+        if isfield(learnInfo, 'skip_reason') && strlength(string(learnInfo.skip_reason)) > 0
+            fprintf('[AUTOSIM] Model update skipped (%s): n=%d, stable=%d, unstable=%d\n', ...
+                string(learnInfo.skip_reason), learnInfo.n_train, learnInfo.n_stable, learnInfo.n_unstable);
+        else
+            fprintf('[AUTOSIM] Model not updated yet (waiting for labeled scenario data).\n');
+        end
     end
 end
 
@@ -1561,27 +1827,30 @@ end
 function plotState = autosimInitPlots()
     plotState = struct();
     plotState.fig = figure('Name', 'AutoSim Learning Progress', 'NumberTitle', 'off');
+    autosimPlaceFigureRight(plotState.fig, [0.36, 0.46], [0.52, 0.51]);
     tl = tiledlayout(plotState.fig, 2, 1, 'TileSpacing', 'compact', 'Padding', 'compact');
 
     ax1 = nexttile(tl, 1);
     plotState.ax1 = ax1;
+    set(ax1, 'FontSize', 9);
     plotState.stableLine = animatedline(ax1, 'Color', [0.20 0.60 0.20], 'LineWidth', 1.5);
     plotState.unstableLine = animatedline(ax1, 'Color', [0.75 0.20 0.20], 'LineWidth', 1.5);
-    title(ax1, 'Scenario Outcome Trend');
-    xlabel(ax1, 'scenario');
-    ylabel(ax1, 'count');
+    title(ax1, 'Scenario Outcome Trend', 'FontSize', 10);
+    xlabel(ax1, 'scenario', 'FontSize', 9);
+    ylabel(ax1, 'count', 'FontSize', 9);
     grid(ax1, 'on');
-    legend(ax1, {'stable', 'unstable'}, 'Location', 'best');
+    legend(ax1, {'stable', 'unstable'}, 'Location', 'best', 'FontSize', 8);
 
     ax2 = nexttile(tl, 2);
     plotState.ax2 = ax2;
+    set(ax2, 'FontSize', 9);
     plotState.learnNLine = animatedline(ax2, 'Color', [0.00 0.45 0.74], 'LineWidth', 1.4);
     plotState.stableRatioLine = animatedline(ax2, 'Color', [0.49 0.18 0.56], 'LineWidth', 1.4);
-    title(ax2, 'Incremental Learning Status');
-    xlabel(ax2, 'scenario');
-    ylabel(ax2, 'value');
+    title(ax2, 'Incremental Learning Status', 'FontSize', 10);
+    xlabel(ax2, 'scenario', 'FontSize', 9);
+    ylabel(ax2, 'value', 'FontSize', 9);
     grid(ax2, 'on');
-    legend(ax2, {'train_samples', 'stable_ratio'}, 'Location', 'best');
+    legend(ax2, {'train_samples', 'stable_ratio'}, 'Location', 'best', 'FontSize', 8);
 end
 
 
@@ -1622,8 +1891,10 @@ function viz = autosimInitScenarioRealtimePlot(cfg, scenarioId, scenarioCfg)
         figure(fig);
         clf(fig);
     end
+    autosimPlaceFigureRight(fig, [0.42, 0.56], [0.55, 0.44]);
 
     ax = axes(fig);
+    set(ax, 'FontSize', 9);
     hold(ax, 'on');
     grid(ax, 'on');
     axis(ax, 'equal');
@@ -1636,23 +1907,23 @@ function viz = autosimInitScenarioRealtimePlot(cfg, scenarioId, scenarioCfg)
 
     rectangle(ax, 'Position', [-halfW, -halfH, 2*halfW, 2*halfH], ...
         'EdgeColor', [0.10 0.55 0.20], 'LineWidth', 1.6, 'LineStyle', '--');
-    plot(ax, 0.0, 0.0, 'p', 'Color', [0.10 0.55 0.20], 'MarkerSize', 12, 'LineWidth', 1.2);
+    plot(ax, 0.0, 0.0, 'p', 'Color', [0.10 0.55 0.20], 'MarkerSize', 10, 'LineWidth', 1.1);
 
     vizTrail = animatedline(ax, 'Color', [0.10 0.35 0.90], 'LineWidth', 1.1);
-    vizDrone = plot(ax, nan, nan, 'o', 'MarkerSize', 8, 'MarkerFaceColor', [0.95 0.25 0.20], ...
+    vizDrone = plot(ax, nan, nan, 'o', 'MarkerSize', 7, 'MarkerFaceColor', [0.95 0.25 0.20], ...
         'MarkerEdgeColor', [0.40 0.05 0.05]);
     vizWind = quiver(ax, nan, nan, 0.0, 0.0, 0.0, 'Color', [0.95 0.60 0.10], ...
         'LineWidth', 1.8, 'MaxHeadSize', 1.8);
 
     title(ax, sprintf('Scenario %03d Live View (hover=%.2fm, cmd wind=%.2f@%.1fdeg)', ...
-        scenarioId, scenarioCfg.hover_height_m, scenarioCfg.wind_speed, scenarioCfg.wind_dir));
-    xlabel(ax, 'x [m]');
-    ylabel(ax, 'y [m]');
+        scenarioId, scenarioCfg.hover_height_m, scenarioCfg.wind_speed, scenarioCfg.wind_dir), 'FontSize', 10);
+    xlabel(ax, 'x [m]', 'FontSize', 9);
+    ylabel(ax, 'y [m]', 'FontSize', 9);
     legend(ax, {'Landing pad center', 'Drone trail', 'Drone', 'Wind vector'}, ...
-        'Location', 'northoutside', 'Orientation', 'horizontal');
+        'Location', 'northoutside', 'Orientation', 'horizontal', 'FontSize', 8);
 
     vizInfo = text(ax, 0.02, 0.98, '', 'Units', 'normalized', 'VerticalAlignment', 'top', ...
-        'FontName', 'Courier New', 'FontSize', 10, 'Color', [0.15 0.15 0.15]);
+        'FontName', 'Courier New', 'FontSize', 8, 'Color', [0.15 0.15 0.15]);
 
     viz = struct();
     viz.fig = fig;
@@ -1729,6 +2000,13 @@ function tbl = autosimEmptyTraceTable(scenarioId)
     tbl.wind_cmd_speed = nan;
     tbl.wind_cmd_dir = nan;
     tbl.state = nan;
+    tbl.imu_ang_vel = nan;
+    tbl.imu_lin_acc = nan;
+    tbl.contact_force = nan;
+    tbl.arm_force_fl = nan;
+    tbl.arm_force_fr = nan;
+    tbl.arm_force_rl = nan;
+    tbl.arm_force_rr = nan;
     tbl.pred_stable_prob = nan;
     tbl.decision = "";
     tbl.control_phase = "";
@@ -1905,6 +2183,393 @@ function ws = autosimParseWind(msg)
 end
 
 
+function [windSpeed, windDir] = autosimPickScenarioWind(cfg, scenarioId)
+    windSpeed = autosimRandRange(cfg.wind.speed_min, cfg.wind.speed_max);
+    windDir = autosimRandRange(cfg.wind.direction_min, cfg.wind.direction_max);
+
+    src = "random";
+    if isfield(cfg.wind, 'source')
+        src = string(cfg.wind.source);
+    end
+
+    if src ~= "kma_csv"
+        return;
+    end
+
+    profile = autosimGetKmaWindProfile(cfg);
+    if isempty(profile)
+        return;
+    end
+
+    profileN = numel(profile.speed_sec);
+    if profileN < 1
+        return;
+    end
+
+    idx = mod(max(1, scenarioId) - 1, profileN) + 1;
+    windSpeed = profile.speed_sec(idx);
+    windDir = profile.dir_sec(idx);
+end
+
+
+function offsetSec = autosimPickScenarioWindOffsetSec(cfg, scenarioId)
+    offsetSec = 0;
+
+    src = "random";
+    if isfield(cfg.wind, 'source')
+        src = string(cfg.wind.source);
+    end
+    if src ~= "kma_csv"
+        return;
+    end
+
+    profile = autosimGetKmaWindProfile(cfg);
+    if isempty(profile) || ~isfield(profile, 'speed_sec') || isempty(profile.speed_sec)
+        return;
+    end
+
+    n = numel(profile.speed_sec);
+    step = max(1, floor(n / max(1, cfg.scenario.count)));
+    offsetSec = mod(max(1, scenarioId) - 1, n) * step;
+    offsetSec = mod(offsetSec, n);
+end
+
+
+function profile = autosimGetKmaWindProfile(cfg)
+    persistent cachedPath cachedProfile
+
+    profile = [];
+    if ~isfield(cfg.wind, 'kma_csv')
+        return;
+    end
+
+    csvPath = char(cfg.wind.kma_csv);
+    if isempty(csvPath) || ~isfile(csvPath)
+        return;
+    end
+
+    if ~isempty(cachedPath) && strcmp(cachedPath, csvPath) && ~isempty(cachedProfile)
+        profile = cachedProfile;
+        return;
+    end
+
+    try
+        T = readtable(csvPath, 'PreserveVariableNames', true, 'TextType', 'string');
+    catch
+        return;
+    end
+
+    if isempty(T) || width(T) < 2
+        return;
+    end
+
+    speedIdx = autosimFindColumnIndex(T.Properties.VariableNames, cfg.wind.kma_speed_column, {'wind_speed','speed','ws','windspd'});
+    dirIdx = autosimFindColumnIndex(T.Properties.VariableNames, cfg.wind.kma_direction_column, {'wind_dir','direction','wd','winddir'});
+
+    if speedIdx < 1
+        speedIdx = autosimFindColumnIndexContains(T.Properties.VariableNames, {'(m/s)','m/s','speed','windspeed','wind_spd'});
+    end
+    if dirIdx < 1
+        dirIdx = autosimFindColumnIndexContains(T.Properties.VariableNames, {'(deg)','deg','direction','winddir','wind_dir'});
+    end
+
+    if speedIdx < 1 || dirIdx < 1
+        return;
+    end
+
+    timeIdx = autosimFindColumnIndex(T.Properties.VariableNames, cfg.wind.kma_time_column, {'time','timestamp','datetime','date'});
+    if timeIdx < 1
+        timeIdx = autosimFindColumnIndexContains(T.Properties.VariableNames, {'time','timestamp','date','일시'});
+    end
+
+    speed = autosimToNumeric(T{:, speedIdx});
+    dir = autosimToNumeric(T{:, dirIdx});
+
+    if timeIdx > 0
+        tSec = autosimParseTimeColumnSec(T{:, timeIdx});
+    else
+        tSec = (0:numel(speed)-1).' * 60.0;
+    end
+
+    if numel(tSec) ~= numel(speed)
+        tSec = (0:numel(speed)-1).' * 60.0;
+    end
+
+    mask = isfinite(speed) & isfinite(dir) & isfinite(tSec);
+    tSec = tSec(mask);
+    speed = speed(mask);
+    dir = dir(mask);
+    if isempty(speed) || numel(speed) < 2
+        return;
+    end
+
+    [tSec, keepIdx] = unique(tSec, 'stable');
+    speed = speed(keepIdx);
+    dir = dir(keepIdx);
+    if numel(speed) < 2
+        return;
+    end
+
+    if isfield(cfg.wind, 'kma_speed_scale') && isfinite(cfg.wind.kma_speed_scale)
+        speed = speed * cfg.wind.kma_speed_scale;
+    end
+    if isfield(cfg.wind, 'kma_direction_offset_deg') && isfinite(cfg.wind.kma_direction_offset_deg)
+        dir = dir + cfg.wind.kma_direction_offset_deg;
+    end
+
+    speed = max(0.0, speed);
+    dir = mod(dir + 180.0, 360.0) - 180.0;
+
+    secGrid = (0:1:floor(tSec(end))).';
+    if numel(secGrid) < 2
+        secGrid = (0:1:60).';
+    end
+
+    speedSec = interp1(tSec, speed, secGrid, 'pchip', 'extrap');
+
+    dirCos = cosd(dir);
+    dirSin = sind(dir);
+    dirCosSec = interp1(tSec, dirCos, secGrid, 'pchip', 'extrap');
+    dirSinSec = interp1(tSec, dirSin, secGrid, 'pchip', 'extrap');
+    dirSec = atan2d(dirSinSec, dirCosSec);
+
+    noiseStdSpeed = 0.0;
+    noiseStdDir = 0.0;
+    if isfield(cfg.wind, 'kma_interp_noise_std_speed') && isfinite(cfg.wind.kma_interp_noise_std_speed)
+        noiseStdSpeed = max(0.0, cfg.wind.kma_interp_noise_std_speed);
+    end
+    if isfield(cfg.wind, 'kma_interp_noise_std_dir_deg') && isfinite(cfg.wind.kma_interp_noise_std_dir_deg)
+        noiseStdDir = max(0.0, cfg.wind.kma_interp_noise_std_dir_deg);
+    end
+
+    if noiseStdSpeed > 0
+        speedSec = speedSec + noiseStdSpeed * randn(size(speedSec));
+    end
+    if noiseStdDir > 0
+        dirSec = dirSec + noiseStdDir * randn(size(dirSec));
+    end
+
+    speedSec = max(0.0, speedSec);
+    dirSec = mod(dirSec + 180.0, 360.0) - 180.0;
+
+    profile = struct( ...
+        'speed', speed(:), ...
+        'dir', dir(:), ...
+        't_sec', tSec(:), ...
+        'sec_grid', secGrid(:), ...
+        'speed_sec', speedSec(:), ...
+        'dir_sec', dirSec(:));
+    cachedPath = csvPath;
+    cachedProfile = profile;
+end
+
+
+function tSec = autosimParseTimeColumnSec(col)
+    n = numel(col);
+    tSec = nan(n,1);
+    if n < 1
+        return;
+    end
+
+    try
+        if isdatetime(col)
+            dt = col(:);
+            if ~isempty(dt.TimeZone)
+                dt.TimeZone = '';
+            end
+            tSec = seconds(dt - dt(1));
+            return;
+        end
+    catch
+    end
+
+    s = string(col(:));
+    s = strtrim(s);
+
+    dt = NaT(n,1);
+    try
+        dt = datetime(s, 'InputFormat', 'yyyy-MM-dd HH:mm:ss');
+    catch
+    end
+    if any(isnat(dt))
+        try
+            dt2 = datetime(s, 'InputFormat', 'yyyy-MM-dd HH:mm');
+            fillMask = isnat(dt) & ~isnat(dt2);
+            dt(fillMask) = dt2(fillMask);
+        catch
+        end
+    end
+    if any(isnat(dt))
+        try
+            dt2 = datetime(s);
+            fillMask = isnat(dt) & ~isnat(dt2);
+            dt(fillMask) = dt2(fillMask);
+        catch
+        end
+    end
+
+    valid = ~isnat(dt);
+    if any(valid)
+        baseT = dt(find(valid, 1, 'first'));
+        tSec(valid) = seconds(dt(valid) - baseT);
+    end
+end
+
+
+function idx = autosimFindColumnIndex(varNames, preferredName, fallbackNames)
+    idx = -1;
+    if nargin < 3
+        fallbackNames = {};
+    end
+
+    names = string(varNames);
+    if ~isempty(preferredName)
+        hit = find(lower(names) == lower(string(preferredName)), 1, 'first');
+        if ~isempty(hit)
+            idx = hit;
+            return;
+        end
+    end
+
+    for i = 1:numel(fallbackNames)
+        hit = find(lower(names) == lower(string(fallbackNames{i})), 1, 'first');
+        if ~isempty(hit)
+            idx = hit;
+            return;
+        end
+    end
+end
+
+
+function idx = autosimFindColumnIndexContains(varNames, tokens)
+    idx = -1;
+    if nargin < 2 || isempty(tokens)
+        return;
+    end
+
+    names = lower(string(varNames));
+    for i = 1:numel(tokens)
+        tok = lower(string(tokens{i}));
+        hit = find(contains(names, tok), 1, 'first');
+        if ~isempty(hit)
+            idx = hit;
+            return;
+        end
+    end
+end
+
+
+function [angVelNorm, linAccNorm] = autosimParseImuMetrics(msg)
+    angVelNorm = nan;
+    linAccNorm = nan;
+
+    try
+        if isprop(msg, 'angular_velocity')
+            av = msg.angular_velocity;
+        else
+            av = msg.angularvelocity;
+        end
+        ax = double(av.x);
+        ay = double(av.y);
+        az = double(av.z);
+        angVelNorm = sqrt(ax*ax + ay*ay + az*az);
+    catch
+    end
+
+    try
+        if isprop(msg, 'linear_acceleration')
+            la = msg.linear_acceleration;
+        else
+            la = msg.linearacceleration;
+        end
+        lx = double(la.x);
+        ly = double(la.y);
+        lz = double(la.z);
+        linAccNorm = sqrt(lx*lx + ly*ly + lz*lz);
+    catch
+    end
+end
+
+
+function [hasContact, totalForce, fFL, fFR, fRL, fRR] = autosimParseContactForces(msg)
+    hasContact = 0;
+    totalForce = nan;
+    fFL = nan;
+    fFR = nan;
+    fRL = nan;
+    fRR = nan;
+
+    try
+        states = msg.states;
+    catch
+        return;
+    end
+
+    nState = numel(states);
+    if nState <= 0
+        return;
+    end
+
+    hasContact = 1;
+    totalForce = 0.0;
+    fFL = 0.0;
+    fFR = 0.0;
+    fRL = 0.0;
+    fRR = 0.0;
+
+    for i = 1:nState
+        st = states(i);
+
+        c1 = "";
+        c2 = "";
+        try, c1 = string(st.collision1_name); catch, end
+        try, c2 = string(st.collision2_name); catch, end
+        armKey = autosimContactArmKey(c1 + " " + c2);
+
+        forceSum = 0.0;
+        try
+            wrenches = st.wrenches;
+            for j = 1:numel(wrenches)
+                wj = wrenches(j);
+                fx = double(wj.force.x);
+                fy = double(wj.force.y);
+                fz = double(wj.force.z);
+                forceSum = forceSum + sqrt(fx*fx + fy*fy + fz*fz);
+            end
+        catch
+            forceSum = 0.0;
+        end
+
+        totalForce = totalForce + forceSum;
+        switch armKey
+            case "fl"
+                fFL = fFL + forceSum;
+            case "fr"
+                fFR = fFR + forceSum;
+            case "rl"
+                fRL = fRL + forceSum;
+            case "rr"
+                fRR = fRR + forceSum;
+        end
+    end
+end
+
+
+function key = autosimContactArmKey(nameText)
+    s = lower(char(nameText));
+    key = "";
+    if contains(s, 'front_left') || contains(s, 'left_front') || contains(s, 'arm_fl') || contains(s, 'fl_')
+        key = "fl";
+    elseif contains(s, 'front_right') || contains(s, 'right_front') || contains(s, 'arm_fr') || contains(s, 'fr_')
+        key = "fr";
+    elseif contains(s, 'rear_left') || contains(s, 'back_left') || contains(s, 'left_rear') || contains(s, 'arm_rl') || contains(s, 'rl_')
+        key = "rl";
+    elseif contains(s, 'rear_right') || contains(s, 'back_right') || contains(s, 'right_rear') || contains(s, 'arm_rr') || contains(s, 'rr_')
+        key = "rr";
+    end
+end
+
+
 function [speedCmd, dirCmd] = autosimComputeWindCommand(cfg, scenarioCfg, tNow, windArmed)
     if ~windArmed || ~cfg.wind.enable
         speedCmd = 0.0;
@@ -1915,19 +2580,49 @@ function [speedCmd, dirCmd] = autosimComputeWindCommand(cfg, scenarioCfg, tNow, 
     baseSpeed = max(0.0, scenarioCfg.wind_speed);
     baseDir = scenarioCfg.wind_dir;
 
+    useProfileDirect = false;
+    if isfield(cfg.wind, 'source') && cfg.wind.source == "kma_csv"
+        profile = autosimGetKmaWindProfile(cfg);
+        if ~isempty(profile) && isfield(profile, 'speed_sec') && ~isempty(profile.speed_sec)
+            offsetSec = 0;
+            if isfield(scenarioCfg, 'wind_profile_offset_sec') && isfinite(scenarioCfg.wind_profile_offset_sec)
+                offsetSec = round(scenarioCfg.wind_profile_offset_sec);
+            end
+            nSec = numel(profile.speed_sec);
+            idx = mod(max(0, round(tNow)) + offsetSec, nSec) + 1;
+            baseSpeed = profile.speed_sec(idx);
+            baseDir = profile.dir_sec(idx);
+            if isfield(cfg.wind, 'kma_use_profile_direct') && cfg.wind.kma_use_profile_direct
+                useProfileDirect = true;
+            end
+        end
+    end
+
     ramp = 1.0;
     if isfield(cfg.wind, 'model_ramp_sec') && isfinite(cfg.wind.model_ramp_sec) && cfg.wind.model_ramp_sec > 0
         ramp = autosimClamp(tNow / cfg.wind.model_ramp_sec, 0.0, 1.0);
     end
 
-    gustAmp = baseSpeed * cfg.wind.model_gust_amp_ratio;
-    gust = gustAmp * sin(2.0 * pi * cfg.wind.model_gust_freq_hz * tNow);
-    noise = cfg.wind.model_noise_std_speed * randn();
-    speedCmd = max(0.0, ramp * (baseSpeed + gust + noise));
+    if useProfileDirect
+        speedCmd = max(0.0, ramp * baseSpeed);
+    else
+        gustAmp = baseSpeed * cfg.wind.model_gust_amp_ratio;
+        gust = gustAmp * sin(2.0 * pi * cfg.wind.model_gust_freq_hz * tNow);
+        noise = cfg.wind.model_noise_std_speed * randn();
+        speedCmd = max(0.0, ramp * (baseSpeed + gust + noise));
+    end
 
-    dirOsc = cfg.wind.model_dir_osc_amp_deg * sin(2.0 * pi * cfg.wind.model_dir_osc_freq_hz * tNow + pi/4.0);
-    dirNoise = cfg.wind.model_dir_noise_std_deg * randn();
-    dirCmd = baseDir + dirOsc + dirNoise;
+    if useProfileDirect
+        dirCmd = baseDir;
+    else
+        dirOscAmp = cfg.wind.model_dir_osc_amp_deg;
+        if isfield(cfg.wind, 'source') && cfg.wind.source == "kma_csv"
+            dirOscAmp = 0.5 * dirOscAmp;
+        end
+        dirOsc = dirOscAmp * sin(2.0 * pi * cfg.wind.model_dir_osc_freq_hz * tNow + pi/4.0);
+        dirNoise = cfg.wind.model_dir_noise_std_deg * randn();
+        dirCmd = baseDir + dirOsc + dirNoise;
+    end
     dirCmd = mod(dirCmd + 180.0, 360.0) - 180.0;
 end
 
@@ -2307,6 +3002,30 @@ function y = autosimClamp(x, lo, hi)
 end
 
 
+function autosimPlaceFigureRight(fig, sizeFracWH, centerFracXY)
+    if nargin < 2 || numel(sizeFracWH) ~= 2
+        sizeFracWH = [0.40, 0.55];
+    end
+    if nargin < 3 || numel(centerFracXY) ~= 2
+        centerFracXY = [0.75, 0.50];
+    end
+
+    try
+        scr = get(0, 'ScreenSize');
+        w = max(640, round(scr(3) * sizeFracWH(1)));
+        h = max(420, round(scr(4) * sizeFracWH(2)));
+
+        cx = scr(1) + round(scr(3) * centerFracXY(1));
+        cy = scr(2) + round(scr(4) * centerFracXY(2));
+        x = min(max(scr(1), cx - round(w/2)), scr(1) + scr(3) - w);
+        y = min(max(scr(2), cy - round(h/2)), scr(2) + scr(4) - h);
+
+        set(fig, 'Units', 'pixels', 'Position', [x, y, w, h]);
+    catch
+    end
+end
+
+
 function [r,p,y] = autosimQuat2Eul(qwxyz)
     w = qwxyz(1);
     x = qwxyz(2);
@@ -2568,6 +3287,16 @@ function s = autosimEmptyScenarioResult()
     s.stability_std_vz_osc = nan;
     s.touchdown_accel_rms = nan;
     s.contact_count = nan;
+    s.mean_imu_ang_vel = nan;
+    s.max_imu_ang_vel = nan;
+    s.mean_imu_lin_acc = nan;
+    s.max_imu_lin_acc = nan;
+    s.max_contact_force = nan;
+    s.arm_force_fl_mean = nan;
+    s.arm_force_fr_mean = nan;
+    s.arm_force_rl_mean = nan;
+    s.arm_force_rr_mean = nan;
+    s.arm_force_imbalance = nan;
     s.final_state = nan;
 
     s.landing_cmd_time = nan;

@@ -6,6 +6,41 @@ This folder contains MATLAB nodes for:
 - landing decision inference using wind + drone state + AprilTag stability
 - startup takeoff sequencing and XY PID hold using AprilTag predicted center
 
+## Research Direction Update (2026-03-09)
+
+본 연구는 강화학습 기반 자율착륙 연구 흐름을 유지하되, 실제 착륙 실패를 유발하는 핵심 요소인 `외란(바람)` 처리에 초점을 맞춘다.
+
+- 문제 인식
+  - 자율착륙 자체는 많이 연구되었지만, 외란 상황에서 착륙 가능/불가능을 사전에 판단하는 연구는 상대적으로 부족하다.
+- 핵심 아이디어
+  - 온톨로지 개념으로 센서 상태를 관계형 상태로 추상화하고,
+  - AI 기반 관계 해석으로 `착륙 가능 여부`를 추론한다.
+- 확장성
+  - 동일 관계 해석 결과는 착륙 가능 여부 판단을 넘어,
+  - 향후 경로계획/제어기 입력 정보 전달 계층으로 확장 가능하다.
+
+### Disturbance Modeling
+
+- 시뮬레이터: Gazebo
+- 외란 주입: Gazebo `wind_plugins` + ROS 토픽(`/wind_command`)
+- 바람 센서 가정: 드론이 풍속/풍향 정보를 관측 가능한 것으로 가정
+- 바람 데이터 모델: 기상청 ASOS 서울 관측(시간대별 풍속/풍향)
+  - https://data.kma.go.kr/data/grnd/selectAsosRltmList.do?pgmNo=36
+  - MATLAB에서 CSV를 읽어 시나리오별 풍속/풍향을 생성해 ROS로 주입
+
+### Learning Flow (Current AutoSim)
+
+- 시뮬레이션 시작 전 호버링 높이를 랜덤 설정
+- 초기 학습 단계는 랜덤 착륙 시도를 포함
+- 성공/실패 라벨링에 다음 정보 사용
+  - 착륙패드 상대 오차(AprilTag 기반)
+  - 드론 자세/속도 변화
+  - IMU 각속도/선형가속도 크기
+  - 충돌 접촉 및 충돌 힘(가능 시 4개 암 기준 분해)
+  - 풍속/풍향 외란 기록
+- 최종 목표
+  - `바람 외란 + 특정 고도` 조건에서 착륙 성공 가능성을 사전 예측하는 모델 학습
+
 ## Files
 
 - `landing_decision_matlab.m`
@@ -298,13 +333,16 @@ What this script does:
   - `/drone/state`
   - `/drone/gt_pose`
   - `/drone/gt_vel`
+  - `/drone/imu`
   - `/drone/bumper_states`
   - `/landing_tag_state`
   - `/wind_condition`
 - publishes:
   - `/wind_command` (scenario wind profile)
   - `/drone/land` (landing trigger)
-- computes threshold-based landing labels (`success` / `failed`)
+- computes threshold-based landing labels (`stable` / `unstable`)
+  - internally mapped to landing `success` / `failure`
+  - includes IMU and contact-force constraints when available
 - accumulates and saves dataset (`.mat` + `.csv`)
 - trains and saves model with datetime filename:
   - `matlab/models/landing_model_YYYYMMDD_HHMMSS.mat`
@@ -338,7 +376,20 @@ Key conditions include:
 - final roll/pitch limits
 - final tag-center error limit (`/landing_tag_state` based)
 - final window stability (`std(z)`, `std(vz)`)
-- bumper contact count limit
+- IMU angular-rate / linear-acceleration bounds
+- contact-force and arm-force-imbalance bounds
+
+### KMA Wind CSV Usage in AutoSim
+
+`AutoSim.m` now supports KMA-based wind sampling per scenario.
+
+- default source: `cfg.wind.source = "kma_csv"`
+- default file: `matlab/data/kma_seoul_wind_hourly.csv`
+- expected columns (name matching is flexible):
+  - speed: `wind_speed` (or `speed`, `ws`)
+  - direction: `wind_dir` (or `direction`, `wd`)
+- fallback behavior:
+  - if CSV is missing or columns are not found, random wind sampling is used automatically
 
 Adjust these values to tune strictness for stable/unstable labels.
 

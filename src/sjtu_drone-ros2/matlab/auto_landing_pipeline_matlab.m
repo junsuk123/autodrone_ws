@@ -174,6 +174,12 @@ function cfg = defaultConfig()
     cfg.wind.start_delay_after_hover_sec = 2.0;
     cfg.wind.start_require_tag_centered = true;
     cfg.wind.start_tag_center_hold_sec = 1.0;
+    cfg.wind.source = "kma_csv"; % "kma_csv" | "random"
+    cfg.wind.kma_csv = fullfile(cfg.paths.data_dir, 'kma_seoul_wind_hourly.csv');
+    cfg.wind.kma_speed_column = 'wind_speed';
+    cfg.wind.kma_direction_column = 'wind_dir';
+    cfg.wind.kma_speed_scale = 1.0;
+    cfg.wind.kma_direction_offset_deg = 0.0;
 
     cfg.process = struct();
     cfg.process.stop_after_each_scenario = true;
@@ -189,6 +195,7 @@ function cfg = defaultConfig()
     cfg.topics.state = '/drone/state';
     cfg.topics.pose = '/drone/gt_pose';
     cfg.topics.vel = '/drone/gt_vel';
+    cfg.topics.imu = '/drone/imu';
     cfg.topics.bumpers = '/drone/bumper_states';
     cfg.topics.tag_state = '/landing_tag_state';
     cfg.topics.wind_condition = '/wind_condition';
@@ -200,10 +207,9 @@ function cfg = defaultConfig()
     cfg.topics.dronevel_mode_cmd = '/drone/dronevel_mode';
 
     cfg.ros = struct();
-    % Safety guards for MATLAB ROS2 interprocess stability.
-    % ContactsState has been a frequent crash source in long loops, so keep it off by default.
     cfg.ros.receive_timeout_sec = 0.01;
-    cfg.ros.enable_bumper_subscription = false;
+    cfg.ros.enable_bumper_subscription = true;
+    cfg.ros.enable_imu_subscription = true;
 
     cfg.control = struct();
     cfg.control.enable = true;
@@ -307,6 +313,10 @@ function cfg = defaultConfig()
     cfg.thresholds.final_stability_std_vz_osc_max = 0.18;
     cfg.thresholds.final_touchdown_accel_rms_max = 1.20;
     cfg.thresholds.bumpers_contact_max = 0;
+    cfg.thresholds.final_imu_ang_vel_rms_max = 2.8;
+    cfg.thresholds.final_imu_lin_acc_rms_max = 6.0;
+    cfg.thresholds.final_contact_force_max_n = 25.0;
+    cfg.thresholds.final_arm_force_imbalance_max_n = 18.0;
 
     cfg.model = struct();
     cfg.model.feature_names = [ ...
@@ -314,7 +324,9 @@ function cfg = defaultConfig()
         "mean_abs_vz", "max_abs_vz", "mean_tag_error", "max_tag_error", ...
         "final_altitude", "final_abs_speed", "final_abs_roll_deg", "final_abs_pitch_deg", ...
         "final_tag_error", "stability_std_z", "stability_std_vz", "stability_std_vz_osc", ...
-        "touchdown_accel_rms", "contact_count" ...
+        "touchdown_accel_rms", "contact_count", ...
+        "mean_imu_ang_vel", "max_imu_ang_vel", "mean_imu_lin_acc", "max_imu_lin_acc", ...
+        "max_contact_force", "arm_force_imbalance" ...
     ];
 
     % Inference model selection:
@@ -608,8 +620,7 @@ function scenarioCfg = buildScenarioRuntimeConfig(cfg, scenarioId)
     scenarioCfg.hover_height_m = randRange(cfg.scenario.hover_height_min_m, cfg.scenario.hover_height_max_m);
 
     if cfg.wind.enable
-        scenarioCfg.wind_speed = cfg.wind.speed_min + rand() * (cfg.wind.speed_max - cfg.wind.speed_min);
-        scenarioCfg.wind_dir = cfg.wind.direction_min + rand() * (cfg.wind.direction_max - cfg.wind.direction_min);
+        [scenarioCfg.wind_speed, scenarioCfg.wind_dir] = pickScenarioWind(cfg, scenarioId);
     else
         scenarioCfg.wind_speed = 0.0;
         scenarioCfg.wind_dir = 0.0;
@@ -625,6 +636,15 @@ function result = runSingleScenario(cfg, scenarioCfg, scenarioId)
     subState = ros2subscriber(node, cfg.topics.state, 'std_msgs/Int8');
     subPose = ros2subscriber(node, cfg.topics.pose, 'geometry_msgs/Pose');
     subVel = ros2subscriber(node, cfg.topics.vel, 'geometry_msgs/Twist');
+    subImu = [];
+    if isfield(cfg, 'ros') && isfield(cfg.ros, 'enable_imu_subscription') && cfg.ros.enable_imu_subscription
+        try
+            subImu = ros2subscriber(node, cfg.topics.imu, 'sensor_msgs/msg/Imu');
+        catch ME
+            fprintf('[PIPELINE] IMU subscriber unavailable (disabled for this scenario): %s\n', ME.message);
+            subImu = [];
+        end
+    end
     subBumpers = [];
     if isfield(cfg, 'ros') && isfield(cfg.ros, 'enable_bumper_subscription') && cfg.ros.enable_bumper_subscription
         try
@@ -668,6 +688,13 @@ function result = runSingleScenario(cfg, scenarioCfg, scenarioId)
     windSpeed = nan(sampleN, 1);
     stateVal = nan(sampleN, 1);
     bumperContact = zeros(sampleN, 1);
+    imuAngVel = nan(sampleN, 1);
+    imuLinAcc = nan(sampleN, 1);
+    contactForce = nan(sampleN, 1);
+    armForceFL = nan(sampleN, 1);
+    armForceFR = nan(sampleN, 1);
+    armForceRL = nan(sampleN, 1);
+    armForceRR = nan(sampleN, 1);
 
     fprintf('[PIPELINE] Scenario %d profile: hover=%.2fm, wind=%.2f m/s, dir=%.1f deg\n', ...
         scenarioId, scenarioCfg.hover_height_m, scenarioCfg.wind_speed, scenarioCfg.wind_dir);
@@ -777,16 +804,19 @@ function result = runSingleScenario(cfg, scenarioCfg, scenarioId)
             stateVal(k) = double(stateMsg.data);
         end
 
+        if ~isempty(subImu)
+            imuMsg = tryReceive(subImu, recvTimeout);
+            if ~isempty(imuMsg)
+                [imuAngVel(k), imuLinAcc(k)] = parseImuMetrics(imuMsg);
+            end
+        end
+
         bumpMsg = [];
         if ~isempty(subBumpers)
             bumpMsg = tryReceive(subBumpers, recvTimeout);
         end
         if ~isempty(bumpMsg)
-            try
-                bumperContact(k) = numel(bumpMsg.states) > 0;
-            catch
-                bumperContact(k) = 0;
-            end
+            [bumperContact(k), contactForce(k), armForceFL(k), armForceFR(k), armForceRL(k), armForceRR(k)] = parseContactForces(bumpMsg);
         end
 
         tagMsg = tryReceive(subTag, recvTimeout);
@@ -1226,6 +1256,21 @@ function result = runSingleScenario(cfg, scenarioCfg, scenarioId)
             stateVal(end+1,1) = nan; %#ok<AGROW>
         end
 
+        if ~isempty(subImu)
+            imuMsg = tryReceive(subImu, recvTimeout);
+            if ~isempty(imuMsg)
+                [angNow, accNow] = parseImuMetrics(imuMsg);
+                imuAngVel(end+1,1) = angNow; %#ok<AGROW>
+                imuLinAcc(end+1,1) = accNow; %#ok<AGROW>
+            else
+                imuAngVel(end+1,1) = nan; %#ok<AGROW>
+                imuLinAcc(end+1,1) = nan; %#ok<AGROW>
+            end
+        else
+            imuAngVel(end+1,1) = nan; %#ok<AGROW>
+            imuLinAcc(end+1,1) = nan; %#ok<AGROW>
+        end
+
         tagMsg = tryReceive(subTag, recvTimeout);
         if ~isempty(tagMsg)
             tagErr(end+1,1) = parseTagErrorFromBridge(tagMsg); %#ok<AGROW>
@@ -1238,13 +1283,20 @@ function result = runSingleScenario(cfg, scenarioCfg, scenarioId)
             bumpMsg = tryReceive(subBumpers, recvTimeout);
         end
         if ~isempty(bumpMsg)
-            try
-                bumperContact(end+1,1) = numel(bumpMsg.states) > 0; %#ok<AGROW>
-            catch
-                bumperContact(end+1,1) = 0; %#ok<AGROW>
-            end
+            [cNow, fNow, flNow, frNow, rlNow, rrNow] = parseContactForces(bumpMsg);
+            bumperContact(end+1,1) = cNow; %#ok<AGROW>
+            contactForce(end+1,1) = fNow; %#ok<AGROW>
+            armForceFL(end+1,1) = flNow; %#ok<AGROW>
+            armForceFR(end+1,1) = frNow; %#ok<AGROW>
+            armForceRL(end+1,1) = rlNow; %#ok<AGROW>
+            armForceRR(end+1,1) = rrNow; %#ok<AGROW>
         else
             bumperContact(end+1,1) = 0; %#ok<AGROW>
+            contactForce(end+1,1) = nan; %#ok<AGROW>
+            armForceFL(end+1,1) = nan; %#ok<AGROW>
+            armForceFR(end+1,1) = nan; %#ok<AGROW>
+            armForceRL(end+1,1) = nan; %#ok<AGROW>
+            armForceRR(end+1,1) = nan; %#ok<AGROW>
         end
 
         windMsg = tryReceive(subWind, recvTimeout);
@@ -1262,7 +1314,8 @@ function result = runSingleScenario(cfg, scenarioCfg, scenarioId)
         send(pubPosCtrl, msgPosCtrl);
     end
 
-    result = summarizeAndLabelScenario(cfg, scenarioId, scenarioCfg, z, vz, speedAbs, rollDeg, pitchDeg, tagErr, windSpeed, stateVal, bumperContact);
+    result = summarizeAndLabelScenario(cfg, scenarioId, scenarioCfg, z, vz, speedAbs, rollDeg, pitchDeg, tagErr, windSpeed, stateVal, bumperContact, ...
+        imuAngVel, imuLinAcc, contactForce, armForceFL, armForceFR, armForceRL, armForceRR);
     result.tag_lock_acquired = tagLockAcquired;
     result.landing_cmd_time = landingSentT;
     result.random_bias_x = randomBiasX;
@@ -1270,7 +1323,7 @@ function result = runSingleScenario(cfg, scenarioCfg, scenarioId)
 end
 
 
-function out = summarizeAndLabelScenario(cfg, scenarioId, scenarioCfg, z, vz, speedAbs, rollDeg, pitchDeg, tagErr, windSpeed, stateVal, bumperContact)
+function out = summarizeAndLabelScenario(cfg, scenarioId, scenarioCfg, z, vz, speedAbs, rollDeg, pitchDeg, tagErr, windSpeed, stateVal, bumperContact, imuAngVel, imuLinAcc, contactForce, armFL, armFR, armRL, armRR)
     out = emptyScenarioResult();
     out.scenario_id = scenarioId;
     out.hover_height_cmd = scenarioCfg.hover_height_m;
@@ -1329,6 +1382,16 @@ function out = summarizeAndLabelScenario(cfg, scenarioId, scenarioCfg, z, vz, sp
     [~, out.stability_std_vz_osc, out.touchdown_accel_rms] = calcVzMotionMetrics(vzStableSrc, cfg.scenario.sample_period_sec);
 
     out.contact_count = sum(bumperContact > 0);
+    out.mean_imu_ang_vel = nanmeanSafe(imuAngVel);
+    out.max_imu_ang_vel = nanmaxSafe(imuAngVel);
+    out.mean_imu_lin_acc = nanmeanSafe(imuLinAcc);
+    out.max_imu_lin_acc = nanmaxSafe(imuLinAcc);
+    out.max_contact_force = nanmaxSafe(contactForce);
+    out.arm_force_fl_mean = nanmeanSafe(armFL);
+    out.arm_force_fr_mean = nanmeanSafe(armFR);
+    out.arm_force_rl_mean = nanmeanSafe(armRL);
+    out.arm_force_rr_mean = nanmeanSafe(armRR);
+    out.arm_force_imbalance = nanmaxSafe([abs(armFL-armFR); abs(armRL-armRR)]);
 
     stateFinal = nanlast(stateVal);
     out.final_state = stateFinal;
@@ -1344,6 +1407,10 @@ function out = summarizeAndLabelScenario(cfg, scenarioId, scenarioCfg, z, vz, sp
     condStdVz = isfinite(out.stability_std_vz) && out.stability_std_vz <= c.final_stability_std_vz_max;
     condVzOsc = isfinite(out.stability_std_vz_osc) && out.stability_std_vz_osc <= c.final_stability_std_vz_osc_max;
     condAccel = isfinite(out.touchdown_accel_rms) && out.touchdown_accel_rms <= c.final_touchdown_accel_rms_max;
+    condImuAng = (~isfinite(out.max_imu_ang_vel)) || (out.max_imu_ang_vel <= c.final_imu_ang_vel_rms_max);
+    condImuAcc = (~isfinite(out.max_imu_lin_acc)) || (out.max_imu_lin_acc <= c.final_imu_lin_acc_rms_max);
+    condContactForce = (~isfinite(out.max_contact_force)) || (out.max_contact_force <= c.final_contact_force_max_n);
+    condArmBalance = (~isfinite(out.arm_force_imbalance)) || (out.arm_force_imbalance <= c.final_arm_force_imbalance_max_n);
     % If touchdown was detected but there are too few post-touchdown samples,
     % avoid penalizing stability metrics dominated by pre-touchdown trajectory.
     if ~isempty(touchdownIdx) && touchdownPostFinite < 3
@@ -1359,7 +1426,8 @@ function out = summarizeAndLabelScenario(cfg, scenarioId, scenarioCfg, z, vz, sp
         condContact = out.contact_count <= c.bumpers_contact_max;
     end
 
-    passAll = condState && condAlt && condSpeed && condRoll && condPitch && condTag && condStdZ && condStdVz && condVzOsc && condAccel && condContact;
+    passAll = condState && condAlt && condSpeed && condRoll && condPitch && condTag && condStdZ && condStdVz && condVzOsc && condAccel && condContact && ...
+        condImuAng && condImuAcc && condContactForce && condArmBalance;
 
     if passAll
         out.label = "stable";
@@ -1368,7 +1436,8 @@ function out = summarizeAndLabelScenario(cfg, scenarioId, scenarioCfg, z, vz, sp
     else
         out.label = "unstable";
         out.success = false;
-        out.failure_reason = buildFailureReason(condState, condAlt, condSpeed, condRoll, condPitch, condTag, condStdZ, condStdVz, condVzOsc, condAccel, condContact);
+        out.failure_reason = buildFailureReason(condState, condAlt, condSpeed, condRoll, condPitch, condTag, condStdZ, condStdVz, condVzOsc, condAccel, condContact, ...
+            condImuAng, condImuAcc, condContactForce, condArmBalance);
     end
 
     fprintf('[PIPELINE] Scenario %d label=%s reason=%s | final(z=%.3f, v=%.3f, roll=%.1f, pitch=%.1f, tag=%.3f)\n', ...
@@ -1377,7 +1446,7 @@ function out = summarizeAndLabelScenario(cfg, scenarioId, scenarioCfg, z, vz, sp
 end
 
 
-function reason = buildFailureReason(condState, condAlt, condSpeed, condRoll, condPitch, condTag, condStdZ, condStdVz, condVzOsc, condAccel, condContact)
+function reason = buildFailureReason(condState, condAlt, condSpeed, condRoll, condPitch, condTag, condStdZ, condStdVz, condVzOsc, condAccel, condContact, condImuAng, condImuAcc, condContactForce, condArmBalance)
     parts = strings(0,1);
     if ~condState, parts(end+1,1) = "state_not_landed"; end %#ok<AGROW>
     if ~condAlt, parts(end+1,1) = "altitude_high"; end %#ok<AGROW>
@@ -1390,6 +1459,10 @@ function reason = buildFailureReason(condState, condAlt, condSpeed, condRoll, co
     if ~condVzOsc, parts(end+1,1) = "vz_oscillation_high"; end %#ok<AGROW>
     if ~condAccel, parts(end+1,1) = "touchdown_accel_high"; end %#ok<AGROW>
     if ~condContact, parts(end+1,1) = "contact_detected"; end %#ok<AGROW>
+    if ~condImuAng, parts(end+1,1) = "imu_angular_rate_high"; end %#ok<AGROW>
+    if ~condImuAcc, parts(end+1,1) = "imu_linear_accel_high"; end %#ok<AGROW>
+    if ~condContactForce, parts(end+1,1) = "contact_force_high"; end %#ok<AGROW>
+    if ~condArmBalance, parts(end+1,1) = "arm_force_imbalance"; end %#ok<AGROW>
 
     if isempty(parts)
         reason = "unknown";
@@ -1417,7 +1490,10 @@ function tbl = toSummaryTable(results)
         'mean_abs_vz','max_abs_vz', ...
         'mean_tag_error','max_tag_error', ...
         'final_altitude','final_abs_speed','final_abs_roll_deg','final_abs_pitch_deg','final_tag_error', ...
-        'stability_std_z','stability_std_vz','stability_std_vz_osc','touchdown_accel_rms','contact_count','final_state', ...
+        'stability_std_z','stability_std_vz','stability_std_vz_osc','touchdown_accel_rms','contact_count', ...
+        'mean_imu_ang_vel','max_imu_ang_vel','mean_imu_lin_acc','max_imu_lin_acc', ...
+        'max_contact_force','arm_force_fl_mean','arm_force_fr_mean','arm_force_rl_mean','arm_force_rr_mean','arm_force_imbalance', ...
+        'final_state', ...
         'launch_pid','launch_log','exception_message'
     };
 
@@ -1801,6 +1877,206 @@ function ws = parseWindSpeed(msg)
             ws = d(1);
         end
     catch
+    end
+end
+
+
+function [windSpeed, windDir] = pickScenarioWind(cfg, scenarioId)
+    windSpeed = cfg.wind.speed_min + rand() * (cfg.wind.speed_max - cfg.wind.speed_min);
+    windDir = cfg.wind.direction_min + rand() * (cfg.wind.direction_max - cfg.wind.direction_min);
+
+    src = "random";
+    if isfield(cfg.wind, 'source')
+        src = string(cfg.wind.source);
+    end
+    if src ~= "kma_csv"
+        return;
+    end
+
+    profile = getKmaWindProfile(cfg);
+    if isempty(profile) || isempty(profile.speed)
+        return;
+    end
+
+    idx = mod(max(1, scenarioId) - 1, numel(profile.speed)) + 1;
+    windSpeed = profile.speed(idx);
+    windDir = profile.dir(idx);
+end
+
+
+function profile = getKmaWindProfile(cfg)
+    persistent cachedPath cachedProfile
+
+    profile = [];
+    if ~isfield(cfg.wind, 'kma_csv')
+        return;
+    end
+
+    csvPath = char(cfg.wind.kma_csv);
+    if isempty(csvPath) || ~isfile(csvPath)
+        return;
+    end
+
+    if ~isempty(cachedPath) && strcmp(cachedPath, csvPath) && ~isempty(cachedProfile)
+        profile = cachedProfile;
+        return;
+    end
+
+    try
+        T = readtable(csvPath);
+    catch
+        return;
+    end
+
+    if isempty(T) || width(T) < 2
+        return;
+    end
+
+    speedIdx = findColumnIndex(T.Properties.VariableNames, cfg.wind.kma_speed_column, {'wind_speed','speed','ws','windspd'});
+    dirIdx = findColumnIndex(T.Properties.VariableNames, cfg.wind.kma_direction_column, {'wind_dir','direction','wd','winddir'});
+    if speedIdx < 1 || dirIdx < 1
+        return;
+    end
+
+    speed = toNumericVector(T{:, speedIdx});
+    dir = toNumericVector(T{:, dirIdx});
+
+    mask = isfinite(speed) & isfinite(dir);
+    speed = speed(mask);
+    dir = dir(mask);
+    if isempty(speed)
+        return;
+    end
+
+    if isfield(cfg.wind, 'kma_speed_scale') && isfinite(cfg.wind.kma_speed_scale)
+        speed = speed * cfg.wind.kma_speed_scale;
+    end
+    if isfield(cfg.wind, 'kma_direction_offset_deg') && isfinite(cfg.wind.kma_direction_offset_deg)
+        dir = dir + cfg.wind.kma_direction_offset_deg;
+    end
+
+    speed = max(0.0, speed);
+    dir = mod(dir + 180.0, 360.0) - 180.0;
+
+    profile = struct('speed', speed(:), 'dir', dir(:));
+    cachedPath = csvPath;
+    cachedProfile = profile;
+end
+
+
+function idx = findColumnIndex(varNames, preferredName, fallbackNames)
+    idx = -1;
+    names = lower(string(varNames));
+
+    if ~isempty(preferredName)
+        hit = find(names == lower(string(preferredName)), 1, 'first');
+        if ~isempty(hit)
+            idx = hit;
+            return;
+        end
+    end
+
+    for i = 1:numel(fallbackNames)
+        hit = find(names == lower(string(fallbackNames{i})), 1, 'first');
+        if ~isempty(hit)
+            idx = hit;
+            return;
+        end
+    end
+end
+
+
+function [angVelNorm, linAccNorm] = parseImuMetrics(msg)
+    angVelNorm = nan;
+    linAccNorm = nan;
+
+    try
+        av = msg.angular_velocity;
+        angVelNorm = sqrt(double(av.x)^2 + double(av.y)^2 + double(av.z)^2);
+    catch
+    end
+
+    try
+        la = msg.linear_acceleration;
+        linAccNorm = sqrt(double(la.x)^2 + double(la.y)^2 + double(la.z)^2);
+    catch
+    end
+end
+
+
+function [hasContact, totalForce, fFL, fFR, fRL, fRR] = parseContactForces(msg)
+    hasContact = 0;
+    totalForce = nan;
+    fFL = nan;
+    fFR = nan;
+    fRL = nan;
+    fRR = nan;
+
+    try
+        states = msg.states;
+    catch
+        return;
+    end
+    if isempty(states)
+        return;
+    end
+
+    hasContact = 1;
+    totalForce = 0.0;
+    fFL = 0.0;
+    fFR = 0.0;
+    fRL = 0.0;
+    fRR = 0.0;
+
+    for i = 1:numel(states)
+        st = states(i);
+        namePair = "";
+        try
+            namePair = string(st.collision1_name) + " " + string(st.collision2_name);
+        catch
+        end
+        key = contactArmKey(namePair);
+
+        forceSum = 0.0;
+        try
+            wrenches = st.wrenches;
+            for j = 1:numel(wrenches)
+                wj = wrenches(j);
+                fx = double(wj.force.x);
+                fy = double(wj.force.y);
+                fz = double(wj.force.z);
+                forceSum = forceSum + sqrt(fx*fx + fy*fy + fz*fz);
+            end
+        catch
+            forceSum = 0.0;
+        end
+
+        totalForce = totalForce + forceSum;
+        switch key
+            case "fl"
+                fFL = fFL + forceSum;
+            case "fr"
+                fFR = fFR + forceSum;
+            case "rl"
+                fRL = fRL + forceSum;
+            case "rr"
+                fRR = fRR + forceSum;
+        end
+    end
+end
+
+
+function key = contactArmKey(nameText)
+    s = lower(char(nameText));
+    key = "";
+    if contains(s, 'front_left') || contains(s, 'left_front') || contains(s, 'arm_fl') || contains(s, 'fl_')
+        key = "fl";
+    elseif contains(s, 'front_right') || contains(s, 'right_front') || contains(s, 'arm_fr') || contains(s, 'fr_')
+        key = "fr";
+    elseif contains(s, 'rear_left') || contains(s, 'back_left') || contains(s, 'left_rear') || contains(s, 'arm_rl') || contains(s, 'rl_')
+        key = "rl";
+    elseif contains(s, 'rear_right') || contains(s, 'back_right') || contains(s, 'right_rear') || contains(s, 'arm_rr') || contains(s, 'rr_')
+        key = "rr";
     end
 end
 
@@ -2209,6 +2485,16 @@ function s = emptyScenarioResult()
     s.stability_std_vz_osc = nan;
     s.touchdown_accel_rms = nan;
     s.contact_count = nan;
+    s.mean_imu_ang_vel = nan;
+    s.max_imu_ang_vel = nan;
+    s.mean_imu_lin_acc = nan;
+    s.max_imu_lin_acc = nan;
+    s.max_contact_force = nan;
+    s.arm_force_fl_mean = nan;
+    s.arm_force_fr_mean = nan;
+    s.arm_force_rl_mean = nan;
+    s.arm_force_rr_mean = nan;
+    s.arm_force_imbalance = nan;
     s.final_state = nan;
 
     s.launch_pid = -1;
