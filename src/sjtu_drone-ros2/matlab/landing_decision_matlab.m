@@ -23,15 +23,41 @@ if ~isempty(thisDir)
 end
 
 %% Configuration
-cfg.use_launch = false; % if true the script will attempt to start the configured launch command
+cfg.use_launch = true; % auto-manage launch per prediction test
 cfg.ros2env = [ ...
     'cd /home/j/INCSL/IICC26_ws && ' ...
+    'unset LD_LIBRARY_PATH && ' ...
+    'unset ROS_DOMAIN_ID && ' ...
+    'export GAZEBO_PLUGIN_PATH=$GAZEBO_PLUGIN_PATH:/opt/ros/humble/lib && ' ...
     'source /opt/ros/humble/setup.bash && ' ...
     'source /home/j/INCSL/IICC26_ws/install/setup.bash' ...
 ];
-cfg.launchCMD = sprintf( ...
-    'bash -i -c "%s && source ~/.bashrc; ros2 launch sjtu_drone_bringup sjtu_drone_bringup.launch.py use_gui:=false &"', ...
-    cfg.ros2env);
+pyPathChain = [ ...
+    'export PYTHONPATH=/home/j/INCSL/IICC26_ws/install/sjtu_drone_bringup/lib/python3.10/site-packages:' ...
+    '/home/j/INCSL/IICC26_ws/src/sjtu_drone-ros2/sjtu_drone_bringup:$PYTHONPATH' ...
+];
+cfg.launch_command_template = [ ...
+    cfg.ros2env ' && source ~/.bashrc && ' ...
+    'source /opt/ros/humble/setup.bash && ' ...
+    'source /home/j/INCSL/IICC26_ws/install/setup.bash && ' ...
+    pyPathChain ' && ' ...
+    'ros2 launch sjtu_drone_bringup sjtu_drone_bringup.launch.py ' ...
+    'takeoff_hover_height:=%0.2f ' ...
+    'takeoff_vertical_speed:=0.2 ' ...
+    'use_gui:=false use_rviz:=true controller:=joystick ' ...
+    'use_apriltag:=true apriltag_camera:=/drone/bottom ' ...
+    'apriltag_image:=image_raw apriltag_tags:=tags apriltag_type:=umich ' ...
+    'apriltag_bridge_topic:=/landing_tag_state ' ...
+    'apriltag_use_standalone_detector:=true ' ...
+    'apriltag_bridge_use_target_id:=true ' ...
+    'apriltag_bridge_target_id:=0' ...
+];
+cfg.shell = struct();
+cfg.shell.setup_cmd = [ ...
+    cfg.ros2env ' && source ~/.bashrc && ' ...
+    'source /opt/ros/humble/setup.bash && ' ...
+    'source /home/j/INCSL/IICC26_ws/install/setup.bash' ...
+];
 % Example for a custom workspace path:
 % cfg.ros2env = 'cd /home/user/INCSL/IICC26_ws && source /opt/ros/humble/setup.bash && source /home/user/INCSL/IICC26_ws/install/setup.bash';
 % cfg.launchCMD = sprintf('bash -i -c "%s && source ~/.bashrc; ros2 launch sjtu_drone_bringup sjtu_drone_bringup.launch.py use_gui:=false &"', cfg.ros2env);
@@ -114,6 +140,14 @@ cfg.enable_live_plot = true;          % show real-time trends in MATLAB figure
 cfg.plot_window_sec = 45;             % sliding window length for live plot
 cfg.log_decision_changes_only = true; % reduce console noise
 cfg.log_summary_interval_sec = 5.0;   % periodic compact status log
+cfg.enable_prediction_live_plot = true;   % AI class probability live plot
+cfg.enable_final_result_plot = true;      % aggregate plot after tests
+cfg.prediction_test_count = 10;           % requested default test count
+cfg.prediction_test_duration_sec = 50.0;  % per-test runtime window
+cfg.launch_settle_sec = 2.5;              % wait after launch start
+cfg.process = struct();
+cfg.process.cleanup_verify_timeout_sec = 8.0;
+cfg.process.stale_pattern = '[r]os2 launch sjtu_drone_bringup|[c]omponent_container|[a]priltag|[j]oint_state_publisher|[r]obot_state_publisher|[s]tatic_transform_publisher|[r]viz2|[j]oy_node|[g]azebo|[g]zserver|[g]zclient|[s]pawn_drone|[g]azebo_wind_plugin_node';
 % Optional topic fallback mode inside startWindPublisher:
 % cfg.wind_pub_params.topic_publish_mode = 'cli';
 % cfg.wind_pub_params.cli_setup_cmd = 'source /home/j/INCSL/IICC26_ws/install/setup.bash';
@@ -141,16 +175,7 @@ aiModel.W = [ ...
 ];
 aiModel.b = [0.10; 0.00; -0.10];
 
-%% Launch if requested
-if cfg.use_launch && ~isempty(cfg.launchCMD)
-    fprintf('[MATLAB] Starting configured launch (background)...\n');
-    [st,out] = system(cfg.launchCMD);
-    if st ~= 0
-        warning('Launch command returned non-zero: %s', out);
-    else
-        pause(2.0); % give launch a moment
-    end
-end
+%% Launch is managed per-test below (cleanup -> launch -> run -> cleanup)
 
 %% ROS2 node and pubs/subs
 try
@@ -310,37 +335,82 @@ function [roll,pitch,yaw] = quat2eul_local(qwxyz)
 end
 
 %% Main loop: poll topics and decide
-rate = rateControl(params.decision_rate);
-
-loop_t0 = tic;
-last_decision = '';
-last_log_t = -inf;
 viz = [];
-control_phase = 'wait_ready';
-control_phase_enter_t = 0.0;
-last_takeoff_cmd_t = -inf;
-have_pose = false;
-have_state = false;
-drone_state = -1; % 0:landed, 1:flying, 2:takingoff, 3:landing
-last_tag_detect_t = -inf;
-last_valid_tag = struct('n_tags',0,'tag_id',-1,'cx_px',nan,'cy_px',nan,'area_px2',nan,'margin',nan);
-have_valid_tag = false;
-last_state_rx_t = -inf;
-last_ctrl_t = 0.0;
-hover_start_t = nan;
-wind_started = false;
-pre_takeoff_tag_center_hold_start_t = nan;
-hover_center_hold_start_t = nan;
-pid_x = initPidState();
-pid_y = initPidState();
+predViz = [];
 if cfg.enable_live_plot
     viz = initLivePlots(cfg.plot_window_sec, params);
 end
+if cfg.enable_prediction_live_plot
+    predViz = initPredictionPlots(cfg.plot_window_sec, aiModel.class_names);
+end
 
-fprintf('[MATLAB] Entering decision loop (pipeline=sensor->ontology->AI->publish). Ctrl-C to stop.\n');
+testCount = max(1, round(cfg.prediction_test_count));
+testDuration = max(5.0, cfg.prediction_test_duration_sec);
+testResults = repmat(struct( ...
+    'test_id', 0, ...
+    'samples', 0, ...
+    'land_count', 0, ...
+    'caution_count', 0, ...
+    'wait_count', 0, ...
+    'fallback_count', 0, ...
+    'mean_confidence', nan, ...
+    'final_decision', "wait"), testCount, 1);
+
+fprintf('[MATLAB] Starting prediction tests: count=%d, duration=%.1fs each\n', testCount, testDuration);
+
 loopError = [];
-try
-while true
+stopAll = false;
+
+for testIdx = 1:testCount
+    fprintf('\n[MATLAB][TEST %02d/%02d] Preparing simulation...\n', testIdx, testCount);
+
+    launchInfo = struct('pid', -1);
+    if cfg.use_launch && isfield(cfg, 'launch_command_template') && ~isempty(cfg.launch_command_template)
+        cleanupSimulationProcessesDecision(cfg, -1);
+        launchInfo = startBringupLaunchDecision(cfg);
+        pause(cfg.launch_settle_sec);
+    end
+
+    % Per-test state reset
+    rate = rateControl(params.decision_rate);
+    loop_t0 = tic;
+    last_decision = '';
+    last_log_t = -inf;
+    control_phase = 'wait_ready';
+    control_phase_enter_t = 0.0;
+    last_takeoff_cmd_t = -inf;
+    have_pose = false;
+    have_state = false;
+    drone_state = -1;
+    last_tag_detect_t = -inf;
+    last_valid_tag = struct('n_tags',0,'tag_id',-1,'cx_px',nan,'cy_px',nan,'area_px2',nan,'margin',nan);
+    have_valid_tag = false;
+    last_state_rx_t = -inf;
+    last_ctrl_t = 0.0;
+    hover_start_t = nan;
+    wind_started = false;
+    pre_takeoff_tag_center_hold_start_t = nan;
+    hover_center_hold_start_t = nan;
+    pid_x = initPidState();
+    pid_y = initPidState();
+    tag_history = nan(tag_cfg.history_len, 2);
+    tag_hist_count = 0;
+    tag_area_history = nan(tag_cfg.history_len, 1);
+    tag_margin_history = nan(tag_cfg.history_len, 1);
+    windTimer = [];
+    cleanupWind = []; %#ok<NASGU>
+
+    % Per-test statistics
+    decLand = 0;
+    decCaution = 0;
+    decWait = 0;
+    fbCount = 0;
+    confSum = 0.0;
+    nSamples = 0;
+
+    fprintf('[MATLAB][TEST %02d] Running decision loop...\n', testIdx);
+    try
+    while true
     % get latest wind
     wind_msg = tryReceive(sub_wind, 0.1);
     if isempty(wind_msg)
@@ -635,6 +705,26 @@ while true
         viz = updateLivePlots(viz, t_now, wind, tagObs, decision, ctrlViz, params);
     end
 
+    if cfg.enable_prediction_live_plot
+        tGlobal = (testIdx-1) * testDuration + t_now;
+        predViz = updatePredictionPlots(predViz, tGlobal, aiOut, decision);
+    end
+
+    % Accumulate per-test decision statistics
+    nSamples = nSamples + 1;
+    confSum = confSum + aiOut.confidence;
+    if aiOut.used_fallback
+        fbCount = fbCount + 1;
+    end
+    switch char(decision)
+        case 'land'
+            decLand = decLand + 1;
+        case 'caution'
+            decCaution = decCaution + 1;
+        otherwise
+            decWait = decWait + 1;
+    end
+
     if cfg.log_decision_changes_only
         if ~strcmp(decision, last_decision)
             fprintf('[%s] phase=%s dec=%s(ai=%.2f fb=%d) wind=%.2f risk=%s align=%s visual=%s tag_detect=%d pred_ok=%d cmd=(%.2f,%.2f)\n', ...
@@ -652,34 +742,78 @@ while true
             datestr(now,'HH:MM:SS'), decision, wind.wind_speed, tagObs.stability_score);
     end
 
+    if t_now >= testDuration
+        break;
+    end
+
     waitfor(rate);
-end
-catch ME
-    if isUserInterruptException(ME)
-        fprintf('[MATLAB] User interrupt received. Stopping decision loop safely.\n');
-    else
-        loopError = ME;
+    end
+    catch ME
+        if isUserInterruptException(ME)
+            fprintf('[MATLAB] User interrupt received. Stopping prediction tests safely.\n');
+            stopAll = true;
+        else
+            loopError = ME;
+            stopAll = true;
+        end
+    end
+
+    safeStopWind(windTimer);
+
+    % Send neutral commands after each test.
+    try
+        msg_cmd.linear.x = 0.0;
+        msg_cmd.linear.y = 0.0;
+        msg_cmd.linear.z = 0.0;
+        msg_cmd.angular.x = 0.0;
+        msg_cmd.angular.y = 0.0;
+        msg_cmd.angular.z = 0.0;
+        send(pub_cmd, msg_cmd);
+    catch
+    end
+
+    try
+        msg_wind_zero.data = single([0.0, 0.0]);
+        send(pub_wind_cmd, msg_wind_zero);
+    catch
+    end
+
+    if cfg.use_launch
+        cleanupSimulationProcessesDecision(cfg, launchInfo.pid);
+    end
+
+    % Store per-test summary
+    [~, mx] = max([decLand, decCaution, decWait]);
+    finalDecision = "wait";
+    if mx == 1
+        finalDecision = "land";
+    elseif mx == 2
+        finalDecision = "caution";
+    end
+    meanConf = nan;
+    if nSamples > 0
+        meanConf = confSum / nSamples;
+    end
+    testResults(testIdx) = struct( ...
+        'test_id', testIdx, ...
+        'samples', nSamples, ...
+        'land_count', decLand, ...
+        'caution_count', decCaution, ...
+        'wait_count', decWait, ...
+        'fallback_count', fbCount, ...
+        'mean_confidence', meanConf, ...
+        'final_decision', finalDecision);
+
+    fprintf('[MATLAB][TEST %02d] done: samples=%d final=%s meanConf=%.3f counts(L/C/W)=(%d/%d/%d) fallback=%d\n', ...
+        testIdx, nSamples, finalDecision, meanConf, decLand, decCaution, decWait, fbCount);
+
+    if stopAll
+        break;
     end
 end
 
-safeStopWind(windTimer);
-
-% Send neutral commands on exit so the simulator is left in a safe state.
-try
-    msg_cmd.linear.x = 0.0;
-    msg_cmd.linear.y = 0.0;
-    msg_cmd.linear.z = 0.0;
-    msg_cmd.angular.x = 0.0;
-    msg_cmd.angular.y = 0.0;
-    msg_cmd.angular.z = 0.0;
-    send(pub_cmd, msg_cmd);
-catch
-end
-
-try
-    msg_wind_zero.data = single([0.0, 0.0]);
-    send(pub_wind_cmd, msg_wind_zero);
-catch
+if cfg.enable_final_result_plot
+    showFinalPredictionResults(testResults, aiModel.class_names);
 end
 
 if ~isempty(loopError)
@@ -707,6 +841,193 @@ function r = rateControl(freq)
         if towait > 0, pause(towait); end
         r.tlast = tic;
     end
+end
+
+function info = startBringupLaunchDecision(cfg)
+    [~, preOut] = system('bash -i -c "pgrep -f \"[r]os2 launch sjtu_drone_bringup sjtu_drone_bringup.launch.py\" | wc -l"');
+    preCount = str2double(strtrim(preOut));
+    preSnap = getActiveRosProcessSnapshotDecision();
+    hasStaleGraph = strlength(strtrim(preSnap)) > 0;
+
+    if (isfinite(preCount) && preCount > 0) || hasStaleGraph
+        fprintf('[MATLAB] Detected stale ROS/Gazebo process(es) before start, forcing cleanup.\n');
+        if hasStaleGraph
+            fprintf('[MATLAB] Stale pre-launch snapshot:\n%s\n', preSnap);
+        end
+        cleanupSimulationProcessesDecision(cfg);
+        pause(1.0);
+
+        postCleanupSnap = getActiveRosProcessSnapshotDecision();
+        if strlength(strtrim(postCleanupSnap)) > 0
+            error('Cleanup did not converge before launch start. Refusing to start new launch.\nRemaining:\n%s', postCleanupSnap);
+        end
+    end
+
+    hoverHeight = 2.5;
+    launchCmd = sprintf(cfg.launch_command_template, hoverHeight);
+    escapedCmd = shellEscapeDoubleQuotesDecision(launchCmd);
+    bashCmd = sprintf('bash -i -c "%s >/dev/null 2>&1 &"', escapedCmd);
+
+    info = struct('pid', -1);
+    fprintf('[MATLAB] Starting bringup launch...\n');
+    fprintf('[MATLAB] Launch command: %s\n', launchCmd);
+    [st, out] = system(bashCmd);
+    if st ~= 0
+        warning('Launch command failed: %s', out);
+        return;
+    end
+
+    [~, pOut] = system('bash -i -c "pgrep -n -f \"[r]os2 launch sjtu_drone_bringup sjtu_drone_bringup.launch.py\" || true"');
+    tok = regexp(strtrim(pOut), '(\d+)', 'tokens', 'once');
+    if ~isempty(tok)
+        info.pid = str2double(tok{1});
+    end
+
+    fprintf('[MATLAB] bringup launch started (pid=%d)\n', info.pid);
+end
+
+function cleanupSimulationProcessesDecision(cfg, launchPid)
+    if nargin < 2
+        launchPid = -1;
+    end
+
+    if isfinite(launchPid) && launchPid > 1
+        killProcessTreeDecision(round(launchPid));
+    end
+
+    out = '';
+    preSnap = getActiveRosProcessSnapshotDecision();
+    if strlength(strtrim(preSnap)) > 0
+        fprintf('[MATLAB] Cleanup pre-snapshot:\n%s\n', preSnap);
+    end
+
+    for pass = 1:3
+        [~, outPass] = system(['bash -i -c "set +m; ' ...
+            'pgrep -f \"[r]os2 launch sjtu_drone_bringup sjtu_drone_bringup.launch.py\" | xargs -r kill -9 || true; ' ...
+            'pkill -9 -f \"[r]os2 launch sjtu_drone_bringup\" || true; ' ...
+            'pkill -9 -f \"[s]jtu_drone_bringup.launch.py\" || true; ' ...
+            'pkill -9 -f \"[c]omponent_container\" || true; ' ...
+            'pkill -9 -f \"[a]priltag_detector\" || true; ' ...
+            'pkill -9 -f \"[a]priltag_state_bridge\" || true; ' ...
+            'pkill -9 -f \"[s]tatic_transform_publisher\" || true; ' ...
+            'pkill -9 -f \"[r]obot_state_publisher\" || true; ' ...
+            'pkill -9 -f \"[j]oint_state_publisher\" || true; ' ...
+            'pkill -9 -f \"[s]pawn_drone\" || true; ' ...
+            'pkill -9 -f \"[t]eleop_joystick\" || true; ' ...
+            'pkill -9 -f \"[j]oy_node\" || true; ' ...
+            'pkill -9 -f \"[g]azebo_wind_plugin_node\" || true; ' ...
+            'pkill -9 gzserver || true; ' ...
+            'pkill -9 gzclient || true; ' ...
+            'pkill -9 -x rviz2 || true; ' ...
+            'pkill -9 -f \"[r]viz2\" || true" 2>/dev/null']);
+
+        if ~isempty(strtrim(outPass))
+            out = sprintf('%s\n[pass %d]\n%s', out, pass, outPass); %#ok<AGROW>
+        end
+
+        pause(0.3);
+    end
+
+    killActiveRosProcessTreesDecision();
+
+    refreshRos2DaemonDecision(cfg);
+
+    verifyTimeout = 8.0;
+    if isfield(cfg, 'process') && isfield(cfg.process, 'cleanup_verify_timeout_sec') && isfinite(cfg.process.cleanup_verify_timeout_sec)
+        verifyTimeout = max(1.0, cfg.process.cleanup_verify_timeout_sec);
+    end
+    waitForRosProcessCleanupDecision(verifyTimeout);
+
+    postSnap = getActiveRosProcessSnapshotDecision();
+    if strlength(strtrim(postSnap)) > 0
+        fprintf('[MATLAB] Cleanup post-snapshot (still alive):\n%s\n', postSnap);
+    end
+
+    if ~isempty(strtrim(out))
+        fprintf('[MATLAB] Cleanup output:\n%s\n', out);
+    else
+        fprintf('[MATLAB] Cleanup complete (multi-pass kill + daemon refresh).\n');
+    end
+end
+
+function killProcessTreeDecision(pid)
+    if ~isfinite(pid) || pid <= 1
+        return;
+    end
+    cmd = sprintf(['bash -i -c "' ...
+        'pkill -9 -P %d >/dev/null 2>&1 || true; ' ...
+        'pkill -9 -P %d >/dev/null 2>&1 || true; ' ...
+        'pkill -9 -P %d >/dev/null 2>&1 || true; ' ...
+        'kill -9 %d >/dev/null 2>&1 || true"'], round(pid), round(pid), round(pid), round(pid));
+    system(cmd);
+end
+
+function waitForRosProcessCleanupDecision(timeoutSec)
+    t0 = tic;
+    while toc(t0) <= timeoutSec
+        snap = getActiveRosProcessSnapshotDecision();
+        if strlength(strtrim(snap)) == 0
+            return;
+        end
+
+        killActiveRosProcessTreesDecision();
+        pause(0.25);
+    end
+end
+
+function killActiveRosProcessTreesDecision()
+    pids = getActiveRosProcessPidsDecision();
+    if isempty(pids)
+        return;
+    end
+
+    for i = 1:numel(pids)
+        killProcessTreeDecision(pids(i));
+    end
+end
+
+function pids = getActiveRosProcessPidsDecision()
+    cmd = ['bash -i -c "' ...
+        'pgrep -f \"[r]os2 launch sjtu_drone_bringup|[c]omponent_container|[a]priltag|[j]oint_state_publisher|[r]obot_state_publisher|[s]tatic_transform_publisher|[r]viz2|[j]oy_node|[g]azebo|[g]zserver|[g]zclient|[s]pawn_drone|[g]azebo_wind_plugin_node\" || true"'];
+    [~, txt] = system(cmd);
+    toks = regexp(txt, '(\d+)', 'tokens');
+    if isempty(toks)
+        pids = [];
+        return;
+    end
+
+    pids = zeros(numel(toks), 1);
+    for i = 1:numel(toks)
+        pids(i) = str2double(toks{i}{1});
+    end
+    pids = unique(pids(isfinite(pids) & pids > 1));
+end
+
+function refreshRos2DaemonDecision(cfg)
+    daemonOk = false;
+
+    if isfield(cfg, 'shell') && isfield(cfg.shell, 'setup_cmd')
+        daemonCmd = sprintf('bash -i -c "%s && ros2 daemon stop >/dev/null 2>&1 || true; ros2 daemon start >/dev/null 2>&1 || true"', ...
+            shellEscapeDoubleQuotesDecision(cfg.shell.setup_cmd));
+        st = system(daemonCmd);
+        daemonOk = (st == 0);
+    end
+
+    if ~daemonOk
+        system('bash -i -c "source /opt/ros/humble/setup.bash >/dev/null 2>&1 || true; ros2 daemon stop >/dev/null 2>&1 || true; ros2 daemon start >/dev/null 2>&1 || true"');
+    end
+end
+
+function out = getActiveRosProcessSnapshotDecision()
+    cmd = ['bash -i -c "' ...
+        'pgrep -af \"[r]os2 launch sjtu_drone_bringup|[c]omponent_container|[a]priltag|[j]oint_state_publisher|[r]obot_state_publisher|[s]tatic_transform_publisher|[r]viz2|[j]oy_node|[g]azebo|[g]zserver|[g]zclient|[s]pawn_drone|[g]azebo_wind_plugin_node\" ' ...
+        '| sed -n \"1,120p\" || true"'];
+    [~, txt] = system(cmd);
+    out = string(txt);
+end
+
+function s = shellEscapeDoubleQuotesDecision(x)
+    s = strrep(char(string(x)), '"', '\\"');
 end
 
 function safeStopWind(timerHandle)
@@ -1152,6 +1473,90 @@ function viz = updateLivePlots(viz, tNow, wind, tagObs, decision, ctrlViz, param
     end
 
     drawnow limitrate nocallbacks;
+end
+
+function pv = initPredictionPlots(windowSec, classNames)
+    pv = struct();
+    pv.window_sec = max(5.0, windowSec);
+    pv.fig = figure('Name','AI Prediction Live','NumberTitle','off');
+    ax = axes(pv.fig);
+    hold(ax, 'on');
+    pv.p_land = animatedline(ax, 'Color', [0.20 0.60 0.20], 'LineWidth', 1.6);
+    pv.p_caution = animatedline(ax, 'Color', [0.90 0.60 0.10], 'LineWidth', 1.4);
+    pv.p_wait = animatedline(ax, 'Color', [0.75 0.20 0.20], 'LineWidth', 1.4);
+    pv.p_conf = animatedline(ax, 'Color', [0.10 0.10 0.10], 'LineStyle', '--', 'LineWidth', 1.2);
+    ylim(ax, [0 1.05]);
+    grid(ax, 'on');
+    xlabel(ax, 'time (s)');
+    ylabel(ax, 'probability');
+    title(ax, 'AI softmax probabilities and confidence');
+    legend(ax, {sprintf('P(%s)', classNames{1}), sprintf('P(%s)', classNames{2}), sprintf('P(%s)', classNames{3}), 'max confidence'}, 'Location', 'best');
+    pv.ax = ax;
+end
+
+function pv = updatePredictionPlots(pv, tNow, aiOut, decision)
+    if isempty(pv) || ~isfield(pv, 'fig') || ~isgraphics(pv.fig)
+        return;
+    end
+    p = aiOut.probs(:);
+    if numel(p) >= 3
+        addpoints(pv.p_land, tNow, p(1));
+        addpoints(pv.p_caution, tNow, p(2));
+        addpoints(pv.p_wait, tNow, p(3));
+    end
+    addpoints(pv.p_conf, tNow, aiOut.confidence);
+
+    xmin = max(0, tNow - pv.window_sec);
+    xmax = max(pv.window_sec, tNow);
+    xlim(pv.ax, [xmin xmax]);
+    title(pv.ax, sprintf('AI softmax probabilities (decision=%s, conf=%.2f)', char(decision), aiOut.confidence));
+    drawnow limitrate nocallbacks;
+end
+
+function showFinalPredictionResults(testResults, classNames)
+    if isempty(testResults)
+        return;
+    end
+
+    n = numel(testResults);
+    ids = (1:n)';
+    landC = zeros(n,1);
+    cautionC = zeros(n,1);
+    waitC = zeros(n,1);
+    meanConf = nan(n,1);
+    fb = zeros(n,1);
+    for i = 1:n
+        landC(i) = testResults(i).land_count;
+        cautionC(i) = testResults(i).caution_count;
+        waitC(i) = testResults(i).wait_count;
+        meanConf(i) = testResults(i).mean_confidence;
+        fb(i) = testResults(i).fallback_count;
+    end
+
+    f = figure('Name','Prediction Test Summary','NumberTitle','off');
+    tlo = tiledlayout(f, 2, 1, 'TileSpacing', 'compact', 'Padding', 'compact');
+
+    ax1 = nexttile(tlo, 1);
+    b = bar(ax1, ids, [landC, cautionC, waitC], 'stacked');
+    b(1).FaceColor = [0.20 0.60 0.20];
+    b(2).FaceColor = [0.90 0.60 0.10];
+    b(3).FaceColor = [0.75 0.20 0.20];
+    grid(ax1, 'on');
+    ylabel(ax1, 'decision count');
+    title(ax1, 'Per-test decision distribution');
+    legend(ax1, {classNames{1}, classNames{2}, classNames{3}}, 'Location', 'best');
+
+    ax2 = nexttile(tlo, 2);
+    yyaxis(ax2, 'left');
+    plot(ax2, ids, meanConf, '-o', 'Color', [0.1 0.1 0.1], 'LineWidth', 1.4);
+    ylabel(ax2, 'mean confidence');
+    ylim(ax2, [0 1.05]);
+    yyaxis(ax2, 'right');
+    bar(ax2, ids, fb, 0.4, 'FaceColor', [0.35 0.35 0.85]);
+    ylabel(ax2, 'fallback count');
+    xlabel(ax2, 'test id');
+    grid(ax2, 'on');
+    title(ax2, 'Confidence and fallback usage');
 end
 
 function y = decisionToNumeric(decision)

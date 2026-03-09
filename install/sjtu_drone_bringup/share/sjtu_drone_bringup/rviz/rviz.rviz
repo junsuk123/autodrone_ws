@@ -103,7 +103,7 @@ Visualization Manager:
   Enabled: true
   Global Options:
     Background Color: 48; 48; 48
-    Fixed Frame: drone/base_link
+    Fixed Frame: world
     Frame Rate: 30
   Name: root
   Tools:
@@ -161,7 +161,7 @@ Visualization Manager:
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 0.7647961378097534
+      Pitch: 0.7697961330413818
       Target Frame: <Fixed Frame>
       Value: Orbit (rviz)
       Yaw: 3.0302932262420654
