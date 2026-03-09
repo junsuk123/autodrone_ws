@@ -166,7 +166,7 @@ function cfg = autosimDefaultConfig()
     cfg.launch.ready_timeout_sec = 15.0;
 
     cfg.scenario = struct();
-    cfg.scenario.count = 30;
+    cfg.scenario.count = 300;
     cfg.scenario.duration_sec = inf;
     cfg.scenario.sample_period_sec = 0.2;
     cfg.scenario.post_land_observe_sec = 3.0;
@@ -176,16 +176,16 @@ function cfg = autosimDefaultConfig()
 
     cfg.wind = struct();
     cfg.wind.enable = true;
-    cfg.wind.update_period_sec = 0.5;
+    cfg.wind.update_period_sec = 0.1;
     cfg.wind.speed_min = 0.0;
     cfg.wind.speed_max = 3.0;
     cfg.wind.direction_min = -180.0;
     cfg.wind.direction_max = 180.0;
-    cfg.wind.start_delay_after_hover_sec = 2.0;
+    cfg.wind.start_delay_after_hover_sec = 0.0;
     cfg.wind.start_require_tag_centered = true;
-    cfg.wind.start_tag_center_hold_sec = 1.0;
-    cfg.wind.start_force_after_hover_sec = 8.0;
-    cfg.wind.model_ramp_sec = 2.0;
+    cfg.wind.start_tag_center_hold_sec = 0.0;
+    cfg.wind.start_force_after_hover_sec = 0.0;
+    cfg.wind.model_ramp_sec = 0.0;
     cfg.wind.model_gust_amp_ratio = 0.25;
     cfg.wind.model_gust_freq_hz = 0.18;
     cfg.wind.model_noise_std_speed = 0.15;
@@ -205,8 +205,8 @@ function cfg = autosimDefaultConfig()
 
     cfg.control = struct();
     cfg.control.takeoff_retry_sec = 1.0;
-    cfg.control.hover_settle_sec = 2.0;
-    cfg.control.flying_altitude_threshold = 0.25;
+    cfg.control.hover_settle_sec = 3.0;
+    cfg.control.flying_altitude_threshold = 2.5;
     cfg.control.xy_kp = 1.75;
     cfg.control.xy_ki = 0.0;
     cfg.control.xy_kd = 1.75;
@@ -298,6 +298,9 @@ function cfg = autosimDefaultConfig()
     cfg.thresholds.final_tag_error_max = 0.90;
     cfg.thresholds.final_stability_std_z_max = 0.45;
     cfg.thresholds.final_stability_std_vz_max = 0.55;
+    cfg.thresholds.final_touchdown_vz_osc_max = 1.45;
+    cfg.thresholds.final_touchdown_accel_rms_max = 3.30;
+    cfg.thresholds.final_touchdown_abs_vz_max = 6.70;
     cfg.thresholds.final_imu_ang_vel_rms_max = 6.0;
     cfg.thresholds.final_imu_lin_acc_rms_max = 11.0;
     cfg.thresholds.final_contact_force_max_n = 50.0;
@@ -1362,13 +1365,14 @@ function out = autosimSummarizeAndLabel(cfg, scenarioId, scenarioCfg, z, vz, spe
     out.final_abs_pitch_deg = autosimNanLast(abs(pitchDeg));
     out.final_tag_error = autosimNanLast(tagErr);
 
-    finalWindow = max(3, round(5.0 / cfg.scenario.sample_period_sec));
-    zStable = autosimTail(z, finalWindow);
-    vzStable = autosimTail(vz, finalWindow);
+    [zStable, vzStable] = autosimSelectLandingStabilityWindow(z, vz, stateVal, cfg);
 
     out.stability_std_z = autosimNanStd(zStable);
     out.stability_std_vz = autosimNanStd(vzStable);
-    [~, out.stability_std_vz_osc, out.touchdown_accel_rms] = autosimCalcVzMetrics(vzStable, cfg.scenario.sample_period_sec);
+
+    vzTouch = autosimSelectTouchdownDynamicsWindow(vz, stateVal, cfg);
+    [~, out.stability_std_vz_osc, out.touchdown_accel_rms] = autosimCalcVzMetrics(vzTouch, cfg.scenario.sample_period_sec);
+    out.max_abs_vz = max(out.max_abs_vz, autosimNanMax(abs(vzTouch)));
     out.contact_count = sum(bumperContact > 0);
     out.mean_imu_ang_vel = autosimNanMean(imuAngVel);
     out.max_imu_ang_vel = autosimNanMax(imuAngVel);
@@ -1391,12 +1395,15 @@ function out = autosimSummarizeAndLabel(cfg, scenarioId, scenarioCfg, z, vz, spe
     condTag = (~isfinite(out.final_tag_error)) || (out.final_tag_error <= c.final_tag_error_max);
     condStdZ = isfinite(out.stability_std_z) && out.stability_std_z <= c.final_stability_std_z_max;
     condStdVz = isfinite(out.stability_std_vz) && out.stability_std_vz <= c.final_stability_std_vz_max;
+    condVzOsc = (~isfinite(out.stability_std_vz_osc)) || (out.stability_std_vz_osc <= c.final_touchdown_vz_osc_max);
+    condTdAcc = (~isfinite(out.touchdown_accel_rms)) || (out.touchdown_accel_rms <= c.final_touchdown_accel_rms_max);
+    condTdVz = isfinite(out.max_abs_vz) && (out.max_abs_vz <= c.final_touchdown_abs_vz_max);
     condImuAng = (~isfinite(out.max_imu_ang_vel)) || (out.max_imu_ang_vel <= c.final_imu_ang_vel_rms_max);
     condImuAcc = (~isfinite(out.max_imu_lin_acc)) || (out.max_imu_lin_acc <= c.final_imu_lin_acc_rms_max);
     condContactForce = (~isfinite(out.max_contact_force)) || (out.max_contact_force <= c.final_contact_force_max_n);
     condArmBalance = (~isfinite(out.arm_force_imbalance)) || (out.arm_force_imbalance <= c.final_arm_force_imbalance_max_n);
 
-    passAll = condState && condAlt && condSpeed && condRoll && condPitch && condTag && condStdZ && condStdVz && ...
+    passAll = condState && condAlt && condSpeed && condRoll && condPitch && condTag && condStdZ && condStdVz && condVzOsc && condTdAcc && condTdVz && ...
         condImuAng && condImuAcc && condContactForce && condArmBalance;
 
     if passAll
@@ -1406,13 +1413,13 @@ function out = autosimSummarizeAndLabel(cfg, scenarioId, scenarioCfg, z, vz, spe
     else
         out.label = "unstable";
         out.success = false;
-        out.failure_reason = autosimBuildFailureReason(condState, condAlt, condSpeed, condRoll, condPitch, condTag, condStdZ, condStdVz, ...
+        out.failure_reason = autosimBuildFailureReason(condState, condAlt, condSpeed, condRoll, condPitch, condTag, condStdZ, condStdVz, condVzOsc, condTdAcc, condTdVz, ...
             condImuAng, condImuAcc, condContactForce, condArmBalance);
     end
 end
 
 
-function reason = autosimBuildFailureReason(condState, condAlt, condSpeed, condRoll, condPitch, condTag, condStdZ, condStdVz, condImuAng, condImuAcc, condContactForce, condArmBalance)
+function reason = autosimBuildFailureReason(condState, condAlt, condSpeed, condRoll, condPitch, condTag, condStdZ, condStdVz, condVzOsc, condTdAcc, condTdVz, condImuAng, condImuAcc, condContactForce, condArmBalance)
     parts = strings(0,1);
     if ~condState, parts(end+1,1) = "state_not_landed"; end %#ok<AGROW>
     if ~condAlt, parts(end+1,1) = "altitude_high"; end %#ok<AGROW>
@@ -1422,6 +1429,9 @@ function reason = autosimBuildFailureReason(condState, condAlt, condSpeed, condR
     if ~condTag, parts(end+1,1) = "tag_error_high"; end %#ok<AGROW>
     if ~condStdZ, parts(end+1,1) = "z_unstable"; end %#ok<AGROW>
     if ~condStdVz, parts(end+1,1) = "vz_unstable"; end %#ok<AGROW>
+    if ~condVzOsc, parts(end+1,1) = "touchdown_vz_osc_high"; end %#ok<AGROW>
+    if ~condTdAcc, parts(end+1,1) = "touchdown_accel_high"; end %#ok<AGROW>
+    if ~condTdVz, parts(end+1,1) = "touchdown_vz_peak_high"; end %#ok<AGROW>
     if ~condImuAng, parts(end+1,1) = "imu_angular_rate_high"; end %#ok<AGROW>
     if ~condImuAcc, parts(end+1,1) = "imu_linear_accel_high"; end %#ok<AGROW>
     if ~condContactForce, parts(end+1,1) = "contact_force_high"; end %#ok<AGROW>
@@ -1431,6 +1441,89 @@ function reason = autosimBuildFailureReason(condState, condAlt, condSpeed, condR
         reason = "unknown";
     else
         reason = strjoin(parts, ';');
+    end
+end
+
+
+function [zStable, vzStable] = autosimSelectLandingStabilityWindow(z, vz, stateVal, cfg)
+    dt = max(cfg.scenario.sample_period_sec, 1e-3);
+    tailN = max(3, round(2.4 / dt));
+
+    zStable = autosimTail(z, tailN);
+    vzStable = autosimTail(vz, tailN);
+
+    landedIdx = find(isfinite(stateVal) & (stateVal == cfg.thresholds.land_state_value));
+    if numel(landedIdx) < 3
+        return;
+    end
+
+    % Use the final contiguous landed segment to avoid including descent dynamics.
+    segStart = 1;
+    d = diff(landedIdx);
+    jumpIdx = find(d > 1, 1, 'last');
+    if ~isempty(jumpIdx)
+        segStart = jumpIdx + 1;
+    end
+    landedTail = landedIdx(segStart:end);
+    if numel(landedTail) < 3
+        return;
+    end
+
+    settleSkipN = round(0.8 / dt);
+    if numel(landedTail) > (settleSkipN + 2)
+        landedTail = landedTail((settleSkipN + 1):end);
+    end
+
+    useN = min(numel(landedTail), tailN);
+    idxUse = landedTail(end-useN+1:end);
+
+    zSel = z(idxUse);
+    vzSel = vz(idxUse);
+    zSel = zSel(isfinite(zSel));
+    vzSel = vzSel(isfinite(vzSel));
+    if numel(zSel) >= 3
+        zStable = zSel;
+    end
+    if numel(vzSel) >= 3
+        vzStable = vzSel;
+    end
+end
+
+
+function vzTouch = autosimSelectTouchdownDynamicsWindow(vz, stateVal, cfg)
+    dt = max(cfg.scenario.sample_period_sec, 1e-3);
+    preN = max(3, round(1.2 / dt));
+    postN = max(4, round(1.6 / dt));
+    n = numel(vz);
+
+    vzTouch = autosimTail(vz, preN + postN);
+    if n < 3 || numel(stateVal) ~= n
+        return;
+    end
+
+    landedIdx = find(isfinite(stateVal) & (stateVal == cfg.thresholds.land_state_value));
+    if isempty(landedIdx)
+        return;
+    end
+
+    segStart = 1;
+    d = diff(landedIdx);
+    jumpIdx = find(d > 1, 1, 'last');
+    if ~isempty(jumpIdx)
+        segStart = jumpIdx + 1;
+    end
+    landedTail = landedIdx(segStart:end);
+    if isempty(landedTail)
+        return;
+    end
+
+    tdIdx = landedTail(1);
+    i0 = max(1, tdIdx - preN);
+    i1 = min(n, tdIdx + postN);
+    vzSel = vz(i0:i1);
+    vzSel = vzSel(isfinite(vzSel));
+    if numel(vzSel) >= 4
+        vzTouch = vzSel;
     end
 end
 
