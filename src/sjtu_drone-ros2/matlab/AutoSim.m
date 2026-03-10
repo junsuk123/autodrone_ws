@@ -241,6 +241,7 @@ function cfg = autosimDefaultConfig()
     cfg.agent.enable_model_decision = true;
     cfg.agent.prob_land_threshold = 0.50;
     cfg.agent.min_samples_before_decision = 8;
+    cfg.agent.min_hover_eval_sec = 3.0;
     cfg.agent.min_altitude_before_land = 0.10;
     cfg.agent.max_tag_error_before_land = 0.70;
     cfg.agent.decision_cooldown_sec = 0.5;
@@ -1058,7 +1059,10 @@ function [res, traceTbl] = autosimRunScenario(cfg, scenarioCfg, scenarioId, mode
             end
         end
 
-        canLandByModel = hasTrainedModel && cfg.agent.enable_model_decision && ...
+        hoverEvalReady = isFlying && (controlPhase == "xy_hold") && isfinite(hoverStartT) && ...
+            ((tk - hoverStartT) >= cfg.agent.min_hover_eval_sec);
+
+        canLandByModel = hoverEvalReady && hasTrainedModel && cfg.agent.enable_model_decision && ...
             (k >= cfg.agent.min_samples_before_decision) && ...
             modelSaysStable && ...
             isfinite(tagErr(k)) && (tagErr(k) <= cfg.agent.max_tag_error_before_land) && ...
@@ -1073,7 +1077,7 @@ function [res, traceTbl] = autosimRunScenario(cfg, scenarioCfg, scenarioId, mode
         [xyStd, xySpeedRms] = autosimCalcXYMotionMetrics(xWin, yWin, cfg.scenario.sample_period_sec);
         xyRadiusNow = sqrt(xNow*xNow + yNow*yNow);
 
-        canLandByNoModelThreshold = (~hasTrainedModel) && cfg.agent.no_model_fallback_enable && ...
+        canLandByNoModelThreshold = hoverEvalReady && (~hasTrainedModel) && cfg.agent.no_model_fallback_enable && ...
             (k >= cfg.agent.no_model_min_samples_before_land) && ...
             isfinite(tagErr(k)) && (tagErr(k) <= cfg.agent.no_model_max_tag_error) && ...
             isfinite(z(k)) && (z(k) >= cfg.agent.min_altitude_before_land) && ...
@@ -1089,35 +1093,38 @@ function [res, traceTbl] = autosimRunScenario(cfg, scenarioCfg, scenarioId, mode
             (~cfg.agent.no_model_require_semantic_safe || semanticSafe(k)) && ...
             ((tk - lastDecisionT) >= cfg.agent.decision_cooldown_sec);
 
-        canLandByForcedTimeout = ~landingSent && isfinite(hoverStartT) && ...
+        canLandByForcedTimeout = hoverEvalReady && ~landingSent && isfinite(hoverStartT) && ...
             isfield(cfg.control, 'land_forced_timeout_sec') && isfinite(cfg.control.land_forced_timeout_sec) && ...
             (cfg.control.land_forced_timeout_sec > 0) && ...
             ((tk - hoverStartT) >= cfg.control.land_forced_timeout_sec) && ...
-            ((tk - lastDecisionT) >= cfg.agent.decision_cooldown_sec);
+            ((tk - lastDecisionT) >= cfg.agent.decision_cooldown_sec) && ...
+            (~hasTrainedModel || ~cfg.agent.enable_model_decision || modelSaysStable);
 
         guardLandingAllowed = ~cfg.agent.block_landing_if_unstable || ~modelSaysUnstable;
 
-        if ~landingSent && canLandByModel
+        if ~landingSent && guardLandingAllowed && canLandByModel
             send(pubLand, msgLand);
             landingSent = true;
             landingSentT = tk;
             lastDecisionT = tk;
             decisionTxt(k) = "land_by_model";
             controlPhase = "landing_observe";
-        elseif ~landingSent && canLandByNoModelThreshold
+        elseif ~landingSent && guardLandingAllowed && canLandByNoModelThreshold
             send(pubLand, msgLand);
             landingSent = true;
             landingSentT = tk;
             lastDecisionT = tk;
             decisionTxt(k) = "land_by_threshold_no_model";
             controlPhase = "landing_observe";
-        elseif canLandByForcedTimeout
+        elseif ~landingSent && guardLandingAllowed && canLandByForcedTimeout
             send(pubLand, msgLand);
             landingSent = true;
             landingSentT = tk;
             lastDecisionT = tk;
             decisionTxt(k) = "land_by_forced_timeout";
             controlPhase = "landing_observe";
+        elseif decisionTxt(k) == "" && hasTrainedModel && cfg.agent.enable_model_decision && ~modelSaysStable
+            decisionTxt(k) = "hold_by_model_unstable";
         elseif decisionTxt(k) == ""
             decisionTxt(k) = "track";
         end
@@ -1727,6 +1734,8 @@ function tf = autosimIsModelReliable(model, cfg)
     end
 
     if ~isfield(model, 'n_train') || ~isfield(model, 'n_stable') || ~isfield(model, 'n_unstable')
+        % Legacy model files may not carry training-count metadata.
+        tf = autosimHasUsableModelParameters(model);
         return;
     end
 
@@ -1752,6 +1761,44 @@ function tf = autosimIsModelReliable(model, cfg)
 
     minorityRatio = min(nStable, nUnstable) / max(1, nTrain);
     tf = (nTrain >= minTrain) && (nStable >= minClass) && (nUnstable >= minClass) && (minorityRatio >= minMinorityRatio);
+end
+
+
+function tf = autosimHasUsableModelParameters(model)
+    tf = false;
+    req = {'class_names', 'mu', 'sigma2', 'prior'};
+    for i = 1:numel(req)
+        if ~isfield(model, req{i})
+            return;
+        end
+    end
+
+    cls = string(model.class_names(:));
+    if numel(cls) < 2 || ~all(ismember(["stable"; "unstable"], cls))
+        return;
+    end
+
+    mu = double(model.mu);
+    s2 = double(model.sigma2);
+    pr = double(model.prior(:));
+
+    if isempty(mu) || isempty(s2) || numel(pr) < 2
+        return;
+    end
+    if any(size(mu) ~= size(s2))
+        return;
+    end
+    if size(mu, 1) ~= numel(cls)
+        return;
+    end
+    if any(~isfinite(mu), 'all') || any(~isfinite(s2), 'all') || any(~isfinite(pr))
+        return;
+    end
+    if any(s2(:) <= 0)
+        return;
+    end
+
+    tf = true;
 end
 
 
