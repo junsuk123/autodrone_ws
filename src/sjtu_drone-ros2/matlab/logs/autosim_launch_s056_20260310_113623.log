@@ -1,3 +1,0 @@
-[INFO] [launch]: All log files can be found below /home/j/.ros/log/2026-03-10-11-36-24-601782-j-682976
-[INFO] [launch]: Default logging verbosity is set to INFO
-[ERROR] [launch]: Caught exception in launch (see debug for traceback): "package 'sjtu_drone_control' not found, searching: ['/home/j/INCSL/IICC26_ws/install/sjtu_drone_description', '/home/j/INCSL/IICC26_ws/install/sjtu_drone_interfaces', '/home/j/INCSL/IICC26_ws/install/sjtu_drone_control', '/home/j/INCSL/IICC26_ws/install/sjtu_drone_bringup', '/opt/ros/humble', '/usr/local/MATLAB/R2024b/sys/ros2/glnxa64/ros2']"
