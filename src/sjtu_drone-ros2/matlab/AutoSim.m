@@ -204,7 +204,7 @@ function cfg = autosimDefaultConfig()
     cfg.launch.ready_timeout_sec = 15.0;
 
     cfg.scenario = struct();
-    cfg.scenario.count = 10;
+    cfg.scenario.count = 100;
     cfg.scenario.duration_sec = inf;
     cfg.scenario.sample_period_sec = 0.2;
     cfg.scenario.post_land_observe_sec = 3.0;
@@ -387,14 +387,14 @@ function cfg = autosimDefaultConfig()
     cfg.thresholds.final_arm_force_imbalance_max_n = 40.0;
 
     cfg.model = struct();
+    % Use only decision-time observable features so train/inference distributions match.
+    cfg.model.schema_version = "decision_v2";
     cfg.model.feature_names = [ ...
         "mean_wind_speed", "max_wind_speed", "mean_abs_roll_deg", "mean_abs_pitch_deg", ...
         "mean_abs_vz", "max_abs_vz", "mean_tag_error", "max_tag_error", ...
-        "final_altitude", "final_abs_speed", "final_abs_roll_deg", "final_abs_pitch_deg", ...
-        "final_tag_error", "stability_std_z", "stability_std_vz", "stability_std_vz_osc", ...
-        "touchdown_accel_rms", "contact_count", ...
+        "stability_std_z", "stability_std_vz", ...
         "mean_imu_ang_vel", "max_imu_ang_vel", "mean_imu_lin_acc", "max_imu_lin_acc", ...
-        "max_contact_force", "arm_force_imbalance" ...
+        "wind_risk_enc", "alignment_enc", "visual_enc", "context_enc" ...
     ];
 
     cfg.ontology = struct();
@@ -537,19 +537,40 @@ function [model, info] = autosimLoadOrInitModel(cfg)
         return;
     end
 
-    [~, idx] = max([dd.datenum]);
-    modelPath = fullfile(dd(idx).folder, dd(idx).name);
-    S = load(modelPath);
-    if isfield(S, 'model')
-        model = S.model;
-    else
-        error('Model file does not contain model variable: %s', modelPath);
+    [~, order] = sort([dd.datenum], 'descend');
+    dd = dd(order);
+
+    rejectedPath = "";
+    for i = 1:numel(dd)
+        modelPath = fullfile(dd(i).folder, dd(i).name);
+        S = load(modelPath);
+        if ~isfield(S, 'model')
+            continue;
+        end
+
+        candidate = S.model;
+        if ~isfield(candidate, 'feature_names')
+            candidate.feature_names = cfg.model.feature_names;
+        end
+
+        if autosimModelFeatureSchemaMatches(candidate, cfg)
+            model = candidate;
+            info = struct('source', string(modelPath));
+            return;
+        end
+
+        if strlength(rejectedPath) == 0
+            rejectedPath = string(modelPath);
+        end
     end
 
-    if ~isfield(model, 'feature_names')
-        model.feature_names = cfg.model.feature_names;
+    model = autosimCreatePlaceholderModel(cfg, 'schema_mismatch');
+    if strlength(rejectedPath) > 0
+        warning('[AUTOSIM] Ignoring incompatible model schema: %s', rejectedPath);
+        info = struct('source', "schema_mismatch_placeholder");
+    else
+        info = struct('source', "cold_start_placeholder");
     end
-    info = struct('source', string(modelPath));
 end
 
 
@@ -559,6 +580,7 @@ function model = autosimCreatePlaceholderModel(cfg, reason)
     model.kind = "gaussian_nb";
     model.class_names = ["stable"; "unstable"];
     model.feature_names = cfg.model.feature_names;
+    model.schema_version = string(cfg.model.schema_version);
     model.mu = zeros(2, nFeat);
     model.sigma2 = ones(2, nFeat);
     model.prior = [0.5; 0.5];
@@ -2237,6 +2259,7 @@ function [model, info] = autosimIncrementalTrainAndSave(cfg, results, modelPrev,
     end
 
     model = autosimTrainGaussianNB(X, y, cfg.model.feature_names);
+    model.schema_version = string(cfg.model.schema_version);
     model.n_train = nTrain;
     model.n_stable = nStable;
     model.n_unstable = nUnstable;
@@ -2261,6 +2284,10 @@ function tf = autosimIsModelReliable(model, cfg)
     end
 
     if isfield(model, 'placeholder') && logical(model.placeholder)
+        return;
+    end
+
+    if ~autosimModelFeatureSchemaMatches(model, cfg)
         return;
     end
 
@@ -2327,6 +2354,46 @@ function tf = autosimHasUsableModelParameters(model)
     end
     if any(s2(:) <= 0)
         return;
+    end
+
+    tf = true;
+end
+
+
+function tf = autosimModelFeatureSchemaMatches(model, cfg)
+    tf = false;
+    if ~isfield(model, 'feature_names') || ~isfield(cfg, 'model') || ~isfield(cfg.model, 'feature_names')
+        return;
+    end
+
+    modelFeat = string(model.feature_names(:));
+    cfgFeat = string(cfg.model.feature_names(:));
+    if numel(modelFeat) ~= numel(cfgFeat)
+        return;
+    end
+
+    if ~all(modelFeat == cfgFeat)
+        return;
+    end
+
+    if isfield(model, 'mu')
+        mu = double(model.mu);
+        if size(mu, 2) ~= numel(cfgFeat)
+            return;
+        end
+    end
+
+    if isfield(model, 'sigma2')
+        sigma2 = double(model.sigma2);
+        if size(sigma2, 2) ~= numel(cfgFeat)
+            return;
+        end
+    end
+
+    if isfield(cfg.model, 'schema_version') && isfield(model, 'schema_version')
+        if string(model.schema_version) ~= string(cfg.model.schema_version)
+            return;
+        end
     end
 
     tf = true;
