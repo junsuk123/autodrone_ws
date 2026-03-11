@@ -265,6 +265,13 @@ def generate_launch_description():
             description='Whether to launch RViz2',
         ),
 
+        DeclareLaunchArgument(
+            'use_teleop',
+            default_value='true',
+            choices=['true', 'false'],
+            description='Whether to launch joystick and teleop nodes',
+        ),
+
         OpaqueFunction(
             function=rviz_node_generator,
             kwargs={'rviz_path': rviz_path},
@@ -287,11 +294,13 @@ def generate_launch_description():
             name='joy',
             namespace=model_ns,
             output='screen',
+            condition=IfCondition(LaunchConfiguration('use_teleop')),
         ),
 
         OpaqueFunction(
             function=get_teleop_controller,
             kwargs={'model_ns': model_ns},
+            condition=IfCondition(LaunchConfiguration('use_teleop')),
         ),
 
         OpaqueFunction(
