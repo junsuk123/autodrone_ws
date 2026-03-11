@@ -4,7 +4,7 @@
 %
 % Workflow:
 % 1) Load latest model if present. If no model exists, start cold and bootstrap from collected labels.
-% 2) For each scenario: launch -> control/decision -> collect state/environment -> label success/failure.
+% 2) For each scenario: launch -> collect sensor state -> build semantic states/relations -> infer landing feasibility -> decide land/abort.
 % 3) Incrementally retrain model with accumulated dataset and save a new model snapshot.
 % 4) Use updated model from the next scenario onward.
 % 5) On user interrupt, save current plots/model/dataset/checkpoint and exit safely.
@@ -153,9 +153,12 @@ function cfg = autosimDefaultConfig()
     cfg.paths.lock_file = fullfile(cfg.paths.data_dir, 'autosim.lock');
     cfg.paths.bringup_py_src = '/home/j/INCSL/IICC26_ws/src/sjtu_drone-ros2/sjtu_drone_bringup';
     cfg.paths.bringup_py_install = '/home/j/INCSL/IICC26_ws/install/sjtu_drone_bringup/lib/python3.10/site-packages';
+    cfg.paths.control_py_src = '/home/j/INCSL/IICC26_ws/src/sjtu_drone-ros2/sjtu_drone_control';
+    cfg.paths.control_py_install = '/home/j/INCSL/IICC26_ws/install/sjtu_drone_control/lib/python3.10/site-packages';
 
     pyPathChain = [ ...
-        'export PYTHONPATH=' cfg.paths.bringup_py_install ':' cfg.paths.bringup_py_src ':$PYTHONPATH' ...
+        'export PYTHONPATH=' cfg.paths.control_py_install ':' cfg.paths.control_py_src ':' ...
+        cfg.paths.bringup_py_install ':' cfg.paths.bringup_py_src ':$PYTHONPATH' ...
     ];
 
     cfg.launch = struct();
@@ -179,7 +182,7 @@ function cfg = autosimDefaultConfig()
     cfg.launch.ready_timeout_sec = 15.0;
 
     cfg.scenario = struct();
-    cfg.scenario.count =1000;
+    cfg.scenario.count = 200;
     cfg.scenario.duration_sec = inf;
     cfg.scenario.sample_period_sec = 0.2;
     cfg.scenario.post_land_observe_sec = 3.0;
@@ -252,15 +255,16 @@ function cfg = autosimDefaultConfig()
 
     cfg.agent = struct();
     cfg.agent.enable_model_decision = true;
-    cfg.agent.semantic_only_mode = true;
+    cfg.agent.semantic_only_mode = false;
     cfg.agent.semantic_land_threshold = 0.70;
+    cfg.agent.semantic_abort_threshold = 0.40;
     cfg.agent.prob_land_threshold = 0.50;
     cfg.agent.min_samples_before_decision = 8;
     cfg.agent.min_hover_eval_sec = 3.0;
     cfg.agent.min_altitude_before_land = 0.10;
     cfg.agent.max_tag_error_before_land = 0.70;
     cfg.agent.decision_cooldown_sec = 0.5;
-    cfg.agent.block_landing_if_unstable = false;
+    cfg.agent.block_landing_if_unstable = true;
     cfg.agent.freeze_xy_if_unstable = false;
     cfg.agent.no_model_fallback_enable = true;
     cfg.agent.no_model_min_samples_before_land = 6;
@@ -276,18 +280,19 @@ function cfg = autosimDefaultConfig()
     cfg.agent.no_model_max_wind_speed = 10.0;
     cfg.agent.no_model_require_semantic_safe = false;
     cfg.agent.model_min_total_samples_for_use = 10;
-    cfg.agent.model_min_class_samples_for_use = 2;
-    cfg.agent.model_minority_ratio_for_use = 0.12;
+    cfg.agent.model_min_class_samples_for_use = 1;
+    cfg.agent.model_minority_ratio_for_use = 0.05;
 
     cfg.learning = struct();
     cfg.learning.enable = true;
     cfg.learning.save_every_scenario = false;
-    cfg.learning.update_every_n_scenarios = 3;
+    cfg.learning.update_every_n_scenarios = 2;
     cfg.learning.min_scenarios_before_first_update = 4;
     cfg.learning.bootstrap_min_samples = 1;
     cfg.learning.min_stable_samples_for_update = 2;
-    cfg.learning.min_unstable_samples_for_update = 2;
-    cfg.learning.minority_ratio_floor_for_update = 0.15;
+    cfg.learning.min_unstable_samples_for_update = 1;
+    cfg.learning.minority_ratio_floor_for_update = 0.05;
+    cfg.learning.force_update_after_stale_scenarios = 15;
     cfg.learning.tag_lock_error_max = 0.16;
     cfg.learning.tag_lock_hold_sec = 1.2;
     cfg.learning.random_landing_wait_min_sec = 1.0;
@@ -898,10 +903,15 @@ function [res, traceTbl] = autosimRunScenario(cfg, scenarioCfg, scenarioId, mode
     decisionTxt = strings(sampleN,1);
     phaseTxt = strings(sampleN,1);
     semanticWindRisk = strings(sampleN,1);
+    semanticEnvironment = strings(sampleN,1);
+    semanticDroneState = strings(sampleN,1);
     semanticAlign = strings(sampleN,1);
     semanticVisual = strings(sampleN,1);
     semanticContext = strings(sampleN,1);
+    semanticRelation = strings(sampleN,1);
+    semanticIntegration = strings(sampleN,1);
     semanticSafe = false(sampleN,1);
+    landingFeasibility = nan(sampleN,1);
     semFeat = nan(sampleN, numel(cfg.ontology.semantic_feature_names));
 
     tagHist = nan(cfg.control.tag_history_len, 2);
@@ -945,6 +955,8 @@ function [res, traceTbl] = autosimRunScenario(cfg, scenarioCfg, scenarioId, mode
 
     landingSent = false;
     landingSentT = nan;
+    landingDecisionMode = "abort";
+    executedAction = "abort";
     landedHoldStartT = nan;
     kLast = 0;
 
@@ -982,10 +994,15 @@ function [res, traceTbl] = autosimRunScenario(cfg, scenarioCfg, scenarioId, mode
             decisionTxt = [decisionTxt; strings(growN,1)]; %#ok<AGROW>
             phaseTxt = [phaseTxt; strings(growN,1)]; %#ok<AGROW>
             semanticWindRisk = [semanticWindRisk; strings(growN,1)]; %#ok<AGROW>
+            semanticEnvironment = [semanticEnvironment; strings(growN,1)]; %#ok<AGROW>
+            semanticDroneState = [semanticDroneState; strings(growN,1)]; %#ok<AGROW>
             semanticAlign = [semanticAlign; strings(growN,1)]; %#ok<AGROW>
             semanticVisual = [semanticVisual; strings(growN,1)]; %#ok<AGROW>
             semanticContext = [semanticContext; strings(growN,1)]; %#ok<AGROW>
+            semanticRelation = [semanticRelation; strings(growN,1)]; %#ok<AGROW>
+            semanticIntegration = [semanticIntegration; strings(growN,1)]; %#ok<AGROW>
             semanticSafe = [semanticSafe; false(growN,1)]; %#ok<AGROW>
+            landingFeasibility = [landingFeasibility; nan(growN,1)]; %#ok<AGROW>
             semFeat = [semFeat; nan(growN, numel(cfg.ontology.semantic_feature_names))]; %#ok<AGROW>
             sampleN = sampleN + growN;
         end
@@ -1144,10 +1161,15 @@ function [res, traceTbl] = autosimRunScenario(cfg, scenarioCfg, scenarioId, mode
         semVec = autosimBuildSemanticFeatures(windObs, droneObs, tagObs, semantic, cfg);
 
         semanticWindRisk(k) = string(semantic.wind_risk);
+        semanticEnvironment(k) = string(semantic.environment_state);
+        semanticDroneState(k) = string(semantic.drone_state);
         semanticAlign(k) = string(semantic.alignment_state);
         semanticVisual(k) = string(semantic.visual_state);
         semanticContext(k) = string(semantic.landing_context);
+        semanticRelation(k) = string(semantic.semantic_relation);
+        semanticIntegration(k) = string(semantic.semantic_integration);
         semanticSafe(k) = logical(semantic.isSafeForLanding);
+        landingFeasibility(k) = semantic.landing_feasibility;
         semFeat(k, :) = semVec;
 
         isFlying = false;
@@ -1347,7 +1369,7 @@ function [res, traceTbl] = autosimRunScenario(cfg, scenarioCfg, scenarioId, mode
         end
         semanticOnlyMode = isfield(cfg.agent, 'semantic_only_mode') && cfg.agent.semantic_only_mode;
         if semanticOnlyMode
-            predStableProb(k) = autosimClampNaN(semantic.context_enc, 0.0);
+            predStableProb(k) = autosimClampNaN(semantic.landing_feasibility, 0.0);
             if predStableProb(k) >= autosimClampNaN(cfg.agent.semantic_land_threshold, 0.70)
                 predLabel = "stable";
             else
@@ -1399,7 +1421,7 @@ function [res, traceTbl] = autosimRunScenario(cfg, scenarioCfg, scenarioId, mode
         canLandBySemantic = hoverEvalReady && semanticOnlyMode && ...
             isfinite(tagErr(k)) && (tagErr(k) <= cfg.agent.max_tag_error_before_land) && ...
             isfinite(z(k)) && (z(k) >= cfg.agent.min_altitude_before_land) && ...
-            isfinite(semantic.context_enc) && (semantic.context_enc >= adaptiveSemanticLandThreshold) && ...
+            isfinite(semantic.landing_feasibility) && (semantic.landing_feasibility >= adaptiveSemanticLandThreshold) && ...
             logical(semanticSafe(k)) && ...
             ((tk - lastDecisionT) >= cfg.agent.decision_cooldown_sec);
 
@@ -1440,6 +1462,8 @@ function [res, traceTbl] = autosimRunScenario(cfg, scenarioCfg, scenarioId, mode
             send(pubLand, msgLand);
             landingSent = true;
             landingSentT = tk;
+            landingDecisionMode = "land";
+            executedAction = "land";
             lastDecisionT = tk;
             decisionTxt(k) = "land_by_ontology_ai";
             controlPhase = "landing_observe";
@@ -1447,6 +1471,8 @@ function [res, traceTbl] = autosimRunScenario(cfg, scenarioCfg, scenarioId, mode
             send(pubLand, msgLand);
             landingSent = true;
             landingSentT = tk;
+            landingDecisionMode = "land";
+            executedAction = "land";
             lastDecisionT = tk;
             decisionTxt(k) = "land_by_model";
             controlPhase = "landing_observe";
@@ -1454,6 +1480,8 @@ function [res, traceTbl] = autosimRunScenario(cfg, scenarioCfg, scenarioId, mode
             send(pubLand, msgLand);
             landingSent = true;
             landingSentT = tk;
+            landingDecisionMode = "land";
+            executedAction = "land";
             lastDecisionT = tk;
             decisionTxt(k) = "land_by_threshold_no_model";
             controlPhase = "landing_observe";
@@ -1461,6 +1489,8 @@ function [res, traceTbl] = autosimRunScenario(cfg, scenarioCfg, scenarioId, mode
             send(pubLand, msgLand);
             landingSent = true;
             landingSentT = tk;
+            landingDecisionMode = "abort";
+            executedAction = "land";
             lastDecisionT = tk;
             decisionTxt(k) = "land_by_forced_timeout";
             controlPhase = "landing_observe";
@@ -1541,10 +1571,15 @@ function [res, traceTbl] = autosimRunScenario(cfg, scenarioCfg, scenarioId, mode
     windCmdSpeed = windCmdSpeed(1:kLast);
     windCmdDir = windCmdDir(1:kLast);
     semanticWindRisk = semanticWindRisk(1:kLast);
+    semanticEnvironment = semanticEnvironment(1:kLast);
+    semanticDroneState = semanticDroneState(1:kLast);
     semanticAlign = semanticAlign(1:kLast);
     semanticVisual = semanticVisual(1:kLast);
     semanticContext = semanticContext(1:kLast);
+    semanticRelation = semanticRelation(1:kLast);
+    semanticIntegration = semanticIntegration(1:kLast);
     semanticSafe = semanticSafe(1:kLast);
+    landingFeasibility = landingFeasibility(1:kLast);
     semFeat = semFeat(1:kLast, :);
 
     msgCmd.linear.x = 0.0;
@@ -1677,15 +1712,20 @@ function [res, traceTbl] = autosimRunScenario(cfg, scenarioCfg, scenarioId, mode
     res = autosimSummarizeAndLabel(cfg, scenarioId, scenarioCfg, z, vz, speedAbs, rollDeg, pitchDeg, tagErr, windSpeed, stateVal, contact, ...
         imuAngVel, imuLinAcc, contactForce, armForceFL, armForceFR, armForceRL, armForceRR);
     res.landing_cmd_time = landingSentT;
-    res.pred_decision = "hover";
-    if landingSent
-        res.pred_decision = "land";
-    end
+    res.pred_decision = string(landingDecisionMode);
+    res.executed_action = string(executedAction);
     res.gt_safe_to_land = "unstable";
     if string(res.label) == "stable"
         res.gt_safe_to_land = "stable";
     end
     res.decision_outcome = autosimClassifyDecisionOutcome(res.gt_safe_to_land, res.pred_decision);
+    res.semantic_environment = autosimLastNonEmptyString(semanticEnvironment, "unknown");
+    res.semantic_drone_state = autosimLastNonEmptyString(semanticDroneState, "unknown");
+    res.semantic_visual_state = autosimLastNonEmptyString(semanticVisual, "unknown");
+    res.semantic_landing_context = autosimLastNonEmptyString(semanticContext, "unknown");
+    res.semantic_relation = autosimLastNonEmptyString(semanticRelation, "unknown");
+    res.semantic_integration = autosimLastNonEmptyString(semanticIntegration, "unknown");
+    res.landing_feasibility = autosimLastFinite(landingFeasibility, nan);
     if isfield(scenarioCfg, 'policy_mode')
         res.scenario_policy = string(scenarioCfg.policy_mode);
     end
@@ -1717,16 +1757,22 @@ function [res, traceTbl] = autosimRunScenario(cfg, scenarioCfg, scenarioId, mode
     traceTbl.decision = autosimPadLenString(decisionTxt, n);
     traceTbl.control_phase = autosimPadLenString(phaseTxt, n);
     traceTbl.semantic_wind_risk = autosimPadLenString(semanticWindRisk, n);
+    traceTbl.semantic_environment = autosimPadLenString(semanticEnvironment, n);
+    traceTbl.semantic_drone_state = autosimPadLenString(semanticDroneState, n);
     traceTbl.semantic_alignment = autosimPadLenString(semanticAlign, n);
     traceTbl.semantic_visual = autosimPadLenString(semanticVisual, n);
     traceTbl.semantic_context = autosimPadLenString(semanticContext, n);
+    traceTbl.semantic_relation = autosimPadLenString(semanticRelation, n);
+    traceTbl.semantic_integration = autosimPadLenString(semanticIntegration, n);
     traceTbl.semantic_safe = autosimPadLen(double(semanticSafe), n);
+    traceTbl.landing_feasibility = autosimPadLen(landingFeasibility, n);
     for i = 1:numel(cfg.ontology.semantic_feature_names)
         fn = char(cfg.ontology.semantic_feature_names(i));
         traceTbl.(['sem_' fn]) = autosimPadLen(semFeat(:, i), n);
     end
     traceTbl.scenario_policy = repmat(string(res.scenario_policy), n, 1);
     traceTbl.pred_decision = repmat(string(res.pred_decision), n, 1);
+    traceTbl.executed_action = repmat(string(res.executed_action), n, 1);
     traceTbl.gt_safe_to_land = repmat(string(res.gt_safe_to_land), n, 1);
     traceTbl.decision_outcome = repmat(string(res.decision_outcome), n, 1);
     traceTbl.final_label = repmat(string(res.label), n, 1);
@@ -1749,6 +1795,34 @@ function out = autosimPadLenString(x, n)
         out = [x; repmat("", n-numel(x), 1)];
     else
         out = x(1:n);
+    end
+end
+
+
+function out = autosimLastNonEmptyString(x, fallback)
+    out = string(fallback);
+    if isempty(x)
+        return;
+    end
+
+    x = string(x(:));
+    mask = strlength(x) > 0;
+    if any(mask)
+        out = x(find(mask, 1, 'last'));
+    end
+end
+
+
+function out = autosimLastFinite(x, fallback)
+    out = fallback;
+    if isempty(x)
+        return;
+    end
+
+    x = double(x(:));
+    idx = find(isfinite(x), 1, 'last');
+    if ~isempty(idx)
+        out = x(idx);
     end
 end
 
@@ -2050,6 +2124,7 @@ function [model, info] = autosimIncrementalTrainAndSave(cfg, results, modelPrev,
     minStable = 1;
     minUnstable = 1;
     minMinorityRatio = 0.0;
+    forceAfterStale = inf;
     if isfield(cfg.learning, 'min_stable_samples_for_update') && isfinite(cfg.learning.min_stable_samples_for_update)
         minStable = max(1, round(cfg.learning.min_stable_samples_for_update));
     end
@@ -2059,8 +2134,21 @@ function [model, info] = autosimIncrementalTrainAndSave(cfg, results, modelPrev,
     if isfield(cfg.learning, 'minority_ratio_floor_for_update') && isfinite(cfg.learning.minority_ratio_floor_for_update)
         minMinorityRatio = max(0.0, min(0.5, cfg.learning.minority_ratio_floor_for_update));
     end
+    if isfield(cfg.learning, 'force_update_after_stale_scenarios') && isfinite(cfg.learning.force_update_after_stale_scenarios)
+        forceAfterStale = max(1, round(cfg.learning.force_update_after_stale_scenarios));
+    end
 
-    if nStable < minStable || nUnstable < minUnstable || minorityRatio < minMinorityRatio
+    lastUpdateScenario = nan;
+    if isstruct(modelPrev) && isfield(modelPrev, 'last_update_scenario') && isfinite(modelPrev.last_update_scenario)
+        lastUpdateScenario = double(modelPrev.last_update_scenario);
+    end
+    staleScenarioCount = inf;
+    if isfinite(lastUpdateScenario)
+        staleScenarioCount = max(0, scenarioId - lastUpdateScenario);
+    end
+    allowForcedRefresh = (nUnstable >= 1) && (staleScenarioCount >= forceAfterStale);
+
+    if ~allowForcedRefresh && (nStable < minStable || nUnstable < minUnstable || minorityRatio < minMinorityRatio)
         model = modelPrev;
         info.skip_reason = "class_imbalance_guard";
         return;
@@ -2081,6 +2169,7 @@ function [model, info] = autosimIncrementalTrainAndSave(cfg, results, modelPrev,
     model.n_unstable = nUnstable;
     model.stable_ratio = info.stable_ratio;
     model.minority_ratio = minorityRatio;
+    model.last_update_scenario = scenarioId;
 
     ts = autosimTimestamp();
     modelPath = fullfile(cfg.paths.model_dir, sprintf('autosim_model_%s_s%03d.mat', ts, scenarioId));
@@ -2191,7 +2280,9 @@ function tbl = autosimSummaryTable(results)
         'mean_imu_ang_vel','max_imu_ang_vel','mean_imu_lin_acc','max_imu_lin_acc', ...
         'max_contact_force','arm_force_fl_mean','arm_force_fr_mean','arm_force_rl_mean','arm_force_rr_mean','arm_force_imbalance', ...
         'final_state', ...
-        'landing_cmd_time','pred_decision','gt_safe_to_land','decision_outcome','scenario_policy', ...
+        'landing_cmd_time','pred_decision','executed_action','gt_safe_to_land','decision_outcome', ...
+        'semantic_environment','semantic_drone_state','semantic_visual_state','semantic_landing_context', ...
+        'semantic_relation','semantic_integration','landing_feasibility','scenario_policy', ...
         'launch_pid','launch_log','exception_message'
     };
 
@@ -2625,10 +2716,15 @@ function tbl = autosimEmptyTraceTable(scenarioId)
     tbl.decision = "";
     tbl.control_phase = "";
     tbl.semantic_wind_risk = "";
+    tbl.semantic_environment = "";
+    tbl.semantic_drone_state = "";
     tbl.semantic_alignment = "";
     tbl.semantic_visual = "";
     tbl.semantic_context = "";
+    tbl.semantic_relation = "";
+    tbl.semantic_integration = "";
     tbl.semantic_safe = nan;
+    tbl.landing_feasibility = nan;
     tbl.sem_wind_speed = nan;
     tbl.sem_wind_dir_norm = nan;
     tbl.sem_roll_abs = nan;
@@ -2642,7 +2738,8 @@ function tbl = autosimEmptyTraceTable(scenarioId)
     tbl.sem_visual_enc = nan;
     tbl.sem_context_enc = nan;
     tbl.scenario_policy = "exploit";
-    tbl.pred_decision = "hover";
+    tbl.pred_decision = "abort";
+    tbl.executed_action = "abort";
     tbl.gt_safe_to_land = "unstable";
     tbl.decision_outcome = "TN";
     tbl.final_label = "unstable";
@@ -3396,6 +3493,30 @@ function onto = autosimBuildOntologyState(windObs, droneObs, tagObs, cfg)
         'obstacle_presence', cfg.ontology.obstacle_presence, ...
         'wind_speed_caution', cfg.ontology.wind_caution_speed, ...
         'wind_speed_unsafe', cfg.ontology.wind_unsafe_speed);
+
+    onto.semantic_state = struct();
+    onto.semantic_state.Environment = struct( ...
+        'wind_speed', windSpeedRep, ...
+        'wind_direction', windDirRep, ...
+        'gust_active', gustActive, ...
+        'gust_intensity', gustIntensity, ...
+        'gust_level', string(gustLevel));
+    onto.semantic_state.DroneState = struct( ...
+        'position', droneObs.position, ...
+        'roll', droneObs.roll, ...
+        'pitch', droneObs.pitch, ...
+        'abs_attitude', max(abs(droneObs.roll), abs(droneObs.pitch)), ...
+        'vz', droneObs.velocity(3));
+    onto.semantic_state.VisualState = struct( ...
+        'detected', tagObs.detected, ...
+        'u_norm', tagObs.u_norm, ...
+        'v_norm', tagObs.v_norm, ...
+        'jitter_px', tagObs.jitter_px, ...
+        'stability_score', tagObs.stability_score, ...
+        'centered', tagObs.centered);
+    onto.semantic_state.LandingContext = struct( ...
+        'landing_area_size', cfg.ontology.landing_area_size, ...
+        'obstacle_presence', cfg.ontology.obstacle_presence);
 end
 
 
@@ -3521,12 +3642,62 @@ function semantic = autosimOntologyReasoning(onto, cfg)
         contextState = 'unsafe';
     end
 
+    if windRiskEnc < 0.33
+        environmentState = 'favorable';
+    elseif windRiskEnc < 0.66
+        environmentState = 'moderate';
+    else
+        environmentState = 'adverse';
+    end
+
+    droneVzNorm = autosimNormalize01(abs(d.vz), 0.0, cfg.agent.no_model_max_abs_vz);
+    droneStability = autosimClamp(0.65 * attStab + 0.35 * (1.0 - droneVzNorm), 0.0, 1.0);
+    if droneStability >= 0.70
+        droneState = 'stable';
+    elseif droneStability >= 0.40
+        droneState = 'recovering';
+    else
+        droneState = 'unstable';
+    end
+
+    if strcmp(environmentState, 'favorable') && strcmp(droneState, 'stable') && strcmp(visualState, 'stable') && strcmp(contextState, 'safe')
+        semanticRelation = 'supportive';
+    elseif strcmp(contextState, 'unsafe') || strcmp(environmentState, 'adverse') || strcmp(droneState, 'unstable')
+        semanticRelation = 'conflicting';
+    else
+        semanticRelation = 'conditional';
+    end
+
+    landingFeasibility = autosimClamp( ...
+        0.30 * (1.0 - windRiskEnc) + ...
+        0.20 * alignEnc + ...
+        0.20 * visualEnc + ...
+        0.15 * contextEnc + ...
+        0.15 * droneStability, 0.0, 1.0);
+
+    if landingFeasibility >= cfg.agent.semantic_land_threshold && strcmp(contextState, 'safe')
+        semanticIntegration = 'clear_to_land';
+        finalDecision = 'land';
+    elseif landingFeasibility <= cfg.agent.semantic_abort_threshold || strcmp(contextState, 'unsafe')
+        semanticIntegration = 'abort_recommended';
+        finalDecision = 'abort';
+    else
+        semanticIntegration = 'monitor_and_reassess';
+        finalDecision = 'abort';
+    end
+
     semantic = struct();
+    semantic.environment_state = environmentState;
+    semantic.drone_state = droneState;
     semantic.wind_risk = windRisk;
     semantic.alignment_state = alignState;
     semantic.visual_state = visualState;
     semantic.landing_context = contextState;
-    semantic.isSafeForLanding = strcmp(contextState, 'safe');
+    semantic.semantic_relation = semanticRelation;
+    semantic.semantic_integration = semanticIntegration;
+    semantic.landing_feasibility = landingFeasibility;
+    semantic.final_decision = finalDecision;
+    semantic.isSafeForLanding = strcmp(finalDecision, 'land');
     semantic.wind_risk_enc = windRiskEnc;
     semantic.alignment_enc = alignEnc;
     semantic.visual_enc = visualEnc;
@@ -3664,12 +3835,12 @@ function autosimPlotGtVsPrediction(summaryTbl, model, cfg, outPngPath)
     yticklabels(ax1, {'unsafe/hover', 'safe/land'});
     xlabel(ax1, 'scenario');
     ylabel(ax1, 'class');
-    title(ax1, 'GT Safety vs Algorithm Decision (Land/Hover)');
-    legend(ax1, {'GT safe(1)/unsafe(0)', 'Decision land(1)/hover(0)'}, 'Location', 'southoutside', 'Orientation', 'horizontal');
+    title(ax1, 'GT Safety vs Algorithm Decision (Land/Abort)');
+    legend(ax1, {'GT safe(1)/unsafe(0)', 'Decision land(1)/abort(0)'}, 'Location', 'southoutside', 'Orientation', 'horizontal');
     grid(ax1, 'on');
 
     ax2 = nexttile(tl, 2);
-    cm = [dEval.tp dEval.fp; dEval.fn dEval.tn]; % rows: pred land/hover, cols: actual safe/unsafe
+    cm = [dEval.tp dEval.fp; dEval.fn dEval.tn]; % rows: pred land/abort, cols: actual safe/unsafe
     imagesc(ax2, cm);
     axis(ax2, 'equal');
     axis(ax2, 'tight');
@@ -3678,7 +3849,7 @@ function autosimPlotGtVsPrediction(summaryTbl, model, cfg, outPngPath)
     xticks(ax2, [1 2]);
     yticks(ax2, [1 2]);
     xticklabels(ax2, {'Actual Safe', 'Actual Unsafe'});
-    yticklabels(ax2, {'Pred Land', 'Pred Hover'});
+    yticklabels(ax2, {'Pred Land', 'Pred Abort'});
     title(ax2, sprintf('Confusion Matrix | Acc=%.3f Prec=%.3f Rec=%.3f Unsafe=%.3f', ...
         dEval.accuracy, dEval.precision, dEval.recall, dEval.unsafe_landing_rate));
     for rr = 1:2
@@ -3744,7 +3915,7 @@ function dTbl = autosimBuildDecisionTable(summaryTbl)
     if ismember('pred_decision', summaryTbl.Properties.VariableNames)
         p = string(summaryTbl.pred_decision);
         predLand = (p == "land");
-        predValid = (p == "land") | (p == "hover");
+        predValid = (p == "land") | (p == "abort") | (p == "hover");
     elseif ismember('landing_cmd_time', summaryTbl.Properties.VariableNames)
         lct = summaryTbl.landing_cmd_time;
         predLand = isfinite(lct);
@@ -4343,9 +4514,17 @@ function s = autosimEmptyScenarioResult()
     s.final_state = nan;
 
     s.landing_cmd_time = nan;
-    s.pred_decision = "hover";
+    s.pred_decision = "abort";
+    s.executed_action = "abort";
     s.gt_safe_to_land = "unstable";
     s.decision_outcome = "TN";
+    s.semantic_environment = "unknown";
+    s.semantic_drone_state = "unknown";
+    s.semantic_visual_state = "unknown";
+    s.semantic_landing_context = "unknown";
+    s.semantic_relation = "unknown";
+    s.semantic_integration = "unknown";
+    s.landing_feasibility = nan;
     s.scenario_policy = "exploit";
     s.launch_pid = -1;
     s.launch_log = "";

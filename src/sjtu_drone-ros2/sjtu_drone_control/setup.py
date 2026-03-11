@@ -1,4 +1,4 @@
-from setuptools import setup
+from setuptools import setup, find_packages
 import sys
 
 # colcon may pass args that older distutils parsers don't recognize.
@@ -26,7 +26,7 @@ package_name = 'sjtu_drone_control'
 setup(
     name=package_name,
     version='0.0.0',
-    packages=[package_name],
+    packages=find_packages(include=[package_name, package_name + '.*']),
     data_files=[
         ('share/ament_index/resource_index/packages',
             ['resource/' + package_name]),

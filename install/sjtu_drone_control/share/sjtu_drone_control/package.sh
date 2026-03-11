@@ -82,7 +82,6 @@ _colcon_package_sh_source_script "$COLCON_CURRENT_PREFIX/share/sjtu_drone_contro
 _colcon_package_sh_source_script "$COLCON_CURRENT_PREFIX/share/sjtu_drone_control/hook/pythonpath.sh"
 _colcon_package_sh_source_script "$COLCON_CURRENT_PREFIX/share/sjtu_drone_control/hook/pythonscriptspath.sh"
 _colcon_package_sh_source_script "$COLCON_CURRENT_PREFIX/share/sjtu_drone_control/hook/ament_prefix_path.sh"
-_colcon_package_sh_source_script "$COLCON_CURRENT_PREFIX/../../build/sjtu_drone_control/share/sjtu_drone_control/hook/pythonpath_develop.sh"
 
 unset _colcon_package_sh_source_script
 unset COLCON_CURRENT_PREFIX

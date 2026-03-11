@@ -1,0 +1,90 @@
+[0.443s] Invoking command in '/home/j/INCSL/IICC26_ws/build/sjtu_drone_control': PYTHONPATH=/home/j/INCSL/IICC26_ws/build/sjtu_drone_control/prefix_override:/usr/lib/python3/dist-packages/colcon_core/task/python/colcon_distutils_commands:/home/j/INCSL/IICC26_ws/install/sjtu_drone_control/lib/python3.10/site-packages:${PYTHONPATH} /usr/bin/python3 -W ignore:setup.py install is deprecated -W ignore:easy_install command is deprecated setup.py develop --uninstall --editable --build-directory /home/j/INCSL/IICC26_ws/build/sjtu_drone_control/build
+[0.565s] running develop
+[0.567s] /home/j/.local/lib/python3.10/site-packages/setuptools/_distutils/cmd.py:90: DevelopDeprecationWarning: develop command is deprecated.
+[0.567s] !!
+[0.567s] 
+[0.567s]         ********************************************************************************
+[0.567s]         Please avoid running ``setup.py`` and ``develop``.
+[0.567s]         Instead, use standards-based tools like pip or uv.
+[0.567s] 
+[0.567s]         This deprecation is overdue, please update your project and remove deprecated
+[0.567s]         calls to avoid build errors in the future.
+[0.567s] 
+[0.567s]         See https://github.com/pypa/setuptools/issues/917 for details.
+[0.567s]         ********************************************************************************
+[0.567s] 
+[0.567s] !!
+[0.567s]   self.initialize_options()
+[0.986s] Obtaining file:///home/j/INCSL/IICC26_ws/build/sjtu_drone_control
+[2.333s]   Installing build dependencies ... [?25l- \ | done
+[2.481s] [?25h  Checking if build backend supports build_editable ... [?25ldone
+[2.580s] [?25h  Getting requirements to build editable ... [?25l- done
+[2.672s] [?25h  Preparing editable metadata (pyproject.toml) ... [?25l- done
+[2.674s] [?25hRequirement already satisfied: setuptools in /home/j/.local/lib/python3.10/site-packages (from sjtu_drone_control==0.0.0) (82.0.0)
+[2.682s] Building wheels for collected packages: sjtu_drone_control
+[2.787s]   Building editable for sjtu_drone_control (pyproject.toml) ... [?25l- done
+[2.788s] [?25h  Created wheel for sjtu_drone_control: filename=sjtu_drone_control-0.0.0-0.editable-py3-none-any.whl size=3483 sha256=de83ded4bd3f6cf0ac1eb8a301b40aabad2ea961b14bc5a4b651d47fbbba3d55
+[2.788s]   Stored in directory: /tmp/pip-ephem-wheel-cache-6k0jfeel/wheels/63/17/42/d0e13c84bb94595915e86bde17d4f136b877547b25080fde96
+[2.789s] Successfully built sjtu_drone_control
+[3.211s] Installing collected packages: sjtu_drone_control
+[3.211s]   Attempting uninstall: sjtu_drone_control
+[3.211s]     Found existing installation: sjtu_drone_control 0.0.0
+[3.211s] [33m    WARNING: Could not access 'pyvenv.cfg' despite a virtual environment being active. Assuming global site-packages is not accessible in this environment.[0m[33m
+[3.211s] [0m[33m    WARNING: Could not access 'pyvenv.cfg' despite a virtual environment being active. Assuming global site-packages is not accessible in this environment.[0m[33m
+[3.212s] [0m[33m    WARNING: Could not access 'pyvenv.cfg' despite a virtual environment being active. Assuming global site-packages is not accessible in this environment.[0m[33m
+[3.214s] [0m[33m    WARNING: Could not access 'pyvenv.cfg' despite a virtual environment being active. Assuming global site-packages is not accessible in this environment.[0m[33m
+[3.214s] [0m[33m    WARNING: Could not access 'pyvenv.cfg' despite a virtual environment being active. Assuming global site-packages is not accessible in this environment.[0m[33m
+[3.215s]     Uninstalling sjtu_drone_control-0.0.0:
+[3.215s]       Successfully uninstalled sjtu_drone_control-0.0.0
+[3.220s] Successfully installed sjtu_drone_control-0.0.0
+[3.223s] [0m
+[3.223s] [1m[[0m[34;49mnotice[0m[1;39;49m][0m[39;49m A new release of pip is available: [0m[31;49m25.3[0m[39;49m -> [0m[32;49m26.0.1[0m
+[3.223s] [1m[[0m[34;49mnotice[0m[1;39;49m][0m[39;49m To update, run: [0m[32;49mpython3 -m pip install --upgrade pip[0m
+[3.292s] Invoked command in '/home/j/INCSL/IICC26_ws/build/sjtu_drone_control' returned '0': PYTHONPATH=/home/j/INCSL/IICC26_ws/build/sjtu_drone_control/prefix_override:/usr/lib/python3/dist-packages/colcon_core/task/python/colcon_distutils_commands:/home/j/INCSL/IICC26_ws/install/sjtu_drone_control/lib/python3.10/site-packages:${PYTHONPATH} /usr/bin/python3 -W ignore:setup.py install is deprecated -W ignore:easy_install command is deprecated setup.py develop --uninstall --editable --build-directory /home/j/INCSL/IICC26_ws/build/sjtu_drone_control/build
+[3.293s] Invoking command in '/home/j/INCSL/IICC26_ws/src/sjtu_drone-ros2/sjtu_drone_control': PYTHONPATH=/home/j/INCSL/IICC26_ws/build/sjtu_drone_control/prefix_override:/usr/lib/python3/dist-packages/colcon_core/task/python/colcon_distutils_commands:/home/j/INCSL/IICC26_ws/install/sjtu_drone_control/lib/python3.10/site-packages:${PYTHONPATH} /usr/bin/python3 -W ignore:setup.py install is deprecated -W ignore:easy_install command is deprecated setup.py egg_info --egg-base ../../../build/sjtu_drone_control build --build-base /home/j/INCSL/IICC26_ws/build/sjtu_drone_control/build install --record /home/j/INCSL/IICC26_ws/build/sjtu_drone_control/install.log --single-version-externally-managed install_data --force
+[3.447s] running egg_info
+[3.457s] writing ../../../build/sjtu_drone_control/sjtu_drone_control.egg-info/PKG-INFO
+[3.457s] writing dependency_links to ../../../build/sjtu_drone_control/sjtu_drone_control.egg-info/dependency_links.txt
+[3.457s] writing entry points to ../../../build/sjtu_drone_control/sjtu_drone_control.egg-info/entry_points.txt
+[3.457s] writing requirements to ../../../build/sjtu_drone_control/sjtu_drone_control.egg-info/requires.txt
+[3.457s] writing top-level names to ../../../build/sjtu_drone_control/sjtu_drone_control.egg-info/top_level.txt
+[3.478s] reading manifest file '../../../build/sjtu_drone_control/sjtu_drone_control.egg-info/SOURCES.txt'
+[3.479s] writing manifest file '../../../build/sjtu_drone_control/sjtu_drone_control.egg-info/SOURCES.txt'
+[3.479s] running build
+[3.479s] running build_py
+[3.480s] creating /home/j/INCSL/IICC26_ws/build/sjtu_drone_control/build/lib/sjtu_drone_control/drone_utils
+[3.480s] copying sjtu_drone_control/drone_utils/controllers.py -> /home/j/INCSL/IICC26_ws/build/sjtu_drone_control/build/lib/sjtu_drone_control/drone_utils
+[3.480s] copying sjtu_drone_control/drone_utils/drone_object.py -> /home/j/INCSL/IICC26_ws/build/sjtu_drone_control/build/lib/sjtu_drone_control/drone_utils
+[3.480s] copying sjtu_drone_control/drone_utils/__init__.py -> /home/j/INCSL/IICC26_ws/build/sjtu_drone_control/build/lib/sjtu_drone_control/drone_utils
+[3.480s] running install
+[3.483s] running install_lib
+[3.493s] creating /home/j/INCSL/IICC26_ws/install/sjtu_drone_control/lib/python3.10/site-packages/sjtu_drone_control
+[3.493s] copying /home/j/INCSL/IICC26_ws/build/sjtu_drone_control/build/lib/sjtu_drone_control/teleop.py -> /home/j/INCSL/IICC26_ws/install/sjtu_drone_control/lib/python3.10/site-packages/sjtu_drone_control
+[3.493s] copying /home/j/INCSL/IICC26_ws/build/sjtu_drone_control/build/lib/sjtu_drone_control/teleop_joystick.py -> /home/j/INCSL/IICC26_ws/install/sjtu_drone_control/lib/python3.10/site-packages/sjtu_drone_control
+[3.493s] copying /home/j/INCSL/IICC26_ws/build/sjtu_drone_control/build/lib/sjtu_drone_control/open_loop_control.py -> /home/j/INCSL/IICC26_ws/install/sjtu_drone_control/lib/python3.10/site-packages/sjtu_drone_control
+[3.493s] copying /home/j/INCSL/IICC26_ws/build/sjtu_drone_control/build/lib/sjtu_drone_control/__init__.py -> /home/j/INCSL/IICC26_ws/install/sjtu_drone_control/lib/python3.10/site-packages/sjtu_drone_control
+[3.493s] creating /home/j/INCSL/IICC26_ws/install/sjtu_drone_control/lib/python3.10/site-packages/sjtu_drone_control/drone_utils
+[3.493s] copying /home/j/INCSL/IICC26_ws/build/sjtu_drone_control/build/lib/sjtu_drone_control/drone_utils/controllers.py -> /home/j/INCSL/IICC26_ws/install/sjtu_drone_control/lib/python3.10/site-packages/sjtu_drone_control/drone_utils
+[3.493s] copying /home/j/INCSL/IICC26_ws/build/sjtu_drone_control/build/lib/sjtu_drone_control/drone_utils/drone_object.py -> /home/j/INCSL/IICC26_ws/install/sjtu_drone_control/lib/python3.10/site-packages/sjtu_drone_control/drone_utils
+[3.493s] copying /home/j/INCSL/IICC26_ws/build/sjtu_drone_control/build/lib/sjtu_drone_control/drone_utils/__init__.py -> /home/j/INCSL/IICC26_ws/install/sjtu_drone_control/lib/python3.10/site-packages/sjtu_drone_control/drone_utils
+[3.494s] copying /home/j/INCSL/IICC26_ws/build/sjtu_drone_control/build/lib/sjtu_drone_control/drone_position_control.py -> /home/j/INCSL/IICC26_ws/install/sjtu_drone_control/lib/python3.10/site-packages/sjtu_drone_control
+[3.494s] byte-compiling /home/j/INCSL/IICC26_ws/install/sjtu_drone_control/lib/python3.10/site-packages/sjtu_drone_control/teleop.py to teleop.cpython-310.pyc
+[3.494s] byte-compiling /home/j/INCSL/IICC26_ws/install/sjtu_drone_control/lib/python3.10/site-packages/sjtu_drone_control/teleop_joystick.py to teleop_joystick.cpython-310.pyc
+[3.495s] byte-compiling /home/j/INCSL/IICC26_ws/install/sjtu_drone_control/lib/python3.10/site-packages/sjtu_drone_control/open_loop_control.py to open_loop_control.cpython-310.pyc
+[3.496s] byte-compiling /home/j/INCSL/IICC26_ws/install/sjtu_drone_control/lib/python3.10/site-packages/sjtu_drone_control/__init__.py to __init__.cpython-310.pyc
+[3.496s] byte-compiling /home/j/INCSL/IICC26_ws/install/sjtu_drone_control/lib/python3.10/site-packages/sjtu_drone_control/drone_utils/controllers.py to controllers.cpython-310.pyc
+[3.496s] byte-compiling /home/j/INCSL/IICC26_ws/install/sjtu_drone_control/lib/python3.10/site-packages/sjtu_drone_control/drone_utils/drone_object.py to drone_object.cpython-310.pyc
+[3.497s] byte-compiling /home/j/INCSL/IICC26_ws/install/sjtu_drone_control/lib/python3.10/site-packages/sjtu_drone_control/drone_utils/__init__.py to __init__.cpython-310.pyc
+[3.497s] byte-compiling /home/j/INCSL/IICC26_ws/install/sjtu_drone_control/lib/python3.10/site-packages/sjtu_drone_control/drone_position_control.py to drone_position_control.cpython-310.pyc
+[3.497s] running install_data
+[3.497s] copying resource/sjtu_drone_control -> /home/j/INCSL/IICC26_ws/install/sjtu_drone_control/share/ament_index/resource_index/packages
+[3.497s] copying package.xml -> /home/j/INCSL/IICC26_ws/install/sjtu_drone_control/share/sjtu_drone_control
+[3.497s] running install_egg_info
+[3.509s] Copying ../../../build/sjtu_drone_control/sjtu_drone_control.egg-info to /home/j/INCSL/IICC26_ws/install/sjtu_drone_control/lib/python3.10/site-packages/sjtu_drone_control-0.0.0-py3.10.egg-info
+[3.509s] running install_scripts
+[3.531s] Installing drone_position_control script to /home/j/INCSL/IICC26_ws/install/sjtu_drone_control/bin
+[3.531s] Installing open_loop_control script to /home/j/INCSL/IICC26_ws/install/sjtu_drone_control/bin
+[3.531s] Installing teleop script to /home/j/INCSL/IICC26_ws/install/sjtu_drone_control/bin
+[3.531s] Installing teleop_joystick script to /home/j/INCSL/IICC26_ws/install/sjtu_drone_control/bin
+[3.531s] writing list of installed files to '/home/j/INCSL/IICC26_ws/build/sjtu_drone_control/install.log'
+[3.544s] Invoked command in '/home/j/INCSL/IICC26_ws/src/sjtu_drone-ros2/sjtu_drone_control' returned '0': PYTHONPATH=/home/j/INCSL/IICC26_ws/build/sjtu_drone_control/prefix_override:/usr/lib/python3/dist-packages/colcon_core/task/python/colcon_distutils_commands:/home/j/INCSL/IICC26_ws/install/sjtu_drone_control/lib/python3.10/site-packages:${PYTHONPATH} /usr/bin/python3 -W ignore:setup.py install is deprecated -W ignore:easy_install command is deprecated setup.py egg_info --egg-base ../../../build/sjtu_drone_control build --build-base /home/j/INCSL/IICC26_ws/build/sjtu_drone_control/build install --record /home/j/INCSL/IICC26_ws/build/sjtu_drone_control/install.log --single-version-externally-managed install_data --force

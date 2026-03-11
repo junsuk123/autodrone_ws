@@ -1,0 +1,43 @@
+<mxfile host="Electron" agent="Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) draw.io/29.6.1 Chrome/142.0.7444.265 Electron/39.8.0 Safari/537.36" version="29.6.1">
+  <diagram name="페이지-1" id="EEjlc40PaoDOUg-eQ5dQ">
+    <mxGraphModel dx="1356" dy="882" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="827" pageHeight="1169" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="e0-Fv3wM_8dYJmqoTIC3-2" parent="1" style="swimlane;whiteSpace=wrap;html=1;" value="Ontology" vertex="1">
+          <mxGeometry height="380" width="520" x="40" y="160" as="geometry" />
+        </mxCell>
+        <mxCell id="e0-Fv3wM_8dYJmqoTIC3-5" parent="e0-Fv3wM_8dYJmqoTIC3-2" style="swimlane;fontStyle=0;childLayout=stackLayout;horizontal=1;startSize=30;horizontalStack=0;resizeParent=1;resizeParentMax=0;resizeLast=0;collapsible=1;marginBottom=0;whiteSpace=wrap;html=1;" value="Wind State" vertex="1">
+          <mxGeometry height="90" width="140" x="10" y="30" as="geometry" />
+        </mxCell>
+        <mxCell id="e0-Fv3wM_8dYJmqoTIC3-6" parent="e0-Fv3wM_8dYJmqoTIC3-5" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;spacingRight=4;overflow=hidden;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;rotatable=0;whiteSpace=wrap;html=1;" value="Speed" vertex="1">
+          <mxGeometry height="30" width="140" y="30" as="geometry" />
+        </mxCell>
+        <mxCell id="e0-Fv3wM_8dYJmqoTIC3-7" parent="e0-Fv3wM_8dYJmqoTIC3-5" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;spacingRight=4;overflow=hidden;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;rotatable=0;whiteSpace=wrap;html=1;" value="Direction" vertex="1">
+          <mxGeometry height="30" width="140" y="60" as="geometry" />
+        </mxCell>
+        <mxCell id="e0-Fv3wM_8dYJmqoTIC3-9" parent="e0-Fv3wM_8dYJmqoTIC3-2" style="swimlane;fontStyle=0;childLayout=stackLayout;horizontal=1;startSize=30;horizontalStack=0;resizeParent=1;resizeParentMax=0;resizeLast=0;collapsible=1;marginBottom=0;whiteSpace=wrap;html=1;" value="Drone State" vertex="1">
+          <mxGeometry height="150" width="140" x="10" y="130" as="geometry" />
+        </mxCell>
+        <mxCell id="e0-Fv3wM_8dYJmqoTIC3-10" parent="e0-Fv3wM_8dYJmqoTIC3-9" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;spacingRight=4;overflow=hidden;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;rotatable=0;whiteSpace=wrap;html=1;" value="Pose" vertex="1">
+          <mxGeometry height="30" width="140" y="30" as="geometry" />
+        </mxCell>
+        <mxCell id="e0-Fv3wM_8dYJmqoTIC3-11" parent="e0-Fv3wM_8dYJmqoTIC3-9" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;spacingRight=4;overflow=hidden;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;rotatable=0;whiteSpace=wrap;html=1;" value="Velocity" vertex="1">
+          <mxGeometry height="30" width="140" y="60" as="geometry" />
+        </mxCell>
+        <mxCell id="e0-Fv3wM_8dYJmqoTIC3-13" parent="e0-Fv3wM_8dYJmqoTIC3-9" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;spacingRight=4;overflow=hidden;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;rotatable=0;whiteSpace=wrap;html=1;" value="Acceleration" vertex="1">
+          <mxGeometry height="30" width="140" y="90" as="geometry" />
+        </mxCell>
+        <mxCell id="e0-Fv3wM_8dYJmqoTIC3-12" parent="e0-Fv3wM_8dYJmqoTIC3-9" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;spacingRight=4;overflow=hidden;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;rotatable=0;whiteSpace=wrap;html=1;" value="&lt;span style=&quot;color: rgb(10, 10, 10); background-color: rgb(255, 255, 255);&quot;&gt;&lt;font face=&quot;Helvetica&quot;&gt;Angular velocity&lt;/font&gt;&lt;/span&gt;" vertex="1">
+          <mxGeometry height="30" width="140" y="120" as="geometry" />
+        </mxCell>
+        <mxCell id="e0-Fv3wM_8dYJmqoTIC3-14" parent="e0-Fv3wM_8dYJmqoTIC3-2" style="swimlane;fontStyle=0;childLayout=stackLayout;horizontal=1;startSize=30;horizontalStack=0;resizeParent=1;resizeParentMax=0;resizeLast=0;collapsible=1;marginBottom=0;whiteSpace=wrap;html=1;" value="April Tag" vertex="1">
+          <mxGeometry height="60" width="140" x="10" y="300" as="geometry" />
+        </mxCell>
+        <mxCell id="e0-Fv3wM_8dYJmqoTIC3-15" parent="e0-Fv3wM_8dYJmqoTIC3-14" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;spacingRight=4;overflow=hidden;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;rotatable=0;whiteSpace=wrap;html=1;" value="Pose" vertex="1">
+          <mxGeometry height="30" width="140" y="30" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
