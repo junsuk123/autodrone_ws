@@ -413,6 +413,29 @@ function cfg = autosimDefaultConfig()
     cfg.ontology.gust_delta_high = 2.0;
     cfg.ontology.gust_dvdt_min = 1.2;
     cfg.ontology.gust_dvdt_high = 3.0;
+    cfg.ontology.temporal_short_window_sec = 1.2;
+    cfg.ontology.temporal_medium_window_sec = 3.0;
+    cfg.ontology.temporal_long_window_sec = 6.0;
+    cfg.ontology.wind_variability_warn = 0.12 * cfg.wind.speed_max;
+    cfg.ontology.wind_variability_high = 0.28 * cfg.wind.speed_max;
+    cfg.ontology.wind_direction_shift_warn_deg = 18.0;
+    cfg.ontology.wind_direction_shift_high_deg = 50.0;
+    cfg.ontology.wind_direction_spread_warn_deg = 20.0;
+    cfg.ontology.wind_direction_spread_high_deg = 65.0;
+    cfg.ontology.wind_persistent_warn_ratio = 0.35;
+    cfg.ontology.wind_persistent_high_ratio = 0.70;
+    cfg.ontology.control_attitude_warn_deg = 7.5;
+    cfg.ontology.control_attitude_high_deg = 18.0;
+    cfg.ontology.control_attitude_osc_warn_deg = 2.5;
+    cfg.ontology.control_attitude_osc_high_deg = 8.0;
+    cfg.ontology.control_vz_osc_warn = 0.10;
+    cfg.ontology.control_vz_osc_high = 0.35;
+    cfg.ontology.visual_dropout_warn_ratio = 0.15;
+    cfg.ontology.visual_dropout_high_ratio = 0.45;
+    cfg.ontology.tag_error_vol_warn = 0.03;
+    cfg.ontology.tag_error_vol_high = 0.10;
+    cfg.ontology.tag_error_drift_warn = 0.015;
+    cfg.ontology.tag_error_drift_high = 0.060;
     cfg.ontology.semantic_feature_names = [ ...
         "wind_speed", "wind_dir_norm", "roll_abs", "pitch_abs", ...
         "tag_u", "tag_v", "jitter", "stability_score", ...
@@ -420,26 +443,24 @@ function cfg = autosimDefaultConfig()
     ];
 
     % Ontology-AI fusion: ontology concepts are preserved, but concept scores are
-    % co-estimated by a lightweight AI branch and fused with rule-based scores.
+    % co-estimated by a lightweight temporal encoder and fused with rule-based scores.
     cfg.ontology_ai = struct();
     cfg.ontology_ai.enable = true;
-    cfg.ontology_ai.rule_weight = 0.60; % fused = rule_weight*rule + (1-rule_weight)*ai
+    cfg.ontology_ai.mode = "temporal_tcn_lite";
+    cfg.ontology_ai.rule_weight = 0.58; % fused = rule_weight*rule + (1-rule_weight)*temporal_ai
 
-    % wind_risk AI branch weights (features defined in autosimOntologyReasoning)
-    cfg.ontology_ai.wind_w = [1.20, 1.35, 0.45, 0.20, -0.15, 0.35, -0.30];
-    cfg.ontology_ai.wind_b = -1.05;
+    % temporal ontology encoder branch weights (features defined in autosimOntologyReasoning)
+    cfg.ontology_ai.wind_w = [1.05, 1.20, 1.10, 0.85, 0.75, 0.55, 0.35, 0.40];
+    cfg.ontology_ai.wind_b = -2.10;
 
-    % alignment AI branch weights
-    cfg.ontology_ai.align_w = [-1.45, -0.95, 1.00, 0.35, -0.30, -0.20];
-    cfg.ontology_ai.align_b = 0.10;
+    cfg.ontology_ai.align_w = [-1.20, -0.85, 0.95, -1.15, -0.75, 0.55, -0.25, -0.40];
+    cfg.ontology_ai.align_b = 0.55;
 
-    % visual AI branch weights
-    cfg.ontology_ai.visual_w = [1.30, -1.10, 1.00, 0.90, -0.25];
-    cfg.ontology_ai.visual_b = -0.15;
+    cfg.ontology_ai.visual_w = [1.10, -0.95, 0.90, 0.85, -1.15, -0.70, -0.20, -0.35];
+    cfg.ontology_ai.visual_b = -0.10;
 
-    % context AI branch weights
-    cfg.ontology_ai.context_w = [-1.30, 1.05, 0.95, 0.70, -1.10];
-    cfg.ontology_ai.context_b = 0.40;
+    cfg.ontology_ai.context_w = [-1.10, 0.95, 0.90, 0.60, -1.15, -0.80, -0.65, -0.70];
+    cfg.ontology_ai.context_b = 0.48;
 
     cfg.topics = struct();
     cfg.topics.state = '/drone/state';
@@ -1178,6 +1199,7 @@ function [res, traceTbl] = autosimRunScenario(cfg, scenarioCfg, scenarioId, mode
         detWin = max(5, round(2.0 / cfg.scenario.sample_period_sec));
         detCont = autosimNanMean(autosimTail(tagDetHist(1:tagDetHistCount), detWin));
 
+        temporalHistN = max(12, round(max([cfg.ontology.gust_base_window_sec, cfg.ontology.temporal_long_window_sec]) / cfg.scenario.sample_period_sec));
         windObs = struct( ...
             'wind_speed', windSpNow, ...
             'wind_direction', windDirNow, ...
@@ -1188,6 +1210,9 @@ function [res, traceTbl] = autosimRunScenario(cfg, scenarioCfg, scenarioId, mode
             'position', [xNow; yNow; zNow], ...
             'roll', rollNowRad, ...
             'pitch', pitchNowRad, ...
+            'roll_hist', deg2rad(autosimTail(rollDeg(1:k), temporalHistN)), ...
+            'pitch_hist', deg2rad(autosimTail(pitchDeg(1:k), temporalHistN)), ...
+            'vz_hist', autosimTail(vz(1:k), temporalHistN), ...
             'velocity', [0.0; 0.0; vzNow]);
         tagObs = struct( ...
             'detected', tagDetected, ...
@@ -1198,6 +1223,8 @@ function [res, traceTbl] = autosimRunScenario(cfg, scenarioCfg, scenarioId, mode
             'jitter_px', tagJitterPx, ...
             'stability_score', tagStabilityScore, ...
             'detection_continuity', detCont, ...
+            'err_hist', autosimTail(tagErr(1:k), temporalHistN), ...
+            'detected_hist', autosimTail(tagDetHist(1:tagDetHistCount), temporalHistN), ...
             'centered', tagCentered);
 
         ontoState = autosimBuildOntologyState(windObs, droneObs, tagObs, cfg);
@@ -1836,17 +1863,21 @@ function [res, traceTbl] = autosimRunScenario(cfg, scenarioCfg, scenarioId, mode
         vizState.modelSaysStable = false;
         vizState.modelSaysUnstable = false;
         vizState.modelIsUncertain = false;
-        vizState.semantic = struct( ...
-            'wind_risk', autosimLastNonEmptyString(semanticWindRisk, "unknown"), ...
-            'environment_state', autosimLastNonEmptyString(semanticEnvironment, "unknown"), ...
-            'drone_state', autosimLastNonEmptyString(semanticDroneState, "unknown"), ...
-            'alignment_state', autosimLastNonEmptyString(semanticAlign, "unknown"), ...
-            'visual_state', autosimLastNonEmptyString(semanticVisual, "unknown"), ...
-            'landing_context', autosimLastNonEmptyString(semanticContext, "unknown"), ...
-            'semantic_relation', autosimLastNonEmptyString(semanticRelation, "unknown"), ...
-            'semantic_integration', autosimLastNonEmptyString(semanticIntegration, "unknown"), ...
-            'landing_feasibility', autosimLastFinite(landingFeasibility, nan), ...
-            'isSafeForLanding', logical(autosimLastFinite(double(semanticSafe), 0) > 0.5));
+        if exist('semantic', 'var') && isstruct(semantic)
+            vizState.semantic = semantic;
+        else
+            vizState.semantic = struct( ...
+                'wind_risk', autosimLastNonEmptyString(semanticWindRisk, "unknown"), ...
+                'environment_state', autosimLastNonEmptyString(semanticEnvironment, "unknown"), ...
+                'drone_state', autosimLastNonEmptyString(semanticDroneState, "unknown"), ...
+                'alignment_state', autosimLastNonEmptyString(semanticAlign, "unknown"), ...
+                'visual_state', autosimLastNonEmptyString(semanticVisual, "unknown"), ...
+                'landing_context', autosimLastNonEmptyString(semanticContext, "unknown"), ...
+                'semantic_relation', autosimLastNonEmptyString(semanticRelation, "unknown"), ...
+                'semantic_integration', autosimLastNonEmptyString(semanticIntegration, "unknown"), ...
+                'landing_feasibility', autosimLastFinite(landingFeasibility, nan), ...
+                'isSafeForLanding', logical(autosimLastFinite(double(semanticSafe), 0) > 0.5));
+        end
         vizState.semVec = nan(1, numel(cfg.ontology.semantic_feature_names));
         vizState.sensors = struct( ...
             'windSpeed', autosimNanLast(windSpeed), ...
@@ -2827,7 +2858,7 @@ function viz = autosimInitScenarioRealtimePlot(cfg, scenarioId, scenarioCfg)
     conceptBar = bar(axConcept, zeros(5,1), 0.65, 'FaceColor', [0.20 0.62 0.38]);
     ylim(axConcept, [0 1]);
     xticks(axConcept, 1:5);
-    xticklabels(axConcept, {'wind risk','alignment','visual','context','feasibility'});
+    xticklabels(axConcept, {'wind flow','alignment','visual lock','control','feasibility'});
     ylabel(axConcept, 'score');
     title(axConcept, 'Ontology Meaning', 'Interpreter', 'none');
     grid(axConcept, 'on');
@@ -3019,10 +3050,10 @@ function autosimUpdateScenarioRealtimePlot(viz, state)
         ];
         set(viz.conceptBar, 'YData', conceptVals);
         conceptStateLabels = {
-            string(autosimVizField(semantic, 'wind_risk', "unknown")), ...
-            string(autosimVizField(semantic, 'alignment_state', "unknown")), ...
-            string(autosimVizField(semantic, 'visual_state', "unknown")), ...
-            string(autosimVizField(semantic, 'landing_context', "unknown")), ...
+            autosimVizCompactToken(string(autosimVizField(semantic, 'wind_pattern', autosimVizField(semantic, 'wind_risk', "unknown")))), ...
+            autosimVizCompactToken(string(autosimVizField(semantic, 'alignment_trend', autosimVizField(semantic, 'alignment_state', "unknown")))), ...
+            autosimVizCompactToken(string(autosimVizField(semantic, 'visual_pattern', autosimVizField(semantic, 'visual_state', "unknown")))), ...
+            autosimVizCompactToken(string(autosimVizField(semantic, 'control_difficulty', autosimVizField(semantic, 'landing_context', "unknown")))), ...
             autosimVizLevelText(conceptVals(5), {'low','medium','high'}) ...
         };
         for i = 1:numel(viz.conceptLabels)
@@ -3069,10 +3100,10 @@ function autosimUpdateScenarioRealtimePlot(viz, state)
             sprintf('z %.2f\nv %.2f', autosimVizField(sensors, 'altitude', nan), autosimVizField(sensors, 'vz', nan)) ...
         };
         conceptNodeText = {
-            autosimVizCompactToken(string(autosimVizField(semantic, 'wind_risk', "unknown"))), ...
-            autosimVizCompactToken(string(autosimVizField(semantic, 'alignment_state', "unknown"))), ...
-            autosimVizCompactToken(string(autosimVizField(semantic, 'visual_state', "unknown"))), ...
-            autosimVizCompactToken(string(autosimVizField(semantic, 'landing_context', "unknown"))) ...
+            autosimVizCompactToken(string(autosimVizField(semantic, 'wind_pattern', autosimVizField(semantic, 'wind_risk', "unknown")))), ...
+            autosimVizCompactToken(string(autosimVizField(semantic, 'alignment_trend', autosimVizField(semantic, 'alignment_state', "unknown")))), ...
+            autosimVizCompactToken(string(autosimVizField(semantic, 'visual_pattern', autosimVizField(semantic, 'visual_state', "unknown")))), ...
+            autosimVizCompactToken(string(autosimVizField(semantic, 'control_difficulty', autosimVizField(semantic, 'landing_context', "unknown")))) ...
         };
         resultNodeText = {
             autosimVizCompactToken(string(autosimVizField(semantic, 'semantic_relation', "unknown"))), ...
@@ -3117,9 +3148,13 @@ function autosimUpdateScenarioRealtimePlot(viz, state)
 
         flowLines = [ ...
             string(sprintf('phase=%s | t=%.1fs', string(autosimVizField(state, 'phase', "unknown")), autosimVizField(state, 'tSec', nan))); ...
-            string(sprintf('env=%s | drone=%s | feas=%.2f', ...
-                string(autosimVizField(semantic, 'environment_state', "unknown")), ...
-                string(autosimVizField(semantic, 'drone_state', "unknown")), feasibilityScore)) ...
+            string(sprintf('wind=%s | align=%s | vis=%s', ...
+                autosimVizCompactToken(string(autosimVizField(semantic, 'wind_pattern', autosimVizField(semantic, 'environment_state', "unknown")))), ...
+                autosimVizCompactToken(string(autosimVizField(semantic, 'alignment_trend', autosimVizField(semantic, 'alignment_state', "unknown")))), ...
+                autosimVizCompactToken(string(autosimVizField(semantic, 'visual_pattern', autosimVizField(semantic, 'visual_state', "unknown")))))); ...
+            string(sprintf('control=%s | ctx=%s | feas=%.2f', ...
+                autosimVizCompactToken(string(autosimVizField(semantic, 'control_difficulty', autosimVizField(semantic, 'drone_state', "unknown")))), ...
+                autosimVizCompactToken(string(autosimVizField(semantic, 'landing_context', "unknown"))), feasibilityScore)) ...
         ];
         set(viz.flowText, 'String', cellstr(flowLines));
 
@@ -3211,6 +3246,36 @@ function out = autosimVizCompactToken(token)
             out = "conditional";
         case "conflicting"
             out = "conflicting";
+        case "gust_front"
+            out = "gust front";
+        case "persistent_strong"
+            out = "persistent wind";
+        case "turbulent_shift"
+            out = "turbulent shift";
+        case "steady_calm"
+            out = "steady calm";
+        case "steady_flow"
+            out = "steady flow";
+        case "converging"
+            out = "converging";
+        case "steady_offset"
+            out = "steady offset";
+        case "diverging"
+            out = "diverging";
+        case "locked_on"
+            out = "locked on";
+        case "drifting_lock"
+            out = "drifting lock";
+        case "intermittent_lock"
+            out = "intermittent";
+        case "easy_to_hold"
+            out = "easy hold";
+        case "corrective_hold"
+            out = "corrective";
+        case "hard_to_hold"
+            out = "hard hold";
+        case "monitoring"
+            out = "monitoring";
         otherwise
             out = replace(token, "_", " ");
     end
@@ -3473,6 +3538,43 @@ function m = autosimCircularMeanDeg(thetaDeg)
     c = mean(cosd(th));
     s = mean(sind(th));
     m = autosimWrapTo180(rad2deg(atan2(s, c)));
+end
+
+
+function spreadDeg = autosimCircularSpreadDeg(thetaDeg)
+    th = double(thetaDeg(:));
+    th = th(isfinite(th));
+    if numel(th) < 2
+        spreadDeg = 0.0;
+        return;
+    end
+
+    c = mean(cosd(th));
+    s = mean(sind(th));
+    R = sqrt(c.^2 + s.^2);
+    R = autosimClamp(R, 1e-6, 1.0);
+    spreadDeg = rad2deg(sqrt(max(0.0, -2.0 * log(R))));
+end
+
+
+function slope = autosimTemporalSlope(x, dt)
+    xv = double(x(:));
+    valid = isfinite(xv);
+    if sum(valid) < 2
+        slope = 0.0;
+        return;
+    end
+
+    xv = xv(valid);
+    t = (0:numel(xv)-1)' * max(dt, 1e-3);
+    t = t - mean(t);
+    xv = xv - mean(xv);
+    den = sum(t.^2);
+    if den <= 1e-9
+        slope = 0.0;
+    else
+        slope = sum(t .* xv) / den;
+    end
 end
 
 
@@ -4007,6 +4109,8 @@ function onto = autosimBuildOntologyState(windObs, droneObs, tagObs, cfg)
         gustLevel = 'strong';
     end
 
+    temporal = autosimBuildTemporalSemanticState(windObs, droneObs, tagObs, gustIntensity, cfg);
+
     onto = struct();
     onto.entities = struct();
     onto.entities.WindCondition = struct( ...
@@ -4019,6 +4123,7 @@ function onto = autosimBuildOntologyState(windObs, droneObs, tagObs, cfg)
         'delta_peak', deltaPeak, ...
         'dvdt_peak', dvdtPeak, ...
         'level', gustLevel);
+    onto.entities.TemporalPattern = temporal;
 
     onto.entities.DroneState = struct( ...
         'position', droneObs.position, ...
@@ -4050,20 +4155,27 @@ function onto = autosimBuildOntologyState(windObs, droneObs, tagObs, cfg)
         'wind_direction', windDirRep, ...
         'gust_active', gustActive, ...
         'gust_intensity', gustIntensity, ...
-        'gust_level', string(gustLevel));
+        'gust_level', string(gustLevel), ...
+        'wind_pattern', string(temporal.wind_pattern), ...
+        'wind_persistence', temporal.wind_persistence, ...
+        'wind_variability', temporal.wind_variability);
     onto.semantic_state.DroneState = struct( ...
         'position', droneObs.position, ...
         'roll', droneObs.roll, ...
         'pitch', droneObs.pitch, ...
         'abs_attitude', max(abs(droneObs.roll), abs(droneObs.pitch)), ...
-        'vz', droneObs.velocity(3));
+        'vz', droneObs.velocity(3), ...
+        'control_load', temporal.control_load, ...
+        'control_difficulty', string(temporal.control_difficulty));
     onto.semantic_state.VisualState = struct( ...
         'detected', tagObs.detected, ...
         'u_norm', tagObs.u_norm, ...
         'v_norm', tagObs.v_norm, ...
         'jitter_px', tagObs.jitter_px, ...
         'stability_score', tagObs.stability_score, ...
-        'centered', tagObs.centered);
+        'centered', tagObs.centered, ...
+        'visual_pattern', string(temporal.visual_pattern), ...
+        'alignment_trend', string(temporal.alignment_trend));
     onto.semantic_state.LandingContext = struct( ...
         'landing_area_size', cfg.ontology.landing_area_size, ...
         'obstacle_presence', cfg.ontology.obstacle_presence);
@@ -4073,13 +4185,14 @@ end
 function semantic = autosimOntologyReasoning(onto, cfg)
     w = onto.entities.WindCondition;
     g = onto.entities.Gust;
+    tp = onto.entities.TemporalPattern;
     d = onto.entities.DroneState;
     t = onto.entities.TagObservation;
     c = onto.entities.LandingContext;
 
     condScore = autosimNormalize01(w.wind_speed, c.wind_speed_caution, c.wind_speed_unsafe);
     windRiskRuleEnc = autosimClamp( ...
-        0.65 * condScore + 0.35 * g.intensity, 0.0, 1.0);
+        0.26 * condScore + 0.22 * g.intensity + 0.22 * tp.wind_persistence + 0.14 * tp.wind_variability + 0.08 * tp.wind_direction_shift + 0.08 * tp.wind_direction_spread, 0.0, 1.0);
 
     if t.detected && isfinite(t.u_norm) && isfinite(t.v_norm)
         errNow = sqrt((t.u_norm - cfg.control.target_u)^2 + (t.v_norm - cfg.control.target_v)^2);
@@ -4092,6 +4205,8 @@ function semantic = autosimOntologyReasoning(onto, cfg)
         alignRuleEnc = autosimClamp(1.0 - ( ...
             0.55 * autosimNormalize01(errNow, 0.0, cfg.agent.max_tag_error_before_land) + ...
             0.25 * autosimNormalize01(errPred, 0.0, cfg.agent.max_tag_error_before_land) + ...
+            0.10 * tp.alignment_drift + ...
+            0.10 * tp.tag_error_volatility + ...
             0.20 * (1.0 - detCont)), 0.0, 1.0);
     else
         errNow = nan;
@@ -4103,17 +4218,19 @@ function semantic = autosimOntologyReasoning(onto, cfg)
     stabScore = autosimClampNaN(t.stability_score, 0.0);
     detCont = autosimClampNaN(t.detection_continuity, 0.0);
     visualRuleEnc = autosimClamp( ...
-        0.35 * double(t.detected) + 0.25 * (1.0 - jitterN) + 0.25 * stabScore + 0.15 * detCont, 0.0, 1.0);
+        0.26 * double(t.detected) + 0.22 * (1.0 - jitterN) + 0.20 * stabScore + 0.14 * detCont + 0.10 * (1.0 - tp.visual_dropout) + 0.08 * (1.0 - tp.tag_error_volatility), 0.0, 1.0);
     if ~t.detected
         visualRuleEnc = 0.6 * visualRuleEnc;
     end
 
     attStab = 1.0 - autosimNormalize01(d.abs_attitude, 0.0, deg2rad(cfg.thresholds.final_attitude_max_deg));
     riskCtx = ...
-        0.40 * windRiskRuleEnc + ...
-        0.20 * (1.0 - alignRuleEnc) + ...
-        0.20 * (1.0 - visualRuleEnc) + ...
-        0.20 * (1.0 - attStab) + ...
+        0.28 * windRiskRuleEnc + ...
+        0.16 * (1.0 - alignRuleEnc) + ...
+        0.16 * (1.0 - visualRuleEnc) + ...
+        0.12 * (1.0 - attStab) + ...
+        0.15 * tp.control_load + ...
+        0.13 * tp.visual_dropout + ...
         0.40 * double(c.obstacle_presence);
     contextRuleEnc = autosimClamp(1.0 - riskCtx, 0.0, 1.0);
 
@@ -4126,11 +4243,12 @@ function semantic = autosimOntologyReasoning(onto, cfg)
         aiFeatWind = [ ...
             condScore, ...
             autosimClampNaN(g.intensity, 0.0), ...
-            autosimNormalize01(d.abs_attitude, 0.0, deg2rad(cfg.thresholds.final_attitude_max_deg)), ...
-            double(t.detected), ...
-            detCont, ...
-            jitterN, ...
-            1.0 - stabScore ...
+            tp.wind_persistence, ...
+            tp.wind_variability, ...
+            tp.wind_direction_shift, ...
+            tp.wind_direction_spread, ...
+            tp.control_load, ...
+            tp.visual_dropout ...
         ];
         windRiskAiEnc = autosimLinearSigmoid(aiFeatWind, cfg.ontology_ai.wind_w, cfg.ontology_ai.wind_b, 0.5);
 
@@ -4138,9 +4256,11 @@ function semantic = autosimOntologyReasoning(onto, cfg)
             autosimNormalize01(errNow, 0.0, cfg.agent.max_tag_error_before_land), ...
             autosimNormalize01(errPred, 0.0, cfg.agent.max_tag_error_before_land), ...
             detCont, ...
+            tp.alignment_drift, ...
+            tp.tag_error_volatility, ...
             double(t.detected), ...
             1.0 - jitterN, ...
-            stabScore ...
+            1.0 - tp.control_load ...
         ];
         alignAiEnc = autosimLinearSigmoid(aiFeatAlign, cfg.ontology_ai.align_w, cfg.ontology_ai.align_b, 0.0);
 
@@ -4149,7 +4269,10 @@ function semantic = autosimOntologyReasoning(onto, cfg)
             jitterN, ...
             stabScore, ...
             detCont, ...
-            autosimClampNaN(g.intensity, 0.0) ...
+            tp.visual_dropout, ...
+            tp.tag_error_volatility, ...
+            autosimClampNaN(g.intensity, 0.0), ...
+            tp.control_load ...
         ];
         visualAiEnc = autosimLinearSigmoid(aiFeatVisual, cfg.ontology_ai.visual_w, cfg.ontology_ai.visual_b, 0.0);
 
@@ -4158,6 +4281,9 @@ function semantic = autosimOntologyReasoning(onto, cfg)
             alignAiEnc, ...
             visualAiEnc, ...
             attStab, ...
+            tp.control_load, ...
+            tp.wind_persistence, ...
+            tp.visual_dropout, ...
             1.0 - double(c.obstacle_presence) ...
         ];
         contextAiEnc = autosimLinearSigmoid(aiFeatContext, cfg.ontology_ai.context_w, cfg.ontology_ai.context_b, 0.5);
@@ -4173,6 +4299,10 @@ function semantic = autosimOntologyReasoning(onto, cfg)
     end
 
     windRisk = autosimRiskLevel3(windRiskEnc);
+    windPattern = string(tp.wind_pattern);
+    alignmentTrend = string(tp.alignment_trend);
+    visualPattern = string(tp.visual_pattern);
+    controlDifficulty = string(tp.control_difficulty);
 
     if alignEnc >= 0.70
         alignState = 'aligned';
@@ -4192,16 +4322,16 @@ function semantic = autosimOntologyReasoning(onto, cfg)
         contextState = 'unsafe';
     end
 
-    if windRiskEnc < 0.33
+    if windRiskEnc < 0.30 && tp.control_load < 0.35 && tp.visual_dropout < 0.20
         environmentState = 'favorable';
-    elseif windRiskEnc < 0.66
-        environmentState = 'moderate';
+    elseif windRiskEnc < 0.65 && tp.control_load < 0.70
+        environmentState = 'monitoring';
     else
         environmentState = 'adverse';
     end
 
     droneVzNorm = autosimNormalize01(abs(d.vz), 0.0, cfg.agent.no_model_max_abs_vz);
-    droneStability = autosimClamp(0.65 * attStab + 0.35 * (1.0 - droneVzNorm), 0.0, 1.0);
+    droneStability = autosimClamp(0.48 * attStab + 0.22 * (1.0 - droneVzNorm) + 0.30 * (1.0 - tp.control_load), 0.0, 1.0);
     if droneStability >= 0.70
         droneState = 'stable';
     elseif droneStability >= 0.40
@@ -4240,9 +4370,13 @@ function semantic = autosimOntologyReasoning(onto, cfg)
     semantic.environment_state = environmentState;
     semantic.drone_state = droneState;
     semantic.wind_risk = windRisk;
+    semantic.wind_pattern = windPattern;
     semantic.alignment_state = alignState;
+    semantic.alignment_trend = alignmentTrend;
     semantic.visual_state = visualState;
+    semantic.visual_pattern = visualPattern;
     semantic.landing_context = contextState;
+    semantic.control_difficulty = controlDifficulty;
     semantic.semantic_relation = semanticRelation;
     semantic.semantic_integration = semanticIntegration;
     semantic.landing_feasibility = landingFeasibility;
@@ -4271,6 +4405,121 @@ function vec = autosimBuildSemanticFeatures(windObs, droneObs, tagObs, semantic,
         autosimClampNaN(semantic.visual_enc, autosimEncodeCategory(semantic.visual_state, {'stable','unstable'}, [1.0, 0.0], 0.0)), ...
         autosimClampNaN(semantic.context_enc, autosimEncodeCategory(semantic.landing_context, {'safe','caution','unsafe'}, [1.0, 0.5, 0.0], 0.0)) ...
     ];
+end
+
+
+function temporal = autosimBuildTemporalSemanticState(windObs, droneObs, tagObs, gustIntensity, cfg)
+    dt = max(1e-3, autosimClampNaN(windObs.dt, 0.2));
+    shortN = max(4, round(cfg.ontology.temporal_short_window_sec / dt));
+    mediumN = max(shortN + 1, round(cfg.ontology.temporal_medium_window_sec / dt));
+    longN = max(mediumN + 1, round(cfg.ontology.temporal_long_window_sec / dt));
+
+    wsLong = autosimTail(autosimVizField(windObs, 'wind_speed_hist', windObs.wind_speed), longN);
+    wsShort = autosimTail(autosimVizField(windObs, 'wind_speed_hist', windObs.wind_speed), shortN);
+    wdLong = autosimTail(autosimVizField(windObs, 'wind_dir_hist', windObs.wind_direction), longN);
+    wdShort = autosimTail(autosimVizField(windObs, 'wind_dir_hist', windObs.wind_direction), shortN);
+
+    rollLong = autosimTail(autosimVizField(droneObs, 'roll_hist', droneObs.roll), longN);
+    pitchLong = autosimTail(autosimVizField(droneObs, 'pitch_hist', droneObs.pitch), longN);
+    vzLong = autosimTail(autosimVizField(droneObs, 'vz_hist', droneObs.velocity(3)), longN);
+
+    errLong = autosimTail(autosimVizField(tagObs, 'err_hist', nan), longN);
+    detLong = autosimTail(autosimVizField(tagObs, 'detected_hist', double(tagObs.detected)), longN);
+
+    wsLong = wsLong(:);
+    wsShort = wsShort(:);
+    wdLong = wdLong(:);
+    wdShort = wdShort(:);
+    attLong = max(abs(rollLong(:)), abs(pitchLong(:)));
+    vzLong = vzLong(:);
+    errLong = errLong(:);
+    detLong = detLong(:);
+
+    windPersistenceStrong = autosimNanMean(double(wsLong >= cfg.ontology.wind_caution_speed));
+    windPersistenceUnsafe = autosimNanMean(double(wsLong >= cfg.ontology.wind_unsafe_speed));
+    windPersistence = autosimClamp( ...
+        0.65 * autosimNormalize01(windPersistenceStrong, cfg.ontology.wind_persistent_warn_ratio, cfg.ontology.wind_persistent_high_ratio) + ...
+        0.35 * autosimClampNaN(windPersistenceUnsafe, 0.0), 0.0, 1.0);
+    windVariability = autosimNormalize01(autosimNanStd(wsLong), cfg.ontology.wind_variability_warn, cfg.ontology.wind_variability_high);
+    windDirectionSpread = autosimNormalize01(autosimCircularSpreadDeg(wdLong), cfg.ontology.wind_direction_spread_warn_deg, cfg.ontology.wind_direction_spread_high_deg);
+    windDirectionShiftDeg = abs(autosimWrapTo180(autosimCircularMeanDeg(wdShort) - autosimCircularMeanDeg(wdLong)));
+    windDirectionShift = autosimNormalize01(windDirectionShiftDeg, cfg.ontology.wind_direction_shift_warn_deg, cfg.ontology.wind_direction_shift_high_deg);
+    speedNorm = autosimNormalize01(autosimNanMean(wsShort), 0.0, cfg.wind.speed_max);
+
+    attMeanDeg = rad2deg(autosimNanMean(attLong));
+    attStdDeg = rad2deg(autosimNanStd(attLong));
+    controlLoad = autosimClamp( ...
+        0.42 * autosimNormalize01(attMeanDeg, cfg.ontology.control_attitude_warn_deg, cfg.ontology.control_attitude_high_deg) + ...
+        0.28 * autosimNormalize01(attStdDeg, cfg.ontology.control_attitude_osc_warn_deg, cfg.ontology.control_attitude_osc_high_deg) + ...
+        0.30 * autosimNormalize01(autosimNanStd(vzLong), cfg.ontology.control_vz_osc_warn, cfg.ontology.control_vz_osc_high), 0.0, 1.0);
+
+    visualDropout = autosimClamp(1.0 - autosimClampNaN(autosimNanMean(detLong), double(tagObs.detected)), 0.0, 1.0);
+    visualDropout = autosimNormalize01(visualDropout, cfg.ontology.visual_dropout_warn_ratio, cfg.ontology.visual_dropout_high_ratio);
+    tagErrorVolatility = autosimNormalize01(autosimNanStd(errLong), cfg.ontology.tag_error_vol_warn, cfg.ontology.tag_error_vol_high);
+    errSlope = autosimTemporalSlope(errLong, dt);
+    alignmentDrift = autosimNormalize01(max(errSlope, 0.0), cfg.ontology.tag_error_drift_warn, cfg.ontology.tag_error_drift_high);
+
+    temporal = struct();
+    temporal.wind_persistence = autosimClampNaN(windPersistence, 0.0);
+    temporal.wind_variability = autosimClampNaN(windVariability, 0.0);
+    temporal.wind_direction_spread = autosimClampNaN(windDirectionSpread, 0.0);
+    temporal.wind_direction_shift = autosimClampNaN(windDirectionShift, 0.0);
+    temporal.control_load = autosimClampNaN(controlLoad, 0.0);
+    temporal.visual_dropout = autosimClampNaN(visualDropout, 0.0);
+    temporal.tag_error_volatility = autosimClampNaN(tagErrorVolatility, 0.0);
+    temporal.alignment_drift = autosimClampNaN(alignmentDrift, 0.0);
+    temporal.wind_pattern = autosimDescribeWindPattern(speedNorm, temporal.wind_persistence, autosimClampNaN(gustIntensity, 0.0), temporal.wind_variability, temporal.wind_direction_shift);
+    temporal.control_difficulty = autosimDescribeControlDifficulty(temporal.control_load);
+    temporal.visual_pattern = autosimDescribeVisualPattern(temporal.visual_dropout, temporal.tag_error_volatility, autosimClampNaN(tagObs.stability_score, 0.0));
+    temporal.alignment_trend = autosimDescribeAlignmentTrend(errSlope, temporal.tag_error_volatility, autosimClampNaN(tagObs.detection_continuity, 0.0));
+end
+
+
+function label = autosimDescribeWindPattern(speedNorm, persistence, gustIntensity, variability, directionShift)
+    if gustIntensity >= 0.62 && directionShift >= 0.35
+        label = "gust_front";
+    elseif persistence >= 0.65 && speedNorm >= 0.45
+        label = "persistent_strong";
+    elseif variability >= 0.55 || directionShift >= 0.60
+        label = "turbulent_shift";
+    elseif speedNorm <= 0.25 && persistence <= 0.20
+        label = "steady_calm";
+    else
+        label = "steady_flow";
+    end
+end
+
+
+function label = autosimDescribeControlDifficulty(controlLoad)
+    if controlLoad >= 0.68
+        label = "hard_to_hold";
+    elseif controlLoad >= 0.38
+        label = "corrective_hold";
+    else
+        label = "easy_to_hold";
+    end
+end
+
+
+function label = autosimDescribeVisualPattern(dropout, errVolatility, stabilityScore)
+    if dropout >= 0.60
+        label = "intermittent_lock";
+    elseif errVolatility >= 0.50 || stabilityScore < 0.55
+        label = "drifting_lock";
+    else
+        label = "locked_on";
+    end
+end
+
+
+function label = autosimDescribeAlignmentTrend(errSlope, errVolatility, detCont)
+    if isfinite(errSlope) && errSlope <= -0.020 && detCont >= 0.55
+        label = "converging";
+    elseif errSlope >= 0.020 || errVolatility >= 0.55
+        label = "diverging";
+    else
+        label = "steady_offset";
+    end
 end
 
 
