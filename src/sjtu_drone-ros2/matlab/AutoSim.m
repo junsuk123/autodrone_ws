@@ -204,7 +204,7 @@ function cfg = autosimDefaultConfig()
     cfg.launch.ready_timeout_sec = 15.0;
 
     cfg.scenario = struct();
-    cfg.scenario.count = 100;
+    cfg.scenario.count = 500;
     cfg.scenario.duration_sec = inf;
     cfg.scenario.sample_period_sec = 0.2;
     cfg.scenario.post_land_observe_sec = 3.0;
@@ -283,6 +283,10 @@ function cfg = autosimDefaultConfig()
     cfg.agent.prob_land_threshold = 0.50;
     cfg.agent.model_uncertain_margin = 0.12;
     cfg.agent.model_uncertain_fallback_enable = true;
+    cfg.agent.model_semantic_fusion_weight = 0.65;
+    cfg.agent.semantic_assist_enable = true;
+    cfg.agent.semantic_assist_land_min = 0.78;
+    cfg.agent.semantic_assist_abort_max = 0.28;
     cfg.agent.min_samples_before_decision = 8;
     cfg.agent.min_hover_eval_sec = 3.0;
     cfg.agent.min_altitude_before_land = 0.10;
@@ -396,6 +400,7 @@ function cfg = autosimDefaultConfig()
         "mean_imu_ang_vel", "max_imu_ang_vel", "mean_imu_lin_acc", "max_imu_lin_acc", ...
         "wind_risk_enc", "alignment_enc", "visual_enc", "context_enc" ...
     ];
+    cfg.model.prior_uniform_blend = 0.55;
 
     cfg.ontology = struct();
     cfg.ontology.landing_area_size = [3.0, 3.0];
@@ -1445,6 +1450,8 @@ function [res, traceTbl] = autosimRunScenario(cfg, scenarioCfg, scenarioId, mode
         requestedSemanticOnlyMode = isfield(cfg.agent, 'semantic_only_mode') && cfg.agent.semantic_only_mode;
         modelGateEnabled = cfg.agent.enable_model_decision && hasTrainedModel;
         semanticOnlyMode = requestedSemanticOnlyMode && ~modelGateEnabled;
+        semanticStableProb = autosimClampNaN(semantic.landing_feasibility, 0.0);
+        decisionStableProb = semanticStableProb;
         if modelGateEnabled
             [predLabel, predScore] = autosimPredictModel(model, feat, featureSchema);
             if predLabel == "stable"
@@ -1452,6 +1459,22 @@ function [res, traceTbl] = autosimRunScenario(cfg, scenarioCfg, scenarioId, mode
             else
                 predStableProb(k) = 1.0 - predScore;
             end
+
+            fusionWeight = autosimClampNaN(cfg.agent.model_semantic_fusion_weight, 0.65);
+            fusionWeight = autosimClamp(fusionWeight, 0.0, 1.0);
+            decisionStableProb = fusionWeight * predStableProb(k) + (1.0 - fusionWeight) * semanticStableProb;
+
+            semanticAssistEnable = isfield(cfg.agent, 'semantic_assist_enable') && cfg.agent.semantic_assist_enable;
+            semanticAssistLandMin = autosimClampNaN(cfg.agent.semantic_assist_land_min, 0.78);
+            semanticAssistAbortMax = autosimClampNaN(cfg.agent.semantic_assist_abort_max, 0.28);
+            if semanticAssistEnable
+                if logical(semantic.isSafeForLanding) && (semanticStableProb >= semanticAssistLandMin)
+                    decisionStableProb = max(decisionStableProb, semanticStableProb);
+                elseif (~logical(semantic.isSafeForLanding)) && (semanticStableProb <= semanticAssistAbortMax)
+                    decisionStableProb = min(decisionStableProb, semanticStableProb);
+                end
+            end
+            decisionStableProb = autosimClamp(decisionStableProb, 0.0, 1.0);
         else
             predStableProb(k) = autosimClampNaN(semantic.landing_feasibility, 0.0);
             if predStableProb(k) >= autosimClampNaN(cfg.agent.semantic_land_threshold, 0.70)
@@ -1460,6 +1483,7 @@ function [res, traceTbl] = autosimRunScenario(cfg, scenarioCfg, scenarioId, mode
                 predLabel = "unstable";
             end
             predScore = predStableProb(k);
+            decisionStableProb = predStableProb(k);
         end
 
         probeBoost = 0.0;
@@ -1475,11 +1499,11 @@ function [res, traceTbl] = autosimRunScenario(cfg, scenarioCfg, scenarioId, mode
         end
         adaptiveProbAbortThreshold = autosimClamp(adaptiveProbLandThreshold - modelUncertainMargin, 0.01, 0.95);
 
-        modelSaysStable = hasTrainedModel && modelGateEnabled && isfinite(predStableProb(k)) && ...
-            (predStableProb(k) >= adaptiveProbLandThreshold);
-        modelSaysUnstable = hasTrainedModel && modelGateEnabled && isfinite(predStableProb(k)) && ...
-            (predStableProb(k) <= adaptiveProbAbortThreshold);
-        modelIsUncertain = hasTrainedModel && modelGateEnabled && isfinite(predStableProb(k)) && ...
+        modelSaysStable = hasTrainedModel && modelGateEnabled && isfinite(decisionStableProb) && ...
+            (decisionStableProb >= adaptiveProbLandThreshold);
+        modelSaysUnstable = hasTrainedModel && modelGateEnabled && isfinite(decisionStableProb) && ...
+            (decisionStableProb <= adaptiveProbAbortThreshold);
+        modelIsUncertain = hasTrainedModel && modelGateEnabled && isfinite(decisionStableProb) && ...
             (~modelSaysStable) && (~modelSaysUnstable);
 
         if ~landingSent && cfg.agent.block_landing_if_unstable && modelSaysUnstable
@@ -1626,7 +1650,7 @@ function [res, traceTbl] = autosimRunScenario(cfg, scenarioCfg, scenarioId, mode
         vizState.tSec = tk;
         vizState.phase = string(controlPhase);
         vizState.inferTxt = string(inferTxt);
-        vizState.predStableProb = predStableProb(k);
+        vizState.predStableProb = decisionStableProb;
         vizState.predLabel = string(predLabel);
         vizState.decisionTxt = string(decisionTxt(k));
         vizState.landingFeasibility = semantic.landing_feasibility;
@@ -2355,7 +2379,7 @@ function [model, info] = autosimIncrementalTrainAndSave(cfg, results, modelPrev,
         end
     end
 
-    model = autosimTrainGaussianNB(X, y, cfg.model.feature_names);
+    model = autosimTrainGaussianNB(X, y, cfg.model.feature_names, cfg.model.prior_uniform_blend);
     model.schema_version = string(cfg.model.schema_version);
     model.n_train = nTrain;
     model.n_stable = nStable;
@@ -2543,11 +2567,15 @@ function [predLabel, predScore] = autosimPredictModel(model, featStruct, feature
 end
 
 
-function model = autosimTrainGaussianNB(X, y, featureNames)
+function model = autosimTrainGaussianNB(X, y, featureNames, priorUniformBlend)
     X = autosimSanitize(X);
     cls = unique(y);
     nClass = numel(cls);
     nFeat = size(X, 2);
+
+    if nargin < 4
+        priorUniformBlend = 0.55;
+    end
 
     mu = zeros(nClass, nFeat);
     sigma2 = ones(nClass, nFeat);
@@ -2561,6 +2589,10 @@ function model = autosimTrainGaussianNB(X, y, featureNames)
         sigma2(i,:) = var(Xi, 0, 1);
         sigma2(i, sigma2(i,:) < 1e-6) = 1e-6;
     end
+
+    priorUniformBlend = autosimClamp(priorUniformBlend, 0.0, 1.0);
+    prior = (1.0 - priorUniformBlend) * prior + priorUniformBlend * (ones(nClass, 1) / max(nClass, 1));
+    prior = prior / max(sum(prior), eps);
 
     model = struct();
     model.kind = "gaussian_nb";
@@ -2878,9 +2910,9 @@ function viz = autosimInitScenarioRealtimePlot(cfg, scenarioId, scenarioCfg)
     yline(axTrend, cfg.agent.semantic_land_threshold, ':', 'Color', [0.85 0.33 0.10]);
     ylim(axTrend, [0 1]);
     xlabel(axTrend, 't [s]');
-    ylabel(axTrend, 'score');
-    title(axTrend, 'Decision Trend', 'Interpreter', 'none');
-    legend(axTrend, {'p stable','feasibility','context'}, 'Location', 'best', 'FontSize', 8);
+    ylabel(axTrend, 'readiness');
+    title(axTrend, 'Landing Readiness Trend', 'Interpreter', 'none');
+    legend(axTrend, {'decision confidence','safe-to-land score','context safety'}, 'Location', 'best', 'FontSize', 8);
     grid(axTrend, 'on');
 
     axFlow = nexttile(tl, 4);
@@ -2888,8 +2920,8 @@ function viz = autosimInitScenarioRealtimePlot(cfg, scenarioId, scenarioCfg)
     axis(axFlow, [0 1 0 1]);
     axis(axFlow, 'off');
     set(axFlow, 'XLim', [0 1], 'YLim', [0 1], 'XLimMode', 'manual', 'YLimMode', 'manual');
-    title(axFlow, sprintf('Scenario %03d Ontology Flow (hover=%.2fm, cmd wind=%.2f@%.1fdeg)', ...
-        scenarioId, scenarioCfg.hover_height_m, scenarioCfg.wind_speed, scenarioCfg.wind_dir), 'FontSize', 10, 'Interpreter', 'none');
+    flowTitle = title(axFlow, sprintf('Scenario %03d Ontology Flow (hover=%.2fm)', ...
+        scenarioId, scenarioCfg.hover_height_m), 'FontSize', 10, 'Interpreter', 'none');
 
     text(axFlow, 0.13, 0.965, 'Sensors', 'HorizontalAlignment', 'center', 'FontWeight', 'bold', 'FontSize', 9, 'Color', [0.18 0.36 0.64], 'Interpreter', 'none');
     text(axFlow, 0.47, 0.965, 'Meaning', 'HorizontalAlignment', 'center', 'FontWeight', 'bold', 'FontSize', 9, 'Color', [0.20 0.55 0.30], 'Interpreter', 'none');
@@ -2969,6 +3001,9 @@ function viz = autosimInitScenarioRealtimePlot(cfg, scenarioId, scenarioCfg)
     viz.trendFeas = trendFeas;
     viz.trendCtx = trendCtx;
     viz.axFlow = axFlow;
+    viz.flowTitle = flowTitle;
+    viz.scenarioId = scenarioId;
+    viz.hoverHeightM = scenarioCfg.hover_height_m;
     viz.summaryBox = summaryBox;
     viz.summaryText = summaryText;
     viz.sensorRects = sensorRects;
@@ -3009,6 +3044,18 @@ function autosimUpdateScenarioRealtimePlot(viz, state)
         end
         if isfield(state, 'semVec') && ~isempty(state.semVec)
             semVec = double(state.semVec(:)).';
+        end
+
+        if isfield(viz, 'flowTitle') && isgraphics(viz.flowTitle)
+            windSpeedNow = autosimVizField(sensors, 'windSpeed', nan);
+            windDirNow = autosimVizField(sensors, 'windDirDeg', nan);
+            if isfinite(windSpeedNow) && isfinite(windDirNow)
+                set(viz.flowTitle, 'String', sprintf('Scenario %03d Ontology Flow (hover=%.2fm, wind=%.2f@%.1fdeg)', ...
+                    autosimVizField(viz, 'scenarioId', 0), autosimVizField(viz, 'hoverHeightM', nan), windSpeedNow, windDirNow));
+            else
+                set(viz.flowTitle, 'String', sprintf('Scenario %03d Ontology Flow (hover=%.2fm)', ...
+                    autosimVizField(viz, 'scenarioId', 0), autosimVizField(viz, 'hoverHeightM', nan)));
+            end
         end
 
         sensorVals = [ ...
