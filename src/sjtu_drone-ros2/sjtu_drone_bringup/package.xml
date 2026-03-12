@@ -11,8 +11,6 @@
   <depend>xacro</depend>
   <depend>rviz2</depend>
   <depend>xterm</depend>
-  <depend>imu_tools</depend>
-  <depend>teleop_twist_keyboard</depend>
   <depend>robot_state_publisher</depend>
   <depend>joint_state_publisher</depend>
   <depend>std_msgs</depend>

@@ -3,3 +3,7 @@ bin/
 __pycache__/
 matlab/data/**
 matlab/logs/**
+matlab/models/autosim_model*.mat
+matlab/models/autosim_model_final*.mat
+matlab/plots/autosim_*.png
+matlab/plots/*/autosim_*.png

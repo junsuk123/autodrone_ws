@@ -173,26 +173,15 @@ function cfg = autosimDefaultConfig()
     cfg.paths.plot_dir = fullfile(cfg.paths.plot_root, cfg.paths.run_id);
     cfg.paths.log_dir = fullfile(cfg.paths.log_root, cfg.paths.run_id);
     cfg.paths.lock_file = fullfile(cfg.paths.data_root, 'autosim.lock');
-    cfg.paths.bringup_py_src = '/home/j/INCSL/IICC26_ws/src/sjtu_drone-ros2/sjtu_drone_bringup';
-    cfg.paths.bringup_py_install = '/home/j/INCSL/IICC26_ws/install/sjtu_drone_bringup/lib/python3.10/site-packages';
-    cfg.paths.control_py_src = '/home/j/INCSL/IICC26_ws/src/sjtu_drone-ros2/sjtu_drone_control';
-    cfg.paths.control_py_install = '/home/j/INCSL/IICC26_ws/install/sjtu_drone_control/lib/python3.10/site-packages';
-
-    pyPathChain = [ ...
-        'export PYTHONPATH=' cfg.paths.control_py_install ':' cfg.paths.control_py_src ':' ...
-        cfg.paths.bringup_py_install ':' cfg.paths.bringup_py_src ':$PYTHONPATH' ...
-    ];
-
     cfg.launch = struct();
     cfg.launch.command_template = [ ...
         ros2env ' && source ~/.bashrc && ' ...
         'source /opt/ros/humble/setup.bash && ' ...
         'source /home/j/INCSL/IICC26_ws/install/setup.bash && ' ...
-        pyPathChain ' && ' ...
         'ros2 launch sjtu_drone_bringup sjtu_drone_bringup.launch.py ' ...
         'takeoff_hover_height:=%0.2f ' ...
         'takeoff_vertical_speed:=0.2 ' ...
-        'use_gui:=false use_rviz:=true use_teleop:=false controller:=joystick ' ...
+        'use_gui:=false use_rviz:=false use_teleop:=false ' ...
         'use_apriltag:=true apriltag_camera:=/drone/bottom ' ...
         'apriltag_image:=image_raw apriltag_tags:=tags apriltag_type:=umich ' ...
         'apriltag_bridge_topic:=/landing_tag_state ' ...
@@ -204,9 +193,10 @@ function cfg = autosimDefaultConfig()
     cfg.launch.ready_timeout_sec = 15.0;
 
     cfg.scenario = struct();
-    cfg.scenario.count = 500;
+    cfg.scenario.count = 10;
     cfg.scenario.duration_sec = inf;
-    cfg.scenario.sample_period_sec = 0.2;
+    cfg.scenario.sample_period_sec = 0.1;
+    cfg.scenario.analysis_stop_at_landing = true;
     cfg.scenario.post_land_observe_sec = 3.0;
     cfg.scenario.early_stop_after_landing_sec = 1.5;
     cfg.scenario.hover_height_min_m = 1.5;
@@ -261,6 +251,8 @@ function cfg = autosimDefaultConfig()
     cfg.control.tag_predict_timeout_sec = 0.6;
     cfg.control.tag_history_len = 20;
     cfg.control.tag_min_predict_samples = 2;
+    cfg.control.tag_fast_loop_enable = true;
+    cfg.control.tag_fast_loop_period_sec = 0.02;
     cfg.control.pre_takeoff_require_tag_centered = false;
     cfg.control.pre_takeoff_tag_center_tolerance = 0.005;
     cfg.control.pre_takeoff_tag_center_hold_sec = 1.0;
@@ -483,6 +475,10 @@ function cfg = autosimDefaultConfig()
     cfg.ros = struct();
     cfg.ros.enable_imu_subscription = false;
     cfg.ros.enable_bumper_subscription = false;
+    cfg.ros.prioritize_tag_callback = true;
+    cfg.ros.receive_timeout_sec = 0.002;
+    cfg.ros.health_log_enable = true;
+    cfg.ros.health_log_period_sec = 1.0;
 
     cfg.shell = struct();
     cfg.shell.setup_cmd = [ ...
@@ -926,6 +922,12 @@ function [res, traceTbl] = autosimRunScenario(cfg, scenarioCfg, scenarioId, mode
     pubLand = rosCtx.pubLand;
     pubCmd = rosCtx.pubCmd;
 
+    tagCallbackEnabled = isfield(rosCtx, 'tag_callback_enabled') && rosCtx.tag_callback_enabled;
+    tagCacheKey = "";
+    if isfield(rosCtx, 'tag_cache_key')
+        tagCacheKey = string(rosCtx.tag_cache_key);
+    end
+
     msgWind = rosCtx.msgWind;
     msgTakeoff = rosCtx.msgTakeoff;
     msgLand = rosCtx.msgLand;
@@ -999,6 +1001,10 @@ function [res, traceTbl] = autosimRunScenario(cfg, scenarioCfg, scenarioId, mode
     hoverCenterHoldStartT = nan;
     preTakeoffCenterHoldStartT = nan;
     windArmed = false;
+    analysisActive = false;
+    analysisStartIdx = nan;
+    analysisStartT = nan;
+    analysisDataSeen = false;
 
     tagLockHoldStartT = nan;
     tagLockAcquired = false;
@@ -1016,19 +1022,33 @@ function [res, traceTbl] = autosimRunScenario(cfg, scenarioCfg, scenarioId, mode
     landedHoldStartT = nan;
     kLast = 0;
 
-    try
-        liveViz = autosimInitScenarioRealtimePlot(cfg, scenarioId, scenarioCfg);
-    catch ME
-        liveViz = struct();
-        warning('[AUTOSIM] Realtime ontology plot disabled: %s', ME.message);
-    end
+    liveViz = struct();
+    liveVizInitAttempted = false;
     hasTrainedModel = autosimIsModelReliable(model, cfg);
     stopRequested = false;
     stopReason = "";
 
     t0 = tic;
+    recvTimeoutSec = 0.01;
+    if isfield(cfg, 'ros') && isfield(cfg.ros, 'receive_timeout_sec') && isfinite(cfg.ros.receive_timeout_sec)
+        recvTimeoutSec = max(0.0, cfg.ros.receive_timeout_sec);
+    end
+    healthLogEnable = isfield(cfg, 'ros') && isfield(cfg.ros, 'health_log_enable') && cfg.ros.health_log_enable;
+    healthLogPeriodSec = 1.0;
+    if isfield(cfg, 'ros') && isfield(cfg.ros, 'health_log_period_sec') && isfinite(cfg.ros.health_log_period_sec)
+        healthLogPeriodSec = max(0.2, cfg.ros.health_log_period_sec);
+    end
+    lastHealthLogT = -inf;
+    lastPoseRxT = nan;
+    lastVelRxT = nan;
+    lastStateRxT = nan;
+    lastTagRxT = nan;
+    lastWindRxT = nan;
+    tagRxCount = 0;
+    windRxCount = 0;
     k = 0;
     while true
+        iterStartT = toc(t0);
         if autosimIsStopRequested()
             stopRequested = true;
             stopReason = autosimGetStopReason();
@@ -1090,8 +1110,9 @@ function [res, traceTbl] = autosimRunScenario(cfg, scenarioCfg, scenarioId, mode
             lastWindT = tk;
         end
 
-        poseMsg = autosimTryReceive(subPose, 0.01);
+        poseMsg = autosimTryReceive(subPose, recvTimeoutSec);
         if ~isempty(poseMsg)
+            lastPoseRxT = tk;
             xPos(k) = double(poseMsg.position.x);
             yPos(k) = double(poseMsg.position.y);
             z(k) = double(poseMsg.position.z);
@@ -1101,26 +1122,30 @@ function [res, traceTbl] = autosimRunScenario(cfg, scenarioCfg, scenarioId, mode
             pitchDeg(k) = abs(rad2deg(p));
         end
 
-        velMsg = autosimTryReceive(subVel, 0.01);
+        velMsg = autosimTryReceive(subVel, recvTimeoutSec);
         if ~isempty(velMsg)
+            lastVelRxT = tk;
             vx = double(velMsg.linear.x);
             vy = double(velMsg.linear.y);
             vz(k) = double(velMsg.linear.z);
             speedAbs(k) = sqrt(vx*vx + vy*vy + vz(k)*vz(k));
         end
 
-        stateMsg = autosimTryReceive(subState, 0.01);
+        stateMsg = autosimTryReceive(subState, recvTimeoutSec);
         if ~isempty(stateMsg)
+            lastStateRxT = tk;
             stateVal(k) = double(stateMsg.data);
         end
 
-        tagMsg = autosimTryReceive(subTag, 0.01);
-        tagDetected = false;
-        uTag = nan;
-        vTag = nan;
-        if ~isempty(tagMsg)
-            [tagDetected, uTag, vTag, te] = autosimParseTag(tagMsg);
+        [hasFreshTag, tagDetected, uTag, vTag, te, tagRxCountNow] = autosimReadTagInput(subTag, recvTimeoutSec, tagCallbackEnabled, tagCacheKey, tagRxCount);
+        if hasFreshTag
+            lastTagRxT = tk;
+            tagRxCount = tagRxCountNow;
             tagErr(k) = te;
+        else
+            tagDetected = false;
+            uTag = nan;
+            vTag = nan;
         end
 
         if tagDetected && isfinite(uTag) && isfinite(vTag)
@@ -1139,10 +1164,12 @@ function [res, traceTbl] = autosimRunScenario(cfg, scenarioCfg, scenarioId, mode
         [predOk, uPred, vPred] = autosimPredictTagCenter(tagHist, tagHistCount, uTag, vTag, tk, lastTagDetectT, ...
             cfg.control.tag_predict_horizon_sec, cfg.control.tag_predict_timeout_sec, cfg.scenario.sample_period_sec, cfg.control.tag_min_predict_samples);
 
-        windMsg = autosimTryReceive(subWind, 0.01);
+        windMsg = autosimTryReceive(subWind, recvTimeoutSec);
         windSpObs = nan;
         windDirObs = nan;
         if ~isempty(windMsg)
+            lastWindRxT = tk;
+            windRxCount = windRxCount + 1;
             [windSpObs, windDirObs] = autosimParseWindConditionMsg(windMsg);
             if isfinite(windSpObs)
                 windSpeed(k) = windSpObs;
@@ -1150,14 +1177,14 @@ function [res, traceTbl] = autosimRunScenario(cfg, scenarioCfg, scenarioId, mode
         end
 
         if ~isempty(subImu)
-            imuMsg = autosimTryReceive(subImu, 0.01);
+            imuMsg = autosimTryReceive(subImu, recvTimeoutSec);
             if ~isempty(imuMsg)
                 [imuAngVel(k), imuLinAcc(k)] = autosimParseImuMetrics(imuMsg);
             end
         end
 
         if ~isempty(subBumpers)
-            bumpMsg = autosimTryReceive(subBumpers, 0.01);
+            bumpMsg = autosimTryReceive(subBumpers, recvTimeoutSec);
             if ~isempty(bumpMsg)
                 [contact(k), contactForce(k), armForceFL(k), armForceFR(k), armForceRL(k), armForceRR(k)] = autosimParseContactForces(bumpMsg);
             end
@@ -1185,68 +1212,24 @@ function [res, traceTbl] = autosimRunScenario(cfg, scenarioCfg, scenarioId, mode
             windDirNow = 0.0;
         end
 
+        if healthLogEnable && ((tk - lastHealthLogT) >= healthLogPeriodSec)
+            tagAge = tk - lastTagRxT;
+            windAge = tk - lastWindRxT;
+            poseAge = tk - lastPoseRxT;
+            fprintf('[AUTOSIM] s%03d sensor_rx | loop=%.1fHz target=%.1fHz | pad=%s age=%.2fs err=%.3f det=%d rx=%d | wind=%s age=%.2fs sp=%.2f dir=%.1f rx=%d | pose_age=%.2fs\n', ...
+                scenarioId, autosimSafeDivide(1.0, max(tk - iterStartT, cfg.scenario.sample_period_sec)), autosimSafeDivide(1.0, cfg.scenario.sample_period_sec), ...
+                autosimStatusText(isfinite(lastTagRxT)), autosimClampNaN(tagAge, inf), autosimClampNaN(tagErr(k), nan), double(tagDetected), tagRxCount, ...
+                autosimStatusText(isfinite(lastWindRxT)), autosimClampNaN(windAge, inf), autosimClampNaN(windSpNow, nan), autosimClampNaN(windDirNow, nan), windRxCount, ...
+                autosimClampNaN(poseAge, inf));
+            lastHealthLogT = tk;
+        end
+
         rollNowRad = deg2rad(autosimNanLast(rollDeg(1:k)));
         pitchNowRad = deg2rad(autosimNanLast(pitchDeg(1:k)));
         xNow = autosimNanLast(xPos(1:k));
         yNow = autosimNanLast(yPos(1:k));
         vzNow = autosimNanLast(vz(1:k));
         zNow = autosimNanLast(z(1:k));
-
-        tagJitterPx = autosimComputeTagJitterPx(tagHist, tagHistCount, cfg.ontology.tag_min_samples);
-        tagStabilityScore = autosimComputeTagStabilityScore(tagJitterPx, cfg.ontology.tag_jitter_warn_px, cfg.ontology.tag_jitter_unsafe_px);
-        tagCentered = tagDetected && isfinite(uTag) && isfinite(vTag) && ...
-            (sqrt((uTag - cfg.control.target_u)^2 + (vTag - cfg.control.target_v)^2) <= cfg.agent.max_tag_error_before_land);
-
-        [windSpeedHist, windSpeedHistCount] = autosimPushScalarHist(windSpeedHist, windSpeedHistCount, windSpNow);
-        [windDirHist, windDirHistCount] = autosimPushScalarHist(windDirHist, windDirHistCount, windDirNow);
-        [tagDetHist, tagDetHistCount] = autosimPushScalarHist(tagDetHist, tagDetHistCount, double(tagDetected));
-
-        detWin = max(5, round(2.0 / cfg.scenario.sample_period_sec));
-        detCont = autosimNanMean(autosimTail(tagDetHist(1:tagDetHistCount), detWin));
-
-        temporalHistN = max(12, round(max([cfg.ontology.gust_base_window_sec, cfg.ontology.temporal_long_window_sec]) / cfg.scenario.sample_period_sec));
-        windObs = struct( ...
-            'wind_speed', windSpNow, ...
-            'wind_direction', windDirNow, ...
-            'wind_speed_hist', windSpeedHist(1:windSpeedHistCount), ...
-            'wind_dir_hist', windDirHist(1:windDirHistCount), ...
-            'dt', cfg.scenario.sample_period_sec);
-        droneObs = struct( ...
-            'position', [xNow; yNow; zNow], ...
-            'roll', rollNowRad, ...
-            'pitch', pitchNowRad, ...
-            'roll_hist', deg2rad(autosimTail(rollDeg(1:k), temporalHistN)), ...
-            'pitch_hist', deg2rad(autosimTail(pitchDeg(1:k), temporalHistN)), ...
-            'vz_hist', autosimTail(vz(1:k), temporalHistN), ...
-            'velocity', [0.0; 0.0; vzNow]);
-        tagObs = struct( ...
-            'detected', tagDetected, ...
-            'u_norm', uTag, ...
-            'v_norm', vTag, ...
-            'u_pred', uPred, ...
-            'v_pred', vPred, ...
-            'jitter_px', tagJitterPx, ...
-            'stability_score', tagStabilityScore, ...
-            'detection_continuity', detCont, ...
-            'err_hist', autosimTail(tagErr(1:k), temporalHistN), ...
-            'detected_hist', autosimTail(tagDetHist(1:tagDetHistCount), temporalHistN), ...
-            'centered', tagCentered);
-
-        ontoState = autosimBuildOntologyState(windObs, droneObs, tagObs, cfg);
-        semantic = autosimOntologyReasoning(ontoState, cfg);
-        semVec = autosimBuildSemanticFeatures(windObs, droneObs, tagObs, semantic, cfg);
-
-        semanticWindRisk(k) = string(semantic.wind_risk);
-        semanticEnvironment(k) = string(semantic.environment_state);
-        semanticDroneState(k) = string(semantic.drone_state);
-        semanticAlign(k) = string(semantic.alignment_state);
-        semanticVisual(k) = string(semantic.visual_state);
-        semanticContext(k) = string(semantic.landing_context);
-        semanticRelation(k) = string(semantic.semantic_relation);
-        semanticIntegration(k) = string(semantic.semantic_integration);
-        semanticSafe(k) = logical(semantic.isSafeForLanding);
-        landingFeasibility(k) = semantic.landing_feasibility;
-        semFeat(k, :) = semVec;
 
         isFlying = false;
         if isfinite(stateVal(k))
@@ -1305,7 +1288,7 @@ function [res, traceTbl] = autosimRunScenario(cfg, scenarioCfg, scenarioId, mode
                     if isFlying
                         controlPhase = "hover_settle";
                         phaseEnterT = tk;
-                        hoverStartT = tk;
+                        hoverStartT = nan;
                         decisionEvalStartT = nan;
                         hoverCenterHoldStartT = nan;
                         pidX = autosimPidInit();
@@ -1320,7 +1303,30 @@ function [res, traceTbl] = autosimRunScenario(cfg, scenarioCfg, scenarioId, mode
                     elseif (tk - phaseEnterT) >= cfg.control.hover_settle_sec
                         controlPhase = "xy_hold";
                         phaseEnterT = tk;
+                        hoverStartT = tk;
                         decisionEvalStartT = tk;
+                        hoverCenterHoldStartT = nan;
+                        analysisActive = true;
+                        analysisStartIdx = k + 1;
+                        analysisStartT = tk;
+                        tagHist = nan(cfg.control.tag_history_len, 2);
+                        tagHistCount = 0;
+                        windSpeedHist = nan(histN, 1);
+                        windSpeedHistCount = 0;
+                        windDirHist = nan(histN, 1);
+                        windDirHistCount = 0;
+                        tagDetHist = nan(histN, 1);
+                        tagDetHistCount = 0;
+                        tagLockHoldStartT = nan;
+                        tagLockAcquired = false;
+                        randomLandingPlanned = false;
+                        randomLandingStartT = nan;
+                        randomLandingEndT = nan;
+                        randomBiasX = 0.0;
+                        randomBiasY = 0.0;
+                        lastDecisionT = -inf;
+                        pause(max(0.0, cfg.scenario.sample_period_sec - (toc(t0) - iterStartT)));
+                        continue;
                     end
 
                 case 'xy_hold'
@@ -1334,346 +1340,373 @@ function [res, traceTbl] = autosimRunScenario(cfg, scenarioCfg, scenarioId, mode
                         pidY = autosimPidInit();
                         tagLostSearchStartT = nan;
                     else
-                        usePred = predOk && isfinite(uPred) && isfinite(vPred);
-                        useNow = tagDetected && isfinite(uTag) && isfinite(vTag);
-
-                        if usePred
-                            uCtrl = uPred;
-                            vCtrl = vPred;
-                        elseif useNow
-                            uCtrl = uTag;
-                            vCtrl = vTag;
-                        else
-                            uCtrl = nan;
-                            vCtrl = nan;
-                        end
-
-                        if isfinite(uCtrl) && isfinite(vCtrl)
-                            tagLostSearchStartT = nan;
-                            errU = cfg.control.target_u - uCtrl;
-                            errV = cfg.control.target_v - vCtrl;
-
-                            [ux, pidX] = autosimPidStep(errV, dtCtrl, pidX, cfg.control.xy_kp, cfg.control.xy_ki, cfg.control.xy_kd, cfg.control.xy_i_limit, cfg.control.xy_cmd_limit);
-                            [uy, pidY] = autosimPidStep(errU, dtCtrl, pidY, cfg.control.xy_kp, cfg.control.xy_ki, cfg.control.xy_kd, cfg.control.xy_i_limit, cfg.control.xy_cmd_limit);
-
-                            cmdX = cfg.control.xy_map_sign_x_from_v * ux;
-                            cmdY = cfg.control.xy_map_sign_y_from_u * uy;
-
-                            if sqrt(errU*errU + errV*errV) <= cfg.control.tag_center_deadband
-                                cmdX = 0.0;
-                                cmdY = 0.0;
-                            end
-                        else
-                            pidX = autosimPidInit();
-                            pidY = autosimPidInit();
-
-                            if cfg.control.pose_hold_enable && isfinite(xNow) && isfinite(yNow)
-                                errX = -xNow;
-                                errY = -yNow;
-                                cmdX = autosimClamp(cfg.control.pose_hold_kp * errX, -abs(cfg.control.pose_hold_cmd_limit), abs(cfg.control.pose_hold_cmd_limit));
-                                cmdY = autosimClamp(cfg.control.pose_hold_kp * errY, -abs(cfg.control.pose_hold_cmd_limit), abs(cfg.control.pose_hold_cmd_limit));
-                            elseif cfg.control.search_enable_spiral
-                                if ~isfinite(tagLostSearchStartT)
-                                    tagLostSearchStartT = tk;
-                                end
-
-                                tSearch = max(0.0, tk - tagLostSearchStartT);
-                                rSearch = cfg.control.search_spiral_start_radius + cfg.control.search_spiral_growth_per_sec * tSearch;
-                                rSearch = min(rSearch, cfg.control.search_spiral_cmd_max);
-                                th = cfg.control.search_spiral_omega_rad_sec * tSearch;
-                                cmdX = autosimClamp(rSearch * cos(th), -abs(cfg.control.search_spiral_cmd_max), abs(cfg.control.search_spiral_cmd_max));
-                                cmdY = autosimClamp(rSearch * sin(th), -abs(cfg.control.search_spiral_cmd_max), abs(cfg.control.search_spiral_cmd_max));
-                            end
-                        end
+                        [cmdX, cmdY, pidX, pidY, tagLostSearchStartT] = autosimComputeTagTrackingCommand( ...
+                            cfg, tk, dtCtrl, xNow, yNow, predOk, uPred, vPred, tagDetected, uTag, vTag, pidX, pidY, tagLostSearchStartT);
                     end
             end
         end
 
-        if cfg.learning.enable && isFlying && (controlPhase == "xy_hold")
-            if tagLockReadyNow
-                if ~isfinite(tagLockHoldStartT)
-                    tagLockHoldStartT = tk;
+        if analysisActive
+            activeIdx = max(1, analysisStartIdx):k;
+            activeSampleN = numel(activeIdx);
+            rollEvalNowRad = deg2rad(autosimNanLast(rollDeg(activeIdx)));
+            pitchEvalNowRad = deg2rad(autosimNanLast(pitchDeg(activeIdx)));
+            xEvalNow = autosimNanLast(xPos(activeIdx));
+            yEvalNow = autosimNanLast(yPos(activeIdx));
+            vzEvalNow = autosimNanLast(vz(activeIdx));
+            zEvalNow = autosimNanLast(z(activeIdx));
+
+            tagJitterPx = autosimComputeTagJitterPx(tagHist, tagHistCount, cfg.ontology.tag_min_samples);
+            tagStabilityScore = autosimComputeTagStabilityScore(tagJitterPx, cfg.ontology.tag_jitter_warn_px, cfg.ontology.tag_jitter_unsafe_px);
+            tagCentered = tagDetected && isfinite(uTag) && isfinite(vTag) && ...
+                (sqrt((uTag - cfg.control.target_u)^2 + (vTag - cfg.control.target_v)^2) <= cfg.agent.max_tag_error_before_land);
+
+            [windSpeedHist, windSpeedHistCount] = autosimPushScalarHist(windSpeedHist, windSpeedHistCount, windSpNow);
+            [windDirHist, windDirHistCount] = autosimPushScalarHist(windDirHist, windDirHistCount, windDirNow);
+            [tagDetHist, tagDetHistCount] = autosimPushScalarHist(tagDetHist, tagDetHistCount, double(tagDetected));
+
+            detWin = max(5, round(2.0 / cfg.scenario.sample_period_sec));
+            detCont = autosimNanMean(autosimTail(tagDetHist(1:tagDetHistCount), detWin));
+
+            temporalHistN = max(12, round(max([cfg.ontology.gust_base_window_sec, cfg.ontology.temporal_long_window_sec]) / cfg.scenario.sample_period_sec));
+            windObs = struct( ...
+                'wind_speed', windSpNow, ...
+                'wind_direction', windDirNow, ...
+                'wind_speed_hist', windSpeedHist(1:windSpeedHistCount), ...
+                'wind_dir_hist', windDirHist(1:windDirHistCount), ...
+                'dt', cfg.scenario.sample_period_sec);
+            droneObs = struct( ...
+                'position', [xEvalNow; yEvalNow; zEvalNow], ...
+                'roll', rollEvalNowRad, ...
+                'pitch', pitchEvalNowRad, ...
+                'roll_hist', deg2rad(autosimTail(rollDeg(activeIdx), temporalHistN)), ...
+                'pitch_hist', deg2rad(autosimTail(pitchDeg(activeIdx), temporalHistN)), ...
+                'vz_hist', autosimTail(vz(activeIdx), temporalHistN), ...
+                'velocity', [0.0; 0.0; vzEvalNow]);
+            tagObs = struct( ...
+                'detected', tagDetected, ...
+                'u_norm', uTag, ...
+                'v_norm', vTag, ...
+                'u_pred', uPred, ...
+                'v_pred', vPred, ...
+                'jitter_px', tagJitterPx, ...
+                'stability_score', tagStabilityScore, ...
+                'detection_continuity', detCont, ...
+                'err_hist', autosimTail(tagErr(activeIdx), temporalHistN), ...
+                'detected_hist', autosimTail(tagDetHist(1:tagDetHistCount), temporalHistN), ...
+                'centered', tagCentered);
+
+            ontoState = autosimBuildOntologyState(windObs, droneObs, tagObs, cfg);
+            semantic = autosimOntologyReasoning(ontoState, cfg);
+            semVec = autosimBuildSemanticFeatures(windObs, droneObs, tagObs, semantic, cfg);
+
+            semanticWindRisk(k) = string(semantic.wind_risk);
+            semanticEnvironment(k) = string(semantic.environment_state);
+            semanticDroneState(k) = string(semantic.drone_state);
+            semanticAlign(k) = string(semantic.alignment_state);
+            semanticVisual(k) = string(semantic.visual_state);
+            semanticContext(k) = string(semantic.landing_context);
+            semanticRelation(k) = string(semantic.semantic_relation);
+            semanticIntegration(k) = string(semantic.semantic_integration);
+            semanticSafe(k) = logical(semantic.isSafeForLanding);
+            landingFeasibility(k) = semantic.landing_feasibility;
+            semFeat(k, :) = semVec;
+            analysisDataSeen = true;
+
+            if cfg.learning.enable && isFlying && (controlPhase == "xy_hold")
+                if tagLockReadyNow
+                    if ~isfinite(tagLockHoldStartT)
+                        tagLockHoldStartT = tk;
+                    end
+                else
+                    tagLockHoldStartT = nan;
                 end
-            else
-                tagLockHoldStartT = nan;
-            end
 
-            if ~tagLockAcquired && isfinite(tagLockHoldStartT) && ((tk - tagLockHoldStartT) >= cfg.learning.tag_lock_hold_sec)
-                tagLockAcquired = true;
-                randomLandingPlanned = true;
-                randomLandingStartT = tk + autosimRandRange(cfg.learning.random_landing_wait_min_sec, cfg.learning.random_landing_wait_max_sec);
-                randomLandingEndT = randomLandingStartT + autosimRandRange(cfg.learning.random_cmd_duration_min_sec, cfg.learning.random_cmd_duration_max_sec);
-                randomBiasX = autosimRandRange(-cfg.learning.random_xy_cmd_max, cfg.learning.random_xy_cmd_max);
-                randomBiasY = autosimRandRange(-cfg.learning.random_xy_cmd_max, cfg.learning.random_xy_cmd_max);
-            end
+                if ~tagLockAcquired && isfinite(tagLockHoldStartT) && ((tk - tagLockHoldStartT) >= cfg.learning.tag_lock_hold_sec)
+                    tagLockAcquired = true;
+                    randomLandingPlanned = true;
+                    randomLandingStartT = tk + autosimRandRange(cfg.learning.random_landing_wait_min_sec, cfg.learning.random_landing_wait_max_sec);
+                    randomLandingEndT = randomLandingStartT + autosimRandRange(cfg.learning.random_cmd_duration_min_sec, cfg.learning.random_cmd_duration_max_sec);
+                    randomBiasX = autosimRandRange(-cfg.learning.random_xy_cmd_max, cfg.learning.random_xy_cmd_max);
+                    randomBiasY = autosimRandRange(-cfg.learning.random_xy_cmd_max, cfg.learning.random_xy_cmd_max);
+                end
 
-            if randomLandingPlanned && ~landingSent
-                if tk >= randomLandingStartT && tk < randomLandingEndT
-                    cmdX = autosimClamp(cmdX + randomBiasX, -abs(cfg.control.xy_cmd_limit), abs(cfg.control.xy_cmd_limit));
-                    cmdY = autosimClamp(cmdY + randomBiasY, -abs(cfg.control.xy_cmd_limit), abs(cfg.control.xy_cmd_limit));
-                elseif tk >= randomLandingEndT
+                if randomLandingPlanned && ~landingSent
+                    if tk >= randomLandingStartT && tk < randomLandingEndT
+                        cmdX = autosimClamp(cmdX + randomBiasX, -abs(cfg.control.xy_cmd_limit), abs(cfg.control.xy_cmd_limit));
+                        cmdY = autosimClamp(cmdY + randomBiasY, -abs(cfg.control.xy_cmd_limit), abs(cfg.control.xy_cmd_limit));
+                    elseif tk >= randomLandingEndT
+                    end
                 end
             end
-        end
 
-        hoverDelayOk = isfinite(hoverStartT) && ((tk - hoverStartT) >= cfg.wind.start_delay_after_hover_sec);
-        if cfg.wind.start_require_tag_centered
-            centerForWind = (controlPhase == "xy_hold") && isFlying && tagLockReadyNow;
-            if centerForWind
-                if ~isfinite(hoverCenterHoldStartT)
-                    hoverCenterHoldStartT = tk;
+            hoverDelayOk = isfinite(hoverStartT) && ((tk - hoverStartT) >= cfg.wind.start_delay_after_hover_sec);
+            if cfg.wind.start_require_tag_centered
+                centerForWind = (controlPhase == "xy_hold") && isFlying && tagLockReadyNow;
+                if centerForWind
+                    if ~isfinite(hoverCenterHoldStartT)
+                        hoverCenterHoldStartT = tk;
+                    end
+                else
+                    hoverCenterHoldStartT = nan;
                 end
+                hoverCenterReady = isfinite(hoverCenterHoldStartT) && ((tk - hoverCenterHoldStartT) >= cfg.wind.start_tag_center_hold_sec);
             else
-                hoverCenterHoldStartT = nan;
-            end
-            hoverCenterReady = isfinite(hoverCenterHoldStartT) && ((tk - hoverCenterHoldStartT) >= cfg.wind.start_tag_center_hold_sec);
-        else
-            hoverCenterReady = true;
-        end
-
-        forceWindByTimeout = isfinite(hoverStartT) && ((tk - hoverStartT) >= cfg.wind.start_force_after_hover_sec);
-
-        if ~windArmed && cfg.wind.enable && hoverDelayOk && (hoverCenterReady || forceWindByTimeout)
-            windArmed = true;
-            if forceWindByTimeout && ~hoverCenterReady
-                fprintf('[AUTOSIM] s%03d wind armed by timeout at t=%.1fs (center-hold unmet)\n', scenarioId, tk);
-            end
-        end
-
-        feat = autosimBuildOnlineFeatureVector(z(1:k), vz(1:k), speedAbs(1:k), rollDeg(1:k), pitchDeg(1:k), ...
-            tagErr(1:k), windSpeed(1:k), contact(1:k), imuAngVel(1:k), imuLinAcc(1:k), ...
-            contactForce(1:k), armForceFL(1:k), armForceFR(1:k), armForceRL(1:k), armForceRR(1:k), semVec, cfg);
-        featureSchema = cfg.model.feature_names;
-        if isfield(model, 'feature_names') && ~isempty(model.feature_names)
-            featureSchema = model.feature_names;
-        end
-        requestedSemanticOnlyMode = isfield(cfg.agent, 'semantic_only_mode') && cfg.agent.semantic_only_mode;
-        modelGateEnabled = cfg.agent.enable_model_decision && hasTrainedModel;
-        semanticOnlyMode = requestedSemanticOnlyMode && ~modelGateEnabled;
-        semanticStableProb = autosimClampNaN(semantic.landing_feasibility, 0.0);
-        decisionStableProb = semanticStableProb;
-        if modelGateEnabled
-            [predLabel, predScore] = autosimPredictModel(model, feat, featureSchema);
-            if predLabel == "stable"
-                predStableProb(k) = predScore;
-            else
-                predStableProb(k) = 1.0 - predScore;
+                hoverCenterReady = true;
             end
 
-            fusionWeight = autosimClampNaN(cfg.agent.model_semantic_fusion_weight, 0.65);
-            fusionWeight = autosimClamp(fusionWeight, 0.0, 1.0);
-            decisionStableProb = fusionWeight * predStableProb(k) + (1.0 - fusionWeight) * semanticStableProb;
+            forceWindByTimeout = isfinite(hoverStartT) && ((tk - hoverStartT) >= cfg.wind.start_force_after_hover_sec);
 
-            semanticAssistEnable = isfield(cfg.agent, 'semantic_assist_enable') && cfg.agent.semantic_assist_enable;
-            semanticAssistLandMin = autosimClampNaN(cfg.agent.semantic_assist_land_min, 0.78);
-            semanticAssistAbortMax = autosimClampNaN(cfg.agent.semantic_assist_abort_max, 0.28);
-            if semanticAssistEnable
-                if logical(semantic.isSafeForLanding) && (semanticStableProb >= semanticAssistLandMin)
-                    decisionStableProb = max(decisionStableProb, semanticStableProb);
-                elseif (~logical(semantic.isSafeForLanding)) && (semanticStableProb <= semanticAssistAbortMax)
-                    decisionStableProb = min(decisionStableProb, semanticStableProb);
+            if ~windArmed && cfg.wind.enable && hoverDelayOk && (hoverCenterReady || forceWindByTimeout)
+                windArmed = true;
+                if forceWindByTimeout && ~hoverCenterReady
+                    fprintf('[AUTOSIM] s%03d wind armed by timeout at t=%.1fs (center-hold unmet)\n', scenarioId, tk);
                 end
             end
-            decisionStableProb = autosimClamp(decisionStableProb, 0.0, 1.0);
-        else
-            predStableProb(k) = autosimClampNaN(semantic.landing_feasibility, 0.0);
-            if predStableProb(k) >= autosimClampNaN(cfg.agent.semantic_land_threshold, 0.70)
-                predLabel = "stable";
+
+            feat = autosimBuildOnlineFeatureVector(z(activeIdx), vz(activeIdx), speedAbs(activeIdx), rollDeg(activeIdx), pitchDeg(activeIdx), ...
+                tagErr(activeIdx), windSpeed(activeIdx), contact(activeIdx), imuAngVel(activeIdx), imuLinAcc(activeIdx), ...
+                contactForce(activeIdx), armForceFL(activeIdx), armForceFR(activeIdx), armForceRL(activeIdx), armForceRR(activeIdx), semVec, cfg);
+            featureSchema = cfg.model.feature_names;
+            if isfield(model, 'feature_names') && ~isempty(model.feature_names)
+                featureSchema = model.feature_names;
+            end
+            requestedSemanticOnlyMode = isfield(cfg.agent, 'semantic_only_mode') && cfg.agent.semantic_only_mode;
+            modelGateEnabled = cfg.agent.enable_model_decision && hasTrainedModel;
+            semanticOnlyMode = requestedSemanticOnlyMode && ~modelGateEnabled;
+            semanticStableProb = autosimClampNaN(semantic.landing_feasibility, 0.0);
+            decisionStableProb = semanticStableProb;
+            if modelGateEnabled
+                [predLabel, predScore] = autosimPredictModel(model, feat, featureSchema);
+                if predLabel == "stable"
+                    predStableProb(k) = predScore;
+                else
+                    predStableProb(k) = 1.0 - predScore;
+                end
+
+                fusionWeight = autosimClampNaN(cfg.agent.model_semantic_fusion_weight, 0.65);
+                fusionWeight = autosimClamp(fusionWeight, 0.0, 1.0);
+                decisionStableProb = fusionWeight * predStableProb(k) + (1.0 - fusionWeight) * semanticStableProb;
+
+                semanticAssistEnable = isfield(cfg.agent, 'semantic_assist_enable') && cfg.agent.semantic_assist_enable;
+                semanticAssistLandMin = autosimClampNaN(cfg.agent.semantic_assist_land_min, 0.78);
+                semanticAssistAbortMax = autosimClampNaN(cfg.agent.semantic_assist_abort_max, 0.28);
+                if semanticAssistEnable
+                    if logical(semantic.isSafeForLanding) && (semanticStableProb >= semanticAssistLandMin)
+                        decisionStableProb = max(decisionStableProb, semanticStableProb);
+                    elseif (~logical(semantic.isSafeForLanding)) && (semanticStableProb <= semanticAssistAbortMax)
+                        decisionStableProb = min(decisionStableProb, semanticStableProb);
+                    end
+                end
+                decisionStableProb = autosimClamp(decisionStableProb, 0.0, 1.0);
             else
-                predLabel = "unstable";
+                predStableProb(k) = autosimClampNaN(semantic.landing_feasibility, 0.0);
+                if predStableProb(k) >= autosimClampNaN(cfg.agent.semantic_land_threshold, 0.70)
+                    predLabel = "stable";
+                else
+                    predLabel = "unstable";
+                end
+                predScore = predStableProb(k);
+                decisionStableProb = predStableProb(k);
             end
-            predScore = predStableProb(k);
-            decisionStableProb = predStableProb(k);
-        end
 
-        probeBoost = 0.0;
-        if isfield(scenarioCfg, 'safe_probe_ratio_boost') && isfinite(scenarioCfg.safe_probe_ratio_boost)
-            probeBoost = autosimClamp(scenarioCfg.safe_probe_ratio_boost, 0.0, 0.20);
-        end
-        adaptiveProbLandThreshold = autosimClamp(cfg.agent.prob_land_threshold - probeBoost, 0.05, 0.99);
-        adaptiveSemanticLandThreshold = autosimClamp(cfg.agent.semantic_land_threshold - probeBoost, 0.05, 0.99);
-
-        modelUncertainMargin = 0.0;
-        if isfield(cfg.agent, 'model_uncertain_margin') && isfinite(cfg.agent.model_uncertain_margin)
-            modelUncertainMargin = max(0.0, cfg.agent.model_uncertain_margin);
-        end
-        adaptiveProbAbortThreshold = autosimClamp(adaptiveProbLandThreshold - modelUncertainMargin, 0.01, 0.95);
-
-        modelSaysStable = hasTrainedModel && modelGateEnabled && isfinite(decisionStableProb) && ...
-            (decisionStableProb >= adaptiveProbLandThreshold);
-        modelSaysUnstable = hasTrainedModel && modelGateEnabled && isfinite(decisionStableProb) && ...
-            (decisionStableProb <= adaptiveProbAbortThreshold);
-        modelIsUncertain = hasTrainedModel && modelGateEnabled && isfinite(decisionStableProb) && ...
-            (~modelSaysStable) && (~modelSaysUnstable);
-
-        if ~landingSent && cfg.agent.block_landing_if_unstable && modelSaysUnstable
-            % Only block landing decision; keep XY correction active unless explicitly frozen.
-            if cfg.agent.freeze_xy_if_unstable
-                cmdX = 0.0;
-                cmdY = 0.0;
+            probeBoost = 0.0;
+            if isfield(scenarioCfg, 'safe_probe_ratio_boost') && isfinite(scenarioCfg.safe_probe_ratio_boost)
+                probeBoost = autosimClamp(scenarioCfg.safe_probe_ratio_boost, 0.0, 0.20);
             end
-            randomLandingPlanned = false;
-            if decisionTxt(k) == ""
-                decisionTxt(k) = "wait_hover_unstable";
+            adaptiveProbLandThreshold = autosimClamp(cfg.agent.prob_land_threshold - probeBoost, 0.05, 0.99);
+            adaptiveSemanticLandThreshold = autosimClamp(cfg.agent.semantic_land_threshold - probeBoost, 0.05, 0.99);
+
+            modelUncertainMargin = 0.0;
+            if isfield(cfg.agent, 'model_uncertain_margin') && isfinite(cfg.agent.model_uncertain_margin)
+                modelUncertainMargin = max(0.0, cfg.agent.model_uncertain_margin);
             end
-        elseif ~landingSent && modelIsUncertain && decisionTxt(k) == ""
-            decisionTxt(k) = "wait_hover_uncertain";
+            adaptiveProbAbortThreshold = autosimClamp(adaptiveProbLandThreshold - modelUncertainMargin, 0.01, 0.95);
+
+            modelSaysStable = hasTrainedModel && modelGateEnabled && isfinite(decisionStableProb) && ...
+                (decisionStableProb >= adaptiveProbLandThreshold);
+            modelSaysUnstable = hasTrainedModel && modelGateEnabled && isfinite(decisionStableProb) && ...
+                (decisionStableProb <= adaptiveProbAbortThreshold);
+            modelIsUncertain = hasTrainedModel && modelGateEnabled && isfinite(decisionStableProb) && ...
+                (~modelSaysStable) && (~modelSaysUnstable);
+
+            if ~landingSent && cfg.agent.block_landing_if_unstable && modelSaysUnstable
+                if cfg.agent.freeze_xy_if_unstable
+                    cmdX = 0.0;
+                    cmdY = 0.0;
+                end
+                randomLandingPlanned = false;
+                if decisionTxt(k) == ""
+                    decisionTxt(k) = "wait_hover_unstable";
+                end
+            elseif ~landingSent && modelIsUncertain && decisionTxt(k) == ""
+                decisionTxt(k) = "wait_hover_uncertain";
+            end
+
+            hoverEvalReady = isFlying && (controlPhase == "xy_hold") && isfinite(decisionEvalStartT) && ...
+                ((tk - decisionEvalStartT) >= cfg.agent.min_hover_eval_sec);
+
+            canLandByModel = hoverEvalReady && hasTrainedModel && modelGateEnabled && ...
+                (activeSampleN >= cfg.agent.min_samples_before_decision) && ...
+                modelSaysStable && ...
+                isfinite(tagErr(k)) && (tagErr(k) <= cfg.agent.max_tag_error_before_land) && ...
+                isfinite(zEvalNow) && (zEvalNow >= cfg.agent.min_altitude_before_land) && ...
+                ((tk - lastDecisionT) >= cfg.agent.decision_cooldown_sec);
+
+            canLandBySemantic = hoverEvalReady && semanticOnlyMode && ...
+                isfinite(tagErr(k)) && (tagErr(k) <= cfg.agent.max_tag_error_before_land) && ...
+                isfinite(zEvalNow) && (zEvalNow >= cfg.agent.min_altitude_before_land) && ...
+                isfinite(semantic.landing_feasibility) && (semantic.landing_feasibility >= adaptiveSemanticLandThreshold) && ...
+                logical(semanticSafe(k)) && ...
+                ((tk - lastDecisionT) >= cfg.agent.decision_cooldown_sec);
+
+            evalWinN = max(5, round(cfg.agent.no_model_eval_window_sec / cfg.scenario.sample_period_sec));
+            zWin = autosimTail(z(activeIdx), evalWinN);
+            xWin = autosimTail(xPos(activeIdx), evalWinN);
+            yWin = autosimTail(yPos(activeIdx), evalWinN);
+            [zOscStd, zFlipRateHz] = autosimCalcZOscillationMetrics(zWin, cfg.scenario.sample_period_sec);
+            [xyStd, xySpeedRms] = autosimCalcXYMotionMetrics(xWin, yWin, cfg.scenario.sample_period_sec);
+            xyRadiusNow = sqrt(xEvalNow*xEvalNow + yEvalNow*yEvalNow);
+
+            canLandByNoModelThreshold = hoverEvalReady && (~modelGateEnabled) && (~semanticOnlyMode) && cfg.agent.no_model_fallback_enable && ...
+                (activeSampleN >= cfg.agent.no_model_min_samples_before_land) && ...
+                isfinite(tagErr(k)) && (tagErr(k) <= cfg.agent.no_model_max_tag_error) && ...
+                isfinite(zEvalNow) && (zEvalNow >= cfg.agent.min_altitude_before_land) && ...
+                isfinite(vzEvalNow) && (abs(vzEvalNow) <= cfg.agent.no_model_max_abs_vz) && ...
+                isfinite(zOscStd) && (zOscStd <= cfg.agent.no_model_max_z_osc_std) && ...
+                isfinite(zFlipRateHz) && (zFlipRateHz <= cfg.agent.no_model_max_z_flip_rate_hz) && ...
+                isfinite(xyStd) && (xyStd <= cfg.agent.no_model_max_xy_std) && ...
+                isfinite(xySpeedRms) && (xySpeedRms <= cfg.agent.no_model_max_xy_speed_rms) && ...
+                isfinite(xyRadiusNow) && (xyRadiusNow <= cfg.agent.no_model_max_xy_radius) && ...
+                isfinite(autosimNanLast(rollDeg(activeIdx))) && (abs(autosimNanLast(rollDeg(activeIdx))) <= cfg.agent.no_model_max_abs_roll_pitch_deg) && ...
+                isfinite(autosimNanLast(pitchDeg(activeIdx))) && (abs(autosimNanLast(pitchDeg(activeIdx))) <= cfg.agent.no_model_max_abs_roll_pitch_deg) && ...
+                isfinite(windSpNow) && (windSpNow <= cfg.agent.no_model_max_wind_speed) && ...
+                (~cfg.agent.no_model_require_semantic_safe || semanticSafe(k)) && ...
+                ((tk - lastDecisionT) >= cfg.agent.decision_cooldown_sec);
+
+            canLandByUncertainModelFallback = hoverEvalReady && hasTrainedModel && modelGateEnabled && modelIsUncertain && ...
+                isfield(cfg.agent, 'model_uncertain_fallback_enable') && cfg.agent.model_uncertain_fallback_enable && ...
+                (activeSampleN >= cfg.agent.no_model_min_samples_before_land) && ...
+                isfinite(tagErr(k)) && (tagErr(k) <= cfg.agent.no_model_max_tag_error) && ...
+                isfinite(zEvalNow) && (zEvalNow >= cfg.agent.min_altitude_before_land) && ...
+                isfinite(vzEvalNow) && (abs(vzEvalNow) <= cfg.agent.no_model_max_abs_vz) && ...
+                isfinite(zOscStd) && (zOscStd <= cfg.agent.no_model_max_z_osc_std) && ...
+                isfinite(zFlipRateHz) && (zFlipRateHz <= cfg.agent.no_model_max_z_flip_rate_hz) && ...
+                isfinite(xyStd) && (xyStd <= cfg.agent.no_model_max_xy_std) && ...
+                isfinite(xySpeedRms) && (xySpeedRms <= cfg.agent.no_model_max_xy_speed_rms) && ...
+                isfinite(xyRadiusNow) && (xyRadiusNow <= cfg.agent.no_model_max_xy_radius) && ...
+                isfinite(autosimNanLast(rollDeg(activeIdx))) && (abs(autosimNanLast(rollDeg(activeIdx))) <= cfg.agent.no_model_max_abs_roll_pitch_deg) && ...
+                isfinite(autosimNanLast(pitchDeg(activeIdx))) && (abs(autosimNanLast(pitchDeg(activeIdx))) <= cfg.agent.no_model_max_abs_roll_pitch_deg) && ...
+                isfinite(windSpNow) && (windSpNow <= cfg.agent.no_model_max_wind_speed) && ...
+                ((tk - lastDecisionT) >= cfg.agent.decision_cooldown_sec);
+
+            canLandByForcedTimeout = isFlying && (controlPhase == "xy_hold") && ~landingSent && isfinite(decisionEvalStartT) && ...
+                isfield(cfg.control, 'land_forced_timeout_sec') && isfinite(cfg.control.land_forced_timeout_sec) && ...
+                (cfg.control.land_forced_timeout_sec > 0) && ...
+                ((tk - decisionEvalStartT) >= cfg.control.land_forced_timeout_sec) && ...
+                ((tk - lastDecisionT) >= cfg.agent.decision_cooldown_sec);
+
+            guardLandingAllowed = ~cfg.agent.block_landing_if_unstable || ~modelSaysUnstable;
+
+            if ~landingSent && guardLandingAllowed && canLandBySemantic
+                send(pubLand, msgLand);
+                landingSent = true;
+                landingSentT = tk;
+                landingDecisionMode = "land";
+                executedAction = "land";
+                lastDecisionT = tk;
+                decisionTxt(k) = "land_by_ontology_ai";
+                controlPhase = "landing_observe";
+            elseif ~landingSent && guardLandingAllowed && canLandByModel
+                send(pubLand, msgLand);
+                landingSent = true;
+                landingSentT = tk;
+                landingDecisionMode = "land";
+                executedAction = "land";
+                lastDecisionT = tk;
+                decisionTxt(k) = "land_by_model";
+                controlPhase = "landing_observe";
+            elseif ~landingSent && guardLandingAllowed && canLandByNoModelThreshold
+                send(pubLand, msgLand);
+                landingSent = true;
+                landingSentT = tk;
+                landingDecisionMode = "land";
+                executedAction = "land";
+                lastDecisionT = tk;
+                decisionTxt(k) = "land_by_threshold_no_model";
+                controlPhase = "landing_observe";
+            elseif ~landingSent && guardLandingAllowed && canLandByUncertainModelFallback
+                send(pubLand, msgLand);
+                landingSent = true;
+                landingSentT = tk;
+                landingDecisionMode = "land";
+                executedAction = "land";
+                lastDecisionT = tk;
+                decisionTxt(k) = "land_by_model_uncertain_fallback";
+                controlPhase = "landing_observe";
+            elseif ~landingSent && canLandByForcedTimeout
+                send(pubLand, msgLand);
+                landingSent = true;
+                landingSentT = tk;
+                landingDecisionMode = "abort";
+                executedAction = "land";
+                lastDecisionT = tk;
+                decisionTxt(k) = "land_by_forced_timeout";
+                controlPhase = "landing_observe";
+            elseif decisionTxt(k) == "" && hasTrainedModel && cfg.agent.enable_model_decision && modelSaysUnstable
+                decisionTxt(k) = "hold_by_model_unstable";
+            elseif decisionTxt(k) == "" && hasTrainedModel && cfg.agent.enable_model_decision && modelIsUncertain
+                decisionTxt(k) = "hold_by_model_uncertain";
+            elseif decisionTxt(k) == ""
+                decisionTxt(k) = "track";
+            end
+
+            phaseTxt(k) = controlPhase;
+
+            if landingSent || canLandBySemantic || canLandByModel || canLandByNoModelThreshold || canLandByUncertainModelFallback || canLandByForcedTimeout
+                inferTxt = "LAND";
+            else
+                inferTxt = "NO-LAND";
+            end
+
+            vizState = struct();
+            vizState.tSec = tk - analysisStartT;
+            vizState.phase = string(controlPhase);
+            vizState.inferTxt = string(inferTxt);
+            vizState.predStableProb = decisionStableProb;
+            vizState.predLabel = string(predLabel);
+            vizState.decisionTxt = string(decisionTxt(k));
+            vizState.landingFeasibility = semantic.landing_feasibility;
+            vizState.modelSaysStable = logical(modelSaysStable);
+            vizState.modelSaysUnstable = logical(modelSaysUnstable);
+            vizState.modelIsUncertain = logical(modelIsUncertain);
+            vizState.semantic = semantic;
+            vizState.semVec = semVec;
+            vizState.sensors = struct( ...
+                'windSpeed', windSpNow, ...
+                'windDirDeg', windDirNow, ...
+                'rollDeg', autosimNanLast(rollDeg(activeIdx)), ...
+                'pitchDeg', autosimNanLast(pitchDeg(activeIdx)), ...
+                'altitude', zEvalNow, ...
+                'vz', vzEvalNow, ...
+                'tagErr', autosimNanLast(tagErr(activeIdx)), ...
+                'tagU', uTag, ...
+                'tagV', vTag, ...
+                'tagDetected', logical(tagDetected), ...
+                'tagJitterPx', tagJitterPx, ...
+                'tagStabilityScore', tagStabilityScore, ...
+                'detectionContinuity', detCont);
+            if ~liveVizInitAttempted
+                try
+                    liveViz = autosimInitScenarioRealtimePlot(cfg, scenarioId, scenarioCfg);
+                catch ME
+                    liveViz = struct();
+                    warning('[AUTOSIM] Realtime ontology plot disabled: %s', ME.message);
+                end
+                liveVizInitAttempted = true;
+            end
+            autosimUpdateScenarioRealtimePlot(liveViz, vizState);
         end
-
-        hoverEvalReady = isFlying && (controlPhase == "xy_hold") && isfinite(decisionEvalStartT) && ...
-            ((tk - decisionEvalStartT) >= cfg.agent.min_hover_eval_sec);
-
-        canLandByModel = hoverEvalReady && hasTrainedModel && modelGateEnabled && ...
-            (k >= cfg.agent.min_samples_before_decision) && ...
-            modelSaysStable && ...
-            isfinite(tagErr(k)) && (tagErr(k) <= cfg.agent.max_tag_error_before_land) && ...
-            isfinite(z(k)) && (z(k) >= cfg.agent.min_altitude_before_land) && ...
-            ((tk - lastDecisionT) >= cfg.agent.decision_cooldown_sec);
-
-        canLandBySemantic = hoverEvalReady && semanticOnlyMode && ...
-            isfinite(tagErr(k)) && (tagErr(k) <= cfg.agent.max_tag_error_before_land) && ...
-            isfinite(z(k)) && (z(k) >= cfg.agent.min_altitude_before_land) && ...
-            isfinite(semantic.landing_feasibility) && (semantic.landing_feasibility >= adaptiveSemanticLandThreshold) && ...
-            logical(semanticSafe(k)) && ...
-            ((tk - lastDecisionT) >= cfg.agent.decision_cooldown_sec);
-
-        evalWinN = max(5, round(cfg.agent.no_model_eval_window_sec / cfg.scenario.sample_period_sec));
-        zWin = autosimTail(z(1:k), evalWinN);
-        xWin = autosimTail(xPos(1:k), evalWinN);
-        yWin = autosimTail(yPos(1:k), evalWinN);
-        [zOscStd, zFlipRateHz] = autosimCalcZOscillationMetrics(zWin, cfg.scenario.sample_period_sec);
-        [xyStd, xySpeedRms] = autosimCalcXYMotionMetrics(xWin, yWin, cfg.scenario.sample_period_sec);
-        xyRadiusNow = sqrt(xNow*xNow + yNow*yNow);
-
-        canLandByNoModelThreshold = hoverEvalReady && (~modelGateEnabled) && (~semanticOnlyMode) && cfg.agent.no_model_fallback_enable && ...
-            (k >= cfg.agent.no_model_min_samples_before_land) && ...
-            isfinite(tagErr(k)) && (tagErr(k) <= cfg.agent.no_model_max_tag_error) && ...
-            isfinite(z(k)) && (z(k) >= cfg.agent.min_altitude_before_land) && ...
-            isfinite(vzNow) && (abs(vzNow) <= cfg.agent.no_model_max_abs_vz) && ...
-            isfinite(zOscStd) && (zOscStd <= cfg.agent.no_model_max_z_osc_std) && ...
-            isfinite(zFlipRateHz) && (zFlipRateHz <= cfg.agent.no_model_max_z_flip_rate_hz) && ...
-            isfinite(xyStd) && (xyStd <= cfg.agent.no_model_max_xy_std) && ...
-            isfinite(xySpeedRms) && (xySpeedRms <= cfg.agent.no_model_max_xy_speed_rms) && ...
-            isfinite(xyRadiusNow) && (xyRadiusNow <= cfg.agent.no_model_max_xy_radius) && ...
-            isfinite(autosimNanLast(rollDeg(1:k))) && (abs(autosimNanLast(rollDeg(1:k))) <= cfg.agent.no_model_max_abs_roll_pitch_deg) && ...
-            isfinite(autosimNanLast(pitchDeg(1:k))) && (abs(autosimNanLast(pitchDeg(1:k))) <= cfg.agent.no_model_max_abs_roll_pitch_deg) && ...
-            isfinite(windSpNow) && (windSpNow <= cfg.agent.no_model_max_wind_speed) && ...
-            (~cfg.agent.no_model_require_semantic_safe || semanticSafe(k)) && ...
-            ((tk - lastDecisionT) >= cfg.agent.decision_cooldown_sec);
-
-        canLandByUncertainModelFallback = hoverEvalReady && hasTrainedModel && modelGateEnabled && modelIsUncertain && ...
-            isfield(cfg.agent, 'model_uncertain_fallback_enable') && cfg.agent.model_uncertain_fallback_enable && ...
-            (k >= cfg.agent.no_model_min_samples_before_land) && ...
-            isfinite(tagErr(k)) && (tagErr(k) <= cfg.agent.no_model_max_tag_error) && ...
-            isfinite(z(k)) && (z(k) >= cfg.agent.min_altitude_before_land) && ...
-            isfinite(vzNow) && (abs(vzNow) <= cfg.agent.no_model_max_abs_vz) && ...
-            isfinite(zOscStd) && (zOscStd <= cfg.agent.no_model_max_z_osc_std) && ...
-            isfinite(zFlipRateHz) && (zFlipRateHz <= cfg.agent.no_model_max_z_flip_rate_hz) && ...
-            isfinite(xyStd) && (xyStd <= cfg.agent.no_model_max_xy_std) && ...
-            isfinite(xySpeedRms) && (xySpeedRms <= cfg.agent.no_model_max_xy_speed_rms) && ...
-            isfinite(xyRadiusNow) && (xyRadiusNow <= cfg.agent.no_model_max_xy_radius) && ...
-            isfinite(autosimNanLast(rollDeg(1:k))) && (abs(autosimNanLast(rollDeg(1:k))) <= cfg.agent.no_model_max_abs_roll_pitch_deg) && ...
-            isfinite(autosimNanLast(pitchDeg(1:k))) && (abs(autosimNanLast(pitchDeg(1:k))) <= cfg.agent.no_model_max_abs_roll_pitch_deg) && ...
-            isfinite(windSpNow) && (windSpNow <= cfg.agent.no_model_max_wind_speed) && ...
-            ((tk - lastDecisionT) >= cfg.agent.decision_cooldown_sec);
-
-        canLandByForcedTimeout = isFlying && (controlPhase == "xy_hold") && ~landingSent && isfinite(decisionEvalStartT) && ...
-            isfield(cfg.control, 'land_forced_timeout_sec') && isfinite(cfg.control.land_forced_timeout_sec) && ...
-            (cfg.control.land_forced_timeout_sec > 0) && ...
-            ((tk - decisionEvalStartT) >= cfg.control.land_forced_timeout_sec) && ...
-            ((tk - lastDecisionT) >= cfg.agent.decision_cooldown_sec);
-
-        guardLandingAllowed = ~cfg.agent.block_landing_if_unstable || ~modelSaysUnstable;
-
-        if ~landingSent && guardLandingAllowed && canLandBySemantic
-            send(pubLand, msgLand);
-            landingSent = true;
-            landingSentT = tk;
-            landingDecisionMode = "land";
-            executedAction = "land";
-            lastDecisionT = tk;
-            decisionTxt(k) = "land_by_ontology_ai";
-            controlPhase = "landing_observe";
-        elseif ~landingSent && guardLandingAllowed && canLandByModel
-            send(pubLand, msgLand);
-            landingSent = true;
-            landingSentT = tk;
-            landingDecisionMode = "land";
-            executedAction = "land";
-            lastDecisionT = tk;
-            decisionTxt(k) = "land_by_model";
-            controlPhase = "landing_observe";
-        elseif ~landingSent && guardLandingAllowed && canLandByNoModelThreshold
-            send(pubLand, msgLand);
-            landingSent = true;
-            landingSentT = tk;
-            landingDecisionMode = "land";
-            executedAction = "land";
-            lastDecisionT = tk;
-            decisionTxt(k) = "land_by_threshold_no_model";
-            controlPhase = "landing_observe";
-        elseif ~landingSent && guardLandingAllowed && canLandByUncertainModelFallback
-            send(pubLand, msgLand);
-            landingSent = true;
-            landingSentT = tk;
-            landingDecisionMode = "land";
-            executedAction = "land";
-            lastDecisionT = tk;
-            decisionTxt(k) = "land_by_model_uncertain_fallback";
-            controlPhase = "landing_observe";
-        elseif ~landingSent && canLandByForcedTimeout
-            send(pubLand, msgLand);
-            landingSent = true;
-            landingSentT = tk;
-            landingDecisionMode = "abort";
-            executedAction = "land";
-            lastDecisionT = tk;
-            decisionTxt(k) = "land_by_forced_timeout";
-            controlPhase = "landing_observe";
-        elseif decisionTxt(k) == "" && hasTrainedModel && cfg.agent.enable_model_decision && modelSaysUnstable
-            decisionTxt(k) = "hold_by_model_unstable";
-        elseif decisionTxt(k) == "" && hasTrainedModel && cfg.agent.enable_model_decision && modelIsUncertain
-            decisionTxt(k) = "hold_by_model_uncertain";
-        elseif decisionTxt(k) == ""
-            decisionTxt(k) = "track";
-        end
-
-        phaseTxt(k) = controlPhase;
-
-        if landingSent || canLandBySemantic || canLandByModel || canLandByNoModelThreshold || canLandByUncertainModelFallback || canLandByForcedTimeout
-            inferTxt = "LAND";
-        else
-            inferTxt = "NO-LAND";
-        end
-
-        vizState = struct();
-        vizState.tSec = tk;
-        vizState.phase = string(controlPhase);
-        vizState.inferTxt = string(inferTxt);
-        vizState.predStableProb = decisionStableProb;
-        vizState.predLabel = string(predLabel);
-        vizState.decisionTxt = string(decisionTxt(k));
-        vizState.landingFeasibility = semantic.landing_feasibility;
-        vizState.modelSaysStable = logical(modelSaysStable);
-        vizState.modelSaysUnstable = logical(modelSaysUnstable);
-        vizState.modelIsUncertain = logical(modelIsUncertain);
-        vizState.semantic = semantic;
-        vizState.semVec = semVec;
-        vizState.sensors = struct( ...
-            'windSpeed', windSpNow, ...
-            'windDirDeg', windDirNow, ...
-            'rollDeg', autosimNanLast(rollDeg(1:k)), ...
-            'pitchDeg', autosimNanLast(pitchDeg(1:k)), ...
-            'altitude', zNow, ...
-            'vz', vzNow, ...
-            'tagErr', autosimNanLast(tagErr(1:k)), ...
-            'tagU', uTag, ...
-            'tagV', vTag, ...
-            'tagDetected', logical(tagDetected), ...
-            'tagJitterPx', tagJitterPx, ...
-            'tagStabilityScore', tagStabilityScore, ...
-            'detectionContinuity', detCont);
-        autosimUpdateScenarioRealtimePlot(liveViz, vizState);
 
         if landingSent
             cmdX = 0.0;
@@ -1689,6 +1722,17 @@ function [res, traceTbl] = autosimRunScenario(cfg, scenarioCfg, scenarioId, mode
             msgCmd.angular.y = 0.0;
             msgCmd.angular.z = 0.0;
             send(pubCmd, msgCmd);
+        end
+
+        if landingSent && isfield(cfg, 'scenario') && isfield(cfg.scenario, 'analysis_stop_at_landing') && cfg.scenario.analysis_stop_at_landing
+            break;
+        end
+
+        if (~landingSent) && isFlying && (controlPhase == "xy_hold")
+            [pidX, pidY, tagLostSearchStartT, lastTagU, lastTagV, lastTagDetectT, haveLastTag, lastTagRxT, tagRxCount] = ...
+                autosimRunFastTagControlBurst(cfg, rosCtx, pubCmd, msgCmd, t0, tk, max(0.0, cfg.scenario.sample_period_sec - (toc(t0) - iterStartT)), ...
+                xNow, yNow, pidX, pidY, tagLostSearchStartT, lastTagU, lastTagV, lastTagDetectT, haveLastTag, lastTagRxT, tagRxCount, ...
+                randomLandingPlanned, randomLandingStartT, randomLandingEndT, randomBiasX, randomBiasY);
         end
 
         if landingSent
@@ -1707,7 +1751,7 @@ function [res, traceTbl] = autosimRunScenario(cfg, scenarioCfg, scenarioId, mode
             end
         end
 
-        pause(cfg.scenario.sample_period_sec);
+        pause(max(0.0, cfg.scenario.sample_period_sec - (toc(t0) - iterStartT)));
     end
 
     t = t(1:kLast);
@@ -1746,6 +1790,50 @@ function [res, traceTbl] = autosimRunScenario(cfg, scenarioCfg, scenarioId, mode
     landingFeasibility = landingFeasibility(1:kLast);
     semFeat = semFeat(1:kLast, :);
 
+    if isfinite(analysisStartIdx) && (analysisStartIdx <= kLast)
+        keepIdx = analysisStartIdx:kLast;
+    else
+        keepIdx = [];
+    end
+    t = t(keepIdx);
+    if ~isempty(t)
+        t = t - t(1);
+    end
+    xPos = xPos(keepIdx);
+    yPos = yPos(keepIdx);
+    z = z(keepIdx);
+    vz = vz(keepIdx);
+    speedAbs = speedAbs(keepIdx);
+    rollDeg = rollDeg(keepIdx);
+    pitchDeg = pitchDeg(keepIdx);
+    tagErr = tagErr(keepIdx);
+    windSpeed = windSpeed(keepIdx);
+    stateVal = stateVal(keepIdx);
+    contact = contact(keepIdx);
+    imuAngVel = imuAngVel(keepIdx);
+    imuLinAcc = imuLinAcc(keepIdx);
+    contactForce = contactForce(keepIdx);
+    armForceFL = armForceFL(keepIdx);
+    armForceFR = armForceFR(keepIdx);
+    armForceRL = armForceRL(keepIdx);
+    armForceRR = armForceRR(keepIdx);
+    predStableProb = predStableProb(keepIdx);
+    decisionTxt = decisionTxt(keepIdx);
+    phaseTxt = phaseTxt(keepIdx);
+    windCmdSpeed = windCmdSpeed(keepIdx);
+    windCmdDir = windCmdDir(keepIdx);
+    semanticWindRisk = semanticWindRisk(keepIdx);
+    semanticEnvironment = semanticEnvironment(keepIdx);
+    semanticDroneState = semanticDroneState(keepIdx);
+    semanticAlign = semanticAlign(keepIdx);
+    semanticVisual = semanticVisual(keepIdx);
+    semanticContext = semanticContext(keepIdx);
+    semanticRelation = semanticRelation(keepIdx);
+    semanticIntegration = semanticIntegration(keepIdx);
+    semanticSafe = semanticSafe(keepIdx);
+    landingFeasibility = landingFeasibility(keepIdx);
+    semFeat = semFeat(keepIdx, :);
+
     msgCmd.linear.x = 0.0;
     msgCmd.linear.y = 0.0;
     msgCmd.linear.z = 0.0;
@@ -1759,6 +1847,9 @@ function [res, traceTbl] = autosimRunScenario(cfg, scenarioCfg, scenarioId, mode
     end
 
     postN = max(1, floor(cfg.scenario.post_land_observe_sec / cfg.scenario.sample_period_sec));
+    if isfield(cfg, 'scenario') && isfield(cfg.scenario, 'analysis_stop_at_landing') && cfg.scenario.analysis_stop_at_landing
+        postN = 0;
+    end
     if stopRequested
         postN = 0;
     end
@@ -1770,7 +1861,8 @@ function [res, traceTbl] = autosimRunScenario(cfg, scenarioCfg, scenarioId, mode
             break;
         end
 
-        poseMsg = autosimTryReceive(subPose, 0.01);
+        iterStartT = toc(t0);
+        poseMsg = autosimTryReceive(subPose, recvTimeoutSec);
         if ~isempty(poseMsg)
             xPos(end+1,1) = double(poseMsg.position.x); %#ok<AGROW>
             yPos(end+1,1) = double(poseMsg.position.y); %#ok<AGROW>
@@ -1787,7 +1879,7 @@ function [res, traceTbl] = autosimRunScenario(cfg, scenarioCfg, scenarioId, mode
             pitchDeg(end+1,1) = nan; %#ok<AGROW>
         end
 
-        velMsg = autosimTryReceive(subVel, 0.01);
+        velMsg = autosimTryReceive(subVel, recvTimeoutSec);
         if ~isempty(velMsg)
             vx = double(velMsg.linear.x);
             vy = double(velMsg.linear.y);
@@ -1798,22 +1890,22 @@ function [res, traceTbl] = autosimRunScenario(cfg, scenarioCfg, scenarioId, mode
             speedAbs(end+1,1) = nan; %#ok<AGROW>
         end
 
-        stateMsg = autosimTryReceive(subState, 0.01);
+        stateMsg = autosimTryReceive(subState, recvTimeoutSec);
         if ~isempty(stateMsg)
             stateVal(end+1,1) = double(stateMsg.data); %#ok<AGROW>
         else
             stateVal(end+1,1) = nan; %#ok<AGROW>
         end
 
-        tagMsg = autosimTryReceive(subTag, 0.01);
-        if ~isempty(tagMsg)
-            [~, ~, ~, te] = autosimParseTag(tagMsg);
+        [hasFreshTag, ~, ~, ~, te, tagRxCountNow] = autosimReadTagInput(subTag, recvTimeoutSec, tagCallbackEnabled, tagCacheKey, tagRxCount);
+        if hasFreshTag
+            tagRxCount = tagRxCountNow;
             tagErr(end+1,1) = te; %#ok<AGROW>
         else
             tagErr(end+1,1) = nan; %#ok<AGROW>
         end
 
-        windMsg = autosimTryReceive(subWind, 0.01);
+        windMsg = autosimTryReceive(subWind, recvTimeoutSec);
         if ~isempty(windMsg)
             [wsPost, ~] = autosimParseWindConditionMsg(windMsg);
             windSpeed(end+1,1) = wsPost; %#ok<AGROW>
@@ -1822,7 +1914,7 @@ function [res, traceTbl] = autosimRunScenario(cfg, scenarioCfg, scenarioId, mode
         end
 
         if ~isempty(subImu)
-            imuMsg = autosimTryReceive(subImu, 0.01);
+            imuMsg = autosimTryReceive(subImu, recvTimeoutSec);
             if ~isempty(imuMsg)
                 [angNow, accNow] = autosimParseImuMetrics(imuMsg);
                 imuAngVel(end+1,1) = angNow; %#ok<AGROW>
@@ -1837,7 +1929,7 @@ function [res, traceTbl] = autosimRunScenario(cfg, scenarioCfg, scenarioId, mode
         end
 
         if ~isempty(subBumpers)
-            bumpMsg = autosimTryReceive(subBumpers, 0.01);
+            bumpMsg = autosimTryReceive(subBumpers, recvTimeoutSec);
             if ~isempty(bumpMsg)
                 [cNow, fNow, flNow, frNow, rlNow, rrNow] = autosimParseContactForces(bumpMsg);
                 contact(end+1,1) = cNow; %#ok<AGROW>
@@ -1876,55 +1968,69 @@ function [res, traceTbl] = autosimRunScenario(cfg, scenarioCfg, scenarioId, mode
             predPost = nan;
         end
 
-        vizState = struct();
-        vizState.tSec = t(end);
-        vizState.phase = "post_observe";
-        vizState.inferTxt = string(inferPost);
-        vizState.predStableProb = predPost;
-        vizState.predLabel = "unknown";
-        vizState.decisionTxt = "post_observe";
-        vizState.landingFeasibility = autosimLastFinite(landingFeasibility, nan);
-        vizState.modelSaysStable = false;
-        vizState.modelSaysUnstable = false;
-        vizState.modelIsUncertain = false;
-        if exist('semantic', 'var') && isstruct(semantic)
-            vizState.semantic = semantic;
-        else
-            vizState.semantic = struct( ...
-                'wind_risk', autosimLastNonEmptyString(semanticWindRisk, "unknown"), ...
-                'environment_state', autosimLastNonEmptyString(semanticEnvironment, "unknown"), ...
-                'drone_state', autosimLastNonEmptyString(semanticDroneState, "unknown"), ...
-                'alignment_state', autosimLastNonEmptyString(semanticAlign, "unknown"), ...
-                'visual_state', autosimLastNonEmptyString(semanticVisual, "unknown"), ...
-                'landing_context', autosimLastNonEmptyString(semanticContext, "unknown"), ...
-                'semantic_relation', autosimLastNonEmptyString(semanticRelation, "unknown"), ...
-                'semantic_integration', autosimLastNonEmptyString(semanticIntegration, "unknown"), ...
-                'landing_feasibility', autosimLastFinite(landingFeasibility, nan), ...
-                'isSafeForLanding', logical(autosimLastFinite(double(semanticSafe), 0) > 0.5));
+        if analysisDataSeen
+            vizState = struct();
+            vizState.tSec = t(end) - analysisStartT;
+            vizState.phase = "post_observe";
+            vizState.inferTxt = string(inferPost);
+            vizState.predStableProb = predPost;
+            vizState.predLabel = "unknown";
+            vizState.decisionTxt = "post_observe";
+            vizState.landingFeasibility = autosimLastFinite(landingFeasibility, nan);
+            vizState.modelSaysStable = false;
+            vizState.modelSaysUnstable = false;
+            vizState.modelIsUncertain = false;
+            if exist('semantic', 'var') && isstruct(semantic)
+                vizState.semantic = semantic;
+            else
+                vizState.semantic = struct( ...
+                    'wind_risk', autosimLastNonEmptyString(semanticWindRisk, "unknown"), ...
+                    'environment_state', autosimLastNonEmptyString(semanticEnvironment, "unknown"), ...
+                    'drone_state', autosimLastNonEmptyString(semanticDroneState, "unknown"), ...
+                    'alignment_state', autosimLastNonEmptyString(semanticAlign, "unknown"), ...
+                    'visual_state', autosimLastNonEmptyString(semanticVisual, "unknown"), ...
+                    'landing_context', autosimLastNonEmptyString(semanticContext, "unknown"), ...
+                    'semantic_relation', autosimLastNonEmptyString(semanticRelation, "unknown"), ...
+                    'semantic_integration', autosimLastNonEmptyString(semanticIntegration, "unknown"), ...
+                    'landing_feasibility', autosimLastFinite(landingFeasibility, nan), ...
+                    'isSafeForLanding', logical(autosimLastFinite(double(semanticSafe), 0) > 0.5));
+            end
+            vizState.semVec = nan(1, numel(cfg.ontology.semantic_feature_names));
+            vizState.sensors = struct( ...
+                'windSpeed', autosimNanLast(windSpeed), ...
+                'windDirDeg', autosimNanLast(windCmdDir), ...
+                'rollDeg', autosimNanLast(rollDeg), ...
+                'pitchDeg', autosimNanLast(pitchDeg), ...
+                'altitude', autosimNanLast(z), ...
+                'vz', autosimNanLast(vz), ...
+                'tagErr', autosimNanLast(tagErr), ...
+                'tagU', nan, ...
+                'tagV', nan, ...
+                'tagDetected', isfinite(autosimNanLast(tagErr)), ...
+                'tagJitterPx', nan, ...
+                'tagStabilityScore', nan, ...
+                'detectionContinuity', nan);
+            if ~liveVizInitAttempted
+                try
+                    liveViz = autosimInitScenarioRealtimePlot(cfg, scenarioId, scenarioCfg);
+                catch ME
+                    liveViz = struct();
+                    warning('[AUTOSIM] Realtime ontology plot disabled: %s', ME.message);
+                end
+                liveVizInitAttempted = true;
+            end
+            autosimUpdateScenarioRealtimePlot(liveViz, vizState);
         end
-        vizState.semVec = nan(1, numel(cfg.ontology.semantic_feature_names));
-        vizState.sensors = struct( ...
-            'windSpeed', autosimNanLast(windSpeed), ...
-            'windDirDeg', autosimNanLast(windCmdDir), ...
-            'rollDeg', autosimNanLast(rollDeg), ...
-            'pitchDeg', autosimNanLast(pitchDeg), ...
-            'altitude', autosimNanLast(z), ...
-            'vz', autosimNanLast(vz), ...
-            'tagErr', autosimNanLast(tagErr), ...
-            'tagU', nan, ...
-            'tagV', nan, ...
-            'tagDetected', isfinite(autosimNanLast(tagErr)), ...
-            'tagJitterPx', nan, ...
-            'tagStabilityScore', nan, ...
-            'detectionContinuity', nan);
-        autosimUpdateScenarioRealtimePlot(liveViz, vizState);
 
-        pause(cfg.scenario.sample_period_sec);
+        pause(max(0.0, cfg.scenario.sample_period_sec - (toc(t0) - iterStartT)));
     end
 
     res = autosimSummarizeAndLabel(cfg, scenarioId, scenarioCfg, z, vz, speedAbs, rollDeg, pitchDeg, tagErr, windSpeed, stateVal, contact, ...
         imuAngVel, imuLinAcc, contactForce, armForceFL, armForceFR, armForceRL, armForceRR);
     res.landing_cmd_time = landingSentT;
+    if isfinite(res.landing_cmd_time) && isfinite(analysisStartT)
+        res.landing_cmd_time = max(0.0, res.landing_cmd_time - analysisStartT);
+    end
     res.pred_decision = string(landingDecisionMode);
     res.executed_action = string(executedAction);
     res.gt_safe_to_land = "unstable";
@@ -2139,6 +2245,20 @@ function out = autosimSummarizeAndLabel(cfg, scenarioId, scenarioCfg, z, vz, spe
     out.arm_force_imbalance = autosimNanMax([abs(armFL-armFR), abs(armRL-armRR)]);
     out.final_state = autosimNanLast(stateVal);
 
+    if isfield(cfg, 'scenario') && isfield(cfg.scenario, 'analysis_stop_at_landing') && cfg.scenario.analysis_stop_at_landing
+        [passHoverWindow, hoverFailureReason] = autosimEvaluateHoverWindowSafety(out, cfg);
+        if passHoverWindow
+            out.label = "stable";
+            out.success = true;
+            out.failure_reason = "";
+        else
+            out.label = "unstable";
+            out.success = false;
+            out.failure_reason = hoverFailureReason;
+        end
+        return;
+    end
+
     c = cfg.thresholds;
     condState = isfinite(out.final_state) && out.final_state == c.land_state_value;
     condAlt = isfinite(out.final_altitude) && out.final_altitude <= c.landed_altitude_max_m;
@@ -2168,6 +2288,44 @@ function out = autosimSummarizeAndLabel(cfg, scenarioId, scenarioCfg, z, vz, spe
         out.success = false;
         out.failure_reason = autosimBuildFailureReason(condState, condAlt, condSpeed, condRoll, condPitch, condTag, condStdZ, condStdVz, condVzOsc, condTdAcc, condTdVz, ...
             condImuAng, condImuAcc, condContactForce, condArmBalance);
+    end
+end
+
+
+function [passAll, reason] = autosimEvaluateHoverWindowSafety(out, cfg)
+    condAlt = isfinite(out.final_altitude) && (out.final_altitude >= cfg.agent.min_altitude_before_land);
+    condSpeed = isfinite(out.final_abs_speed) && (out.final_abs_speed <= cfg.agent.no_model_max_xy_speed_rms);
+    condRoll = isfinite(out.final_abs_roll_deg) && (out.final_abs_roll_deg <= cfg.agent.no_model_max_abs_roll_pitch_deg);
+    condPitch = isfinite(out.final_abs_pitch_deg) && (out.final_abs_pitch_deg <= cfg.agent.no_model_max_abs_roll_pitch_deg);
+    condTag = (~isfinite(out.final_tag_error)) || (out.final_tag_error <= cfg.agent.max_tag_error_before_land);
+    condStdZ = isfinite(out.stability_std_z) && (out.stability_std_z <= cfg.agent.no_model_max_z_osc_std);
+    condStdVz = isfinite(out.stability_std_vz) && (out.stability_std_vz <= cfg.agent.no_model_max_abs_vz);
+    condWind = (~isfinite(out.max_wind_speed)) || (out.max_wind_speed <= cfg.agent.no_model_max_wind_speed);
+    condImuAng = (~isfinite(out.max_imu_ang_vel)) || (out.max_imu_ang_vel <= cfg.thresholds.final_imu_ang_vel_rms_max);
+    condImuAcc = (~isfinite(out.max_imu_lin_acc)) || (out.max_imu_lin_acc <= cfg.thresholds.final_imu_lin_acc_rms_max);
+    condContactForce = (~isfinite(out.max_contact_force)) || (out.max_contact_force <= cfg.thresholds.final_contact_force_max_n);
+    condArmBalance = (~isfinite(out.arm_force_imbalance)) || (out.arm_force_imbalance <= cfg.thresholds.final_arm_force_imbalance_max_n);
+
+    passAll = condAlt && condSpeed && condRoll && condPitch && condTag && condStdZ && condStdVz && condWind && condImuAng && condImuAcc && condContactForce && condArmBalance;
+
+    parts = strings(0,1);
+    if ~condAlt, parts(end+1,1) = "hover_altitude_low"; end %#ok<AGROW>
+    if ~condSpeed, parts(end+1,1) = "hover_speed_high"; end %#ok<AGROW>
+    if ~condRoll, parts(end+1,1) = "roll_high"; end %#ok<AGROW>
+    if ~condPitch, parts(end+1,1) = "pitch_high"; end %#ok<AGROW>
+    if ~condTag, parts(end+1,1) = "tag_error_high"; end %#ok<AGROW>
+    if ~condStdZ, parts(end+1,1) = "z_unstable"; end %#ok<AGROW>
+    if ~condStdVz, parts(end+1,1) = "vz_unstable"; end %#ok<AGROW>
+    if ~condWind, parts(end+1,1) = "wind_high"; end %#ok<AGROW>
+    if ~condImuAng, parts(end+1,1) = "imu_angular_rate_high"; end %#ok<AGROW>
+    if ~condImuAcc, parts(end+1,1) = "imu_linear_accel_high"; end %#ok<AGROW>
+    if ~condContactForce, parts(end+1,1) = "contact_force_high"; end %#ok<AGROW>
+    if ~condArmBalance, parts(end+1,1) = "arm_force_imbalance_high"; end %#ok<AGROW>
+
+    if isempty(parts)
+        reason = "";
+    else
+        reason = strjoin(parts, ",");
     end
 end
 
@@ -3544,6 +3702,15 @@ function x = autosimTryReceive(sub, timeout)
         x = receive(sub, timeout);
     catch
         x = [];
+    end
+end
+
+
+function txt = autosimStatusText(tf)
+    if tf
+        txt = 'ok';
+    else
+        txt = 'stale';
     end
 end
 
@@ -5041,6 +5208,139 @@ function st = autosimPidInit()
 end
 
 
+function [cmdX, cmdY, pidX, pidY, tagLostSearchStartT] = autosimComputeTagTrackingCommand(cfg, tk, dtCtrl, xNow, yNow, predOk, uPred, vPred, tagDetected, uTag, vTag, pidX, pidY, tagLostSearchStartT)
+    cmdX = 0.0;
+    cmdY = 0.0;
+
+    usePred = predOk && isfinite(uPred) && isfinite(vPred);
+    useNow = tagDetected && isfinite(uTag) && isfinite(vTag);
+
+    if usePred
+        uCtrl = uPred;
+        vCtrl = vPred;
+    elseif useNow
+        uCtrl = uTag;
+        vCtrl = vTag;
+    else
+        uCtrl = nan;
+        vCtrl = nan;
+    end
+
+    if isfinite(uCtrl) && isfinite(vCtrl)
+        tagLostSearchStartT = nan;
+        errU = cfg.control.target_u - uCtrl;
+        errV = cfg.control.target_v - vCtrl;
+
+        [ux, pidX] = autosimPidStep(errV, dtCtrl, pidX, cfg.control.xy_kp, cfg.control.xy_ki, cfg.control.xy_kd, cfg.control.xy_i_limit, cfg.control.xy_cmd_limit);
+        [uy, pidY] = autosimPidStep(errU, dtCtrl, pidY, cfg.control.xy_kp, cfg.control.xy_ki, cfg.control.xy_kd, cfg.control.xy_i_limit, cfg.control.xy_cmd_limit);
+
+        cmdX = cfg.control.xy_map_sign_x_from_v * ux;
+        cmdY = cfg.control.xy_map_sign_y_from_u * uy;
+
+        if sqrt(errU * errU + errV * errV) <= cfg.control.tag_center_deadband
+            cmdX = 0.0;
+            cmdY = 0.0;
+        end
+    else
+        pidX = autosimPidInit();
+        pidY = autosimPidInit();
+
+        if cfg.control.pose_hold_enable && isfinite(xNow) && isfinite(yNow)
+            errX = -xNow;
+            errY = -yNow;
+            cmdX = autosimClamp(cfg.control.pose_hold_kp * errX, -abs(cfg.control.pose_hold_cmd_limit), abs(cfg.control.pose_hold_cmd_limit));
+            cmdY = autosimClamp(cfg.control.pose_hold_kp * errY, -abs(cfg.control.pose_hold_cmd_limit), abs(cfg.control.pose_hold_cmd_limit));
+        elseif cfg.control.search_enable_spiral
+            if ~isfinite(tagLostSearchStartT)
+                tagLostSearchStartT = tk;
+            end
+
+            tSearch = max(0.0, tk - tagLostSearchStartT);
+            rSearch = cfg.control.search_spiral_start_radius + cfg.control.search_spiral_growth_per_sec * tSearch;
+            rSearch = min(rSearch, cfg.control.search_spiral_cmd_max);
+            th = cfg.control.search_spiral_omega_rad_sec * tSearch;
+            cmdX = autosimClamp(rSearch * cos(th), -abs(cfg.control.search_spiral_cmd_max), abs(cfg.control.search_spiral_cmd_max));
+            cmdY = autosimClamp(rSearch * sin(th), -abs(cfg.control.search_spiral_cmd_max), abs(cfg.control.search_spiral_cmd_max));
+        end
+    end
+end
+
+
+function [pidX, pidY, tagLostSearchStartT, lastTagU, lastTagV, lastTagDetectT, haveLastTag, lastTagRxT, tagRxCount] = autosimRunFastTagControlBurst(cfg, rosCtx, pubCmd, msgCmd, t0, burstStartT, burstDurationSec, xNow, yNow, pidX, pidY, tagLostSearchStartT, lastTagU, lastTagV, lastTagDetectT, haveLastTag, lastTagRxT, tagRxCount, randomLandingPlanned, randomLandingStartT, randomLandingEndT, randomBiasX, randomBiasY)
+    if ~(isfield(cfg.control, 'tag_fast_loop_enable') && cfg.control.tag_fast_loop_enable)
+        return;
+    end
+    if burstDurationSec <= 0
+        return;
+    end
+
+    fastDt = 0.02;
+    if isfield(cfg.control, 'tag_fast_loop_period_sec') && isfinite(cfg.control.tag_fast_loop_period_sec)
+        fastDt = max(0.005, cfg.control.tag_fast_loop_period_sec);
+    end
+
+    recvTimeoutSec = 0.0;
+    if isfield(cfg, 'ros') && isfield(cfg.ros, 'receive_timeout_sec') && isfinite(cfg.ros.receive_timeout_sec)
+        recvTimeoutSec = max(0.0, min(cfg.ros.receive_timeout_sec, 0.002));
+    end
+
+    tagCallbackEnabled = isfield(rosCtx, 'tag_callback_enabled') && rosCtx.tag_callback_enabled;
+    tagCacheKey = "";
+    if isfield(rosCtx, 'tag_cache_key')
+        tagCacheKey = string(rosCtx.tag_cache_key);
+    end
+
+    burstEndT = burstStartT + burstDurationSec;
+    nextTickT = burstStartT + fastDt;
+    while toc(t0) < burstEndT
+        tkFast = toc(t0);
+        if tkFast < nextTickT
+            pause(max(0.0, min(nextTickT - tkFast, fastDt * 0.5)));
+            continue;
+        end
+
+        [hasFreshTag, tagDetected, uTag, vTag, ~, tagRxCountNow] = autosimReadTagInput(rosCtx.subTag, recvTimeoutSec, tagCallbackEnabled, tagCacheKey, tagRxCount);
+        tagRxCount = tagRxCountNow;
+        if hasFreshTag
+            lastTagRxT = tkFast;
+        end
+
+        if hasFreshTag && tagDetected && isfinite(uTag) && isfinite(vTag)
+            lastTagU = uTag;
+            lastTagV = vTag;
+            lastTagDetectT = tkFast;
+            haveLastTag = true;
+        elseif haveLastTag && ((tkFast - lastTagDetectT) <= cfg.control.tag_hold_timeout_sec)
+            tagDetected = true;
+            uTag = lastTagU;
+            vTag = lastTagV;
+        else
+            tagDetected = false;
+            uTag = nan;
+            vTag = nan;
+        end
+
+        [cmdX, cmdY, pidX, pidY, tagLostSearchStartT] = autosimComputeTagTrackingCommand( ...
+            cfg, tkFast, fastDt, xNow, yNow, false, nan, nan, tagDetected, uTag, vTag, pidX, pidY, tagLostSearchStartT);
+
+        if randomLandingPlanned && tkFast >= randomLandingStartT && tkFast < randomLandingEndT
+            cmdX = autosimClamp(cmdX + randomBiasX, -abs(cfg.control.xy_cmd_limit), abs(cfg.control.xy_cmd_limit));
+            cmdY = autosimClamp(cmdY + randomBiasY, -abs(cfg.control.xy_cmd_limit), abs(cfg.control.xy_cmd_limit));
+        end
+
+        msgCmd.linear.x = cmdX;
+        msgCmd.linear.y = cmdY;
+        msgCmd.linear.z = 0.0;
+        msgCmd.angular.x = 0.0;
+        msgCmd.angular.y = 0.0;
+        msgCmd.angular.z = 0.0;
+        send(pubCmd, msgCmd);
+
+        nextTickT = nextTickT + fastDt;
+    end
+end
+
+
 function [u, st] = autosimPidStep(err, dt, st, kp, ki, kd, iLimit, outLimit)
     if ~st.initialized
         st.prev_error = err;
@@ -5290,7 +5590,26 @@ function rosCtx = autosimCreateRosContext(cfg)
     rosCtx.subState = ros2subscriber(node, cfg.topics.state, 'std_msgs/Int8');
     rosCtx.subPose = ros2subscriber(node, cfg.topics.pose, 'geometry_msgs/Pose');
     rosCtx.subVel = ros2subscriber(node, cfg.topics.vel, 'geometry_msgs/Twist');
-    rosCtx.subTag = ros2subscriber(node, cfg.topics.tag_state, 'std_msgs/Float32MultiArray');
+    rosCtx.tag_callback_enabled = false;
+    rosCtx.tag_cache_key = "";
+    tagCallbackRequested = isfield(cfg, 'ros') && isfield(cfg.ros, 'prioritize_tag_callback') && cfg.ros.prioritize_tag_callback;
+    if tagCallbackRequested
+        tagCacheKey = regexprep(sprintf('autosim_tag_cache_%s', nodeName), '[^a-zA-Z0-9_]', '_');
+        autosimInitTagStateCache(tagCacheKey);
+        try
+            rosCtx.subTag = ros2subscriber(node, cfg.topics.tag_state, 'std_msgs/Float32MultiArray', ...
+                @(varargin) autosimTagStateCallback(tagCacheKey, varargin{:}));
+            rosCtx.tag_callback_enabled = true;
+            rosCtx.tag_cache_key = string(tagCacheKey);
+            fprintf('[AUTOSIM] AprilTag callback-priority subscriber enabled on %s\n', cfg.topics.tag_state);
+        catch ME
+            autosimClearTagStateCache(tagCacheKey);
+            rosCtx.subTag = ros2subscriber(node, cfg.topics.tag_state, 'std_msgs/Float32MultiArray');
+            warning('[AUTOSIM] AprilTag callback mode unavailable; fallback to polling: %s', ME.message);
+        end
+    else
+        rosCtx.subTag = ros2subscriber(node, cfg.topics.tag_state, 'std_msgs/Float32MultiArray');
+    end
     rosCtx.subWind = ros2subscriber(node, cfg.topics.wind_condition, 'std_msgs/Float32MultiArray');
 
     rosCtx.subImu = [];
@@ -5331,6 +5650,10 @@ function autosimReleaseRosContext(rosCtx)
         return;
     end
 
+    if isstruct(rosCtx) && isfield(rosCtx, 'tag_cache_key') && strlength(string(rosCtx.tag_cache_key)) > 0
+        autosimClearTagStateCache(char(string(rosCtx.tag_cache_key)));
+    end
+
     if isstruct(rosCtx) && isfield(rosCtx, 'cleanupHandles')
         autosimCleanupRosHandles(rosCtx.cleanupHandles);
     elseif isstruct(rosCtx) && isfield(rosCtx, 'node')
@@ -5341,6 +5664,100 @@ end
 
 function autosimCleanupRosHandles(handles)
     if nargin < 1 || isempty(handles)
+
+
+function autosimInitTagStateCache(cacheKey)
+    cache = struct('has_message', false, 'rx_count', 0, 'detected', false, 'u', nan, 'v', nan, 'tag_error', nan);
+    setappdata(0, char(cacheKey), cache);
+end
+
+
+function autosimClearTagStateCache(cacheKey)
+    key = char(string(cacheKey));
+    if isappdata(0, key)
+        rmappdata(0, key);
+    end
+end
+
+
+function cache = autosimGetTagStateCache(cacheKey)
+    key = char(string(cacheKey));
+    if isappdata(0, key)
+        cache = getappdata(0, key);
+    else
+        cache = struct('has_message', false, 'rx_count', 0, 'detected', false, 'u', nan, 'v', nan, 'tag_error', nan);
+    end
+end
+
+
+function autosimTagStateCallback(cacheKey, varargin)
+    msg = [];
+    for i = 1:numel(varargin)
+        cand = varargin{i};
+        if autosimLooksLikeRosDataMessage(cand)
+            msg = cand;
+            break;
+        end
+    end
+    if isempty(msg)
+        return;
+    end
+
+    [detected, uTag, vTag, tagErr] = autosimParseTag(msg);
+    cache = autosimGetTagStateCache(cacheKey);
+    cache.has_message = true;
+    cache.rx_count = autosimClampNaN(cache.rx_count, 0) + 1;
+    cache.detected = logical(detected);
+    cache.u = uTag;
+    cache.v = vTag;
+    cache.tag_error = tagErr;
+    setappdata(0, char(cacheKey), cache);
+end
+
+
+function tf = autosimLooksLikeRosDataMessage(msg)
+    tf = false;
+    try
+        if isstruct(msg) && isfield(msg, 'data')
+            tf = true;
+            return;
+        end
+        tmp = msg.data; %#ok<NASGU>
+        tf = true;
+    catch
+        tf = false;
+    end
+end
+
+
+function [hasFreshTag, tagDetected, uTag, vTag, tagErr, rxCountOut] = autosimReadTagInput(subTag, recvTimeoutSec, tagCallbackEnabled, tagCacheKey, lastSeenRxCount)
+    hasFreshTag = false;
+    tagDetected = false;
+    uTag = nan;
+    vTag = nan;
+    tagErr = nan;
+    rxCountOut = lastSeenRxCount;
+
+    if tagCallbackEnabled && strlength(string(tagCacheKey)) > 0
+        cache = autosimGetTagStateCache(tagCacheKey);
+        rxCountOut = max(lastSeenRxCount, autosimClampNaN(cache.rx_count, 0));
+        if cache.has_message && (rxCountOut > lastSeenRxCount)
+            hasFreshTag = true;
+            tagDetected = logical(cache.detected);
+            uTag = cache.u;
+            vTag = cache.v;
+            tagErr = cache.tag_error;
+        end
+        return;
+    end
+
+    tagMsg = autosimTryReceive(subTag, recvTimeoutSec);
+    if ~isempty(tagMsg)
+        hasFreshTag = true;
+        rxCountOut = lastSeenRxCount + 1;
+        [tagDetected, uTag, vTag, tagErr] = autosimParseTag(tagMsg);
+    end
+end
         return;
     end
 
