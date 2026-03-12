@@ -484,14 +484,12 @@ function cfg = autosimDefaultConfig()
     cfg.shell.setup_cmd = [ ...
         ros2env ' && source ~/.bashrc && ' ...
         'source /opt/ros/humble/setup.bash && ' ...
-        'source /home/j/INCSL/IICC26_ws/install/setup.bash && ' ...
-        pyPathChain ...
+        'source /home/j/INCSL/IICC26_ws/install/setup.bash' ...
     ];
     cfg.shell.land_cli_cmd = [ ...
         ros2env ' && source ~/.bashrc && ' ...
         'source /opt/ros/humble/setup.bash && ' ...
         'source /home/j/INCSL/IICC26_ws/install/setup.bash && ' ...
-        pyPathChain ' && ' ...
         'ros2 topic pub /drone/land std_msgs/msg/Empty {} --once' ...
     ];
 end
@@ -5664,6 +5662,30 @@ end
 
 function autosimCleanupRosHandles(handles)
     if nargin < 1 || isempty(handles)
+        return;
+    end
+
+    if ~iscell(handles)
+        handles = {handles};
+    end
+
+    for i = 1:numel(handles)
+        obj = handles{i};
+        if isempty(obj)
+            continue;
+        end
+
+        try
+            if isobject(obj)
+                delete(obj);
+            end
+        catch
+        end
+
+        handles{i} = [];
+        pause(0.01);
+    end
+end
 
 
 function autosimInitTagStateCache(cacheKey)
@@ -5756,30 +5778,6 @@ function [hasFreshTag, tagDetected, uTag, vTag, tagErr, rxCountOut] = autosimRea
         hasFreshTag = true;
         rxCountOut = lastSeenRxCount + 1;
         [tagDetected, uTag, vTag, tagErr] = autosimParseTag(tagMsg);
-    end
-end
-        return;
-    end
-
-    if ~iscell(handles)
-        handles = {handles};
-    end
-
-    for i = 1:numel(handles)
-        obj = handles{i};
-        if isempty(obj)
-            continue;
-        end
-
-        try
-            if isobject(obj)
-                delete(obj);
-            end
-        catch
-        end
-
-        handles{i} = [];
-        pause(0.01);
     end
 end
 
