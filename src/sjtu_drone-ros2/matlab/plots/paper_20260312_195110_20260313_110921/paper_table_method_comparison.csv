@@ -1,0 +1,4 @@
+method,n_valid,accuracy,precision,safe_recall,unsafe_reject,f1,unsafe_landing_rate,TP,FP,FN,TN
+Ontology+AI (policy),1000,0.981,0.981,1,0,0.990408884401817,1,981,19,0,0
+Ontology+AI (executed),1000,0.981,0.981,1,0,0.990408884401817,1,981,19,0,0
+Threshold baseline,1000,0.274,0.996108949416342,0.260958205912334,0.947368421052632,0.413570274636511,0.0526315789473684,256,1,725,18

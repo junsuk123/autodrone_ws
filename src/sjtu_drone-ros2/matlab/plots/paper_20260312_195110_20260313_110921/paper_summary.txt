@@ -1,0 +1,35 @@
+run_dir: /home/j/INCSL/IICC26_ws/src/sjtu_drone-ros2/matlab/data/20260312_195110
+dataset: /home/j/INCSL/IICC26_ws/src/sjtu_drone-ros2/matlab/data/20260312_195110/autosim_dataset_latest.csv
+trace: /home/j/INCSL/IICC26_ws/src/sjtu_drone-ros2/matlab/data/20260312_195110/autosim_trace_latest.csv
+performance: /home/j/INCSL/IICC26_ws/src/sjtu_drone-ros2/matlab/data/20260312_195110/autosim_performance_20260313_073626_completed.csv
+decision_metrics: /home/j/INCSL/IICC26_ws/src/sjtu_drone-ros2/matlab/data/20260312_195110/autosim_decision_metrics_20260313_073626_completed.csv
+
+[Ontology+AI policy]
+n_valid: 1000
+accuracy: 0.9810
+precision: 0.9810
+safe_recall: 1.0000
+unsafe_reject: 0.0000
+f1: 0.9904
+unsafe_landing_rate: 1.0000
+TP=981 FP=19 FN=0 TN=0
+
+[Ontology+AI executed]
+n_valid: 1000
+accuracy: 0.9810
+precision: 0.9810
+safe_recall: 1.0000
+unsafe_reject: 0.0000
+f1: 0.9904
+unsafe_landing_rate: 1.0000
+TP=981 FP=19 FN=0 TN=0
+
+[Threshold baseline]
+n_valid: 1000
+accuracy: 0.2740
+precision: 0.9961
+safe_recall: 0.2610
+unsafe_reject: 0.9474
+f1: 0.4136
+unsafe_landing_rate: 0.0526
+TP=256 FP=1 FN=725 TN=18

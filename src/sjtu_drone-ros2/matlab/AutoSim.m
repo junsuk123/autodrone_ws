@@ -22,8 +22,13 @@ end
 autosimClearStopRequest();
 
 cfg = autosimDefaultConfig();
+[cfg, overrideInfo] = autosimApplyExternalOverride(cfg, thisDir);
 autosimEnsureDirectories(cfg);
 lockCleanup = autosimAcquireLock(cfg); %#ok<NASGU>
+
+if overrideInfo.loaded
+    fprintf('[AUTOSIM] External override applied: %s\n', overrideInfo.path);
+end
 
 fprintf('\n[AUTOSIM] Start at %s\n', datestr(now, 'yyyy-mm-dd HH:MM:SS'));
 fprintf('[AUTOSIM] Scenario count: %d\n', cfg.scenario.count);
@@ -230,6 +235,26 @@ function cfg = autosimDefaultConfig()
     cfg.wind.kma_interp_noise_std_speed = 0.10;
     cfg.wind.kma_interp_noise_std_dir_deg = 1.5;
     cfg.wind.kma_use_profile_direct = true;
+    cfg.wind.kma_pick_mode = "sequential"; % "sequential" | "random"
+    cfg.wind.random_seed_base = 20260313;
+
+    cfg.validation = struct();
+    cfg.validation.enable = false;
+    cfg.validation.mode_cycle = ["easy", "boundary", "hard"];
+    cfg.validation.direction_bin_count = 8;
+    cfg.validation.seed_base = 20260313;
+    cfg.validation.easy_speed_quantile = [0.05, 0.35];
+    cfg.validation.boundary_speed_quantile = [0.35, 0.70];
+    cfg.validation.hard_speed_quantile = [0.70, 0.95];
+    cfg.validation.easy_hover_ratio = 0.80;
+    cfg.validation.boundary_hover_ratio = 0.50;
+    cfg.validation.hard_hover_ratio = 0.20;
+    cfg.validation.easy_gust_amp_scale = 0.90;
+    cfg.validation.boundary_gust_amp_scale = 1.05;
+    cfg.validation.hard_gust_amp_scale = 1.25;
+    cfg.validation.easy_dir_osc_scale = 0.90;
+    cfg.validation.boundary_dir_osc_scale = 1.05;
+    cfg.validation.hard_dir_osc_scale = 1.20;
 
     cfg.control = struct();
     cfg.control.takeoff_retry_sec = 1.0;
@@ -576,6 +601,34 @@ end
 
 
 function [model, info] = autosimLoadOrInitModel(cfg)
+    if isfield(cfg, 'model') && isfield(cfg.model, 'force_model_path')
+        forcedPath = string(cfg.model.force_model_path);
+        if strlength(forcedPath) > 0
+            modelPath = char(forcedPath);
+            if ~isfile(modelPath)
+                error('Forced model path does not exist: %s', modelPath);
+            end
+
+            S = load(modelPath);
+            if ~isfield(S, 'model')
+                error('Forced model file does not contain variable "model": %s', modelPath);
+            end
+
+            candidate = S.model;
+            if ~isfield(candidate, 'feature_names')
+                candidate.feature_names = cfg.model.feature_names;
+            end
+
+            if ~autosimModelFeatureSchemaMatches(candidate, cfg)
+                error('Forced model schema is incompatible with current AutoSim config: %s', modelPath);
+            end
+
+            model = candidate;
+            info = struct('source', string(modelPath));
+            return;
+        end
+    end
+
     dd = dir(fullfile(cfg.paths.model_dir, 'autosim_model_*.mat'));
     if isempty(dd)
         dd = dir(fullfile(cfg.paths.model_dir, 'landing_model_*.mat'));
@@ -662,6 +715,169 @@ function scenarioCfg = autosimBuildScenarioConfig(cfg, scenarioId)
     else
         scenarioCfg.wind_speed = 0.0;
         scenarioCfg.wind_dir = 0.0;
+    end
+    scenarioCfg = autosimApplyValidationScenarioConfig(cfg, scenarioCfg, scenarioId);
+end
+
+
+function mode = autosimValidationMode(cfg, scenarioId)
+    mode = "boundary";
+    if ~isfield(cfg, 'validation') || ~isfield(cfg.validation, 'mode_cycle')
+        return;
+    end
+
+    cycle = string(cfg.validation.mode_cycle(:));
+    cycle = cycle(strlength(cycle) > 0);
+    if isempty(cycle)
+        return;
+    end
+
+    idx = mod(max(1, scenarioId) - 1, numel(cycle)) + 1;
+    mode = cycle(idx);
+end
+
+
+function scenarioCfg = autosimApplyValidationScenarioConfig(cfg, scenarioCfg, scenarioId)
+    if ~isfield(cfg, 'validation') || ~isfield(cfg.validation, 'enable') || ~cfg.validation.enable
+        return;
+    end
+
+    mode = autosimValidationMode(cfg, scenarioId);
+    scenarioCfg.validation_mode = mode;
+
+    profile = autosimGetKmaWindProfile(cfg);
+    if isempty(profile) || ~isfield(profile, 'speed_sec') || isempty(profile.speed_sec)
+        return;
+    end
+
+    speedVals = double(profile.speed_sec(:));
+    dirVals = double(profile.dir_sec(:));
+    valid = isfinite(speedVals) & isfinite(dirVals);
+    if ~any(valid)
+        return;
+    end
+
+    sourceIdx = find(valid);
+    speedValid = speedVals(valid);
+    dirValid = dirVals(valid);
+
+    switch mode
+        case "easy"
+            q = autosimGetValidationQuantileRange(cfg.validation, 'easy_speed_quantile', [0.05, 0.35]);
+            hoverRatio = autosimClampNaN(cfg.validation.easy_hover_ratio, 0.80);
+            gustScale = autosimClampNaN(cfg.validation.easy_gust_amp_scale, 0.90);
+            dirScale = autosimClampNaN(cfg.validation.easy_dir_osc_scale, 0.90);
+        case "hard"
+            q = autosimGetValidationQuantileRange(cfg.validation, 'hard_speed_quantile', [0.70, 0.95]);
+            hoverRatio = autosimClampNaN(cfg.validation.hard_hover_ratio, 0.20);
+            gustScale = autosimClampNaN(cfg.validation.hard_gust_amp_scale, 1.25);
+            dirScale = autosimClampNaN(cfg.validation.hard_dir_osc_scale, 1.20);
+        otherwise
+            q = autosimGetValidationQuantileRange(cfg.validation, 'boundary_speed_quantile', [0.35, 0.70]);
+            hoverRatio = autosimClampNaN(cfg.validation.boundary_hover_ratio, 0.50);
+            gustScale = autosimClampNaN(cfg.validation.boundary_gust_amp_scale, 1.05);
+            dirScale = autosimClampNaN(cfg.validation.boundary_dir_osc_scale, 1.05);
+    end
+
+    q = min(max(sort(q), 0.0), 1.0);
+    lo = prctile(speedValid, 100 * q(1));
+    hi = prctile(speedValid, 100 * q(2));
+    speedMask = (speedValid >= lo) & (speedValid <= hi);
+
+    cycle = string(cfg.validation.mode_cycle(:));
+    cycle = cycle(strlength(cycle) > 0);
+    if isempty(cycle)
+        cycle = ["easy"; "boundary"; "hard"];
+    end
+    dirBinCount = max(1, round(autosimClampNaN(cfg.validation.direction_bin_count, 8)));
+    dirEdges = linspace(-180.0, 180.0, dirBinCount + 1);
+    dirBin = mod(floor((max(1, scenarioId) - 1) / numel(cycle)), dirBinCount) + 1;
+    dirMask = (dirValid >= dirEdges(dirBin)) & (dirValid <= dirEdges(dirBin + 1));
+
+    idxPool = sourceIdx(speedMask & dirMask);
+    if isempty(idxPool)
+        idxPool = sourceIdx(speedMask);
+    end
+    if isempty(idxPool)
+        idxPool = sourceIdx;
+    end
+
+    seedBase = autosimClampNaN(cfg.validation.seed_base, 20260313);
+    stream = RandStream('mt19937ar', 'Seed', mod(seedBase + 4099 * max(1, scenarioId), 2147483646) + 1);
+    pick = idxPool(randi(stream, numel(idxPool)));
+
+    scenarioCfg.wind_speed = profile.speed_sec(pick);
+    scenarioCfg.wind_dir = profile.dir_sec(pick);
+    scenarioCfg.wind_profile_offset_sec = max(0, pick - 1);
+    scenarioCfg.hover_height_m = autosimInterpolate(cfg.scenario.hover_height_min_m, cfg.scenario.hover_height_max_m, hoverRatio);
+    scenarioCfg.gust_amp_scale = gustScale;
+    scenarioCfg.dir_osc_scale = dirScale;
+end
+
+
+function q = autosimGetValidationQuantileRange(vcfg, fieldName, fallback)
+    q = fallback;
+    if isfield(vcfg, fieldName)
+        tmp = double(vcfg.(fieldName));
+        if numel(tmp) >= 2 && all(isfinite(tmp(1:2)))
+            q = tmp(1:2);
+        end
+    end
+end
+
+
+function v = autosimInterpolate(a, b, t)
+    t = autosimClampNaN(t, 0.5);
+    t = min(max(t, 0.0), 1.0);
+    v = a + (b - a) * t;
+end
+
+
+function [cfg, info] = autosimApplyExternalOverride(cfg, rootDir)
+    info = struct('loaded', false, 'path', "");
+    if nargin < 2 || strlength(string(rootDir)) == 0
+        return;
+    end
+
+    overridePath = fullfile(char(rootDir), 'autosim_override.mat');
+    if ~isfile(overridePath)
+        return;
+    end
+
+    S = load(overridePath);
+    override = struct();
+    if isfield(S, 'autosimOverride') && isstruct(S.autosimOverride)
+        override = S.autosimOverride;
+    elseif isfield(S, 'override') && isstruct(S.override)
+        override = S.override;
+    end
+
+    if ~isempty(fieldnames(override))
+        cfg = autosimMergeStruct(cfg, override);
+        info.loaded = true;
+        info.path = string(overridePath);
+    end
+
+    try
+        delete(overridePath);
+    catch
+    end
+end
+
+
+function base = autosimMergeStruct(base, override)
+    if ~isstruct(override)
+        return;
+    end
+
+    fn = fieldnames(override);
+    for i = 1:numel(fn)
+        key = fn{i};
+        if isfield(base, key) && isstruct(base.(key)) && isstruct(override.(key))
+            base.(key) = autosimMergeStruct(base.(key), override.(key));
+        else
+            base.(key) = override.(key);
+        end
     end
 end
 
@@ -810,6 +1026,15 @@ function policy = autosimChooseScenarioPolicy(cfg, datasetState, scenarioId)
     policy.p_exploit = autosimClampNaN(cfg.adaptive.base_exploit_prob, 0.60);
     policy.p_boundary = autosimClampNaN(cfg.adaptive.base_boundary_prob, 0.25);
     policy.p_hard_negative = autosimClampNaN(cfg.adaptive.base_hard_negative_prob, 0.15);
+    
+    if isfield(cfg, 'validation') && isfield(cfg.validation, 'enable') && cfg.validation.enable
+        policy.mode = autosimValidationMode(cfg, scenarioId);
+        policy.reason = "validation_schedule";
+        policy.p_exploit = nan;
+        policy.p_boundary = nan;
+        policy.p_hard_negative = nan;
+        return;
+    end
 
     if ~isfield(cfg, 'adaptive') || ~cfg.adaptive.enable || scenarioId <= cfg.adaptive.warmup_scenarios
         return;
@@ -2683,6 +2908,12 @@ function [model, info] = autosimIncrementalTrainAndSave(cfg, results, modelPrev,
     info.skip_reason = "";
     info.model_path = "";
 
+    if ~isfield(cfg, 'learning') || ~isfield(cfg.learning, 'enable') || ~cfg.learning.enable
+        model = modelPrev;
+        info.skip_reason = "learning_disabled";
+        return;
+    end
+
     if sum(valid) < cfg.learning.bootstrap_min_samples
         model = modelPrev;
         info.skip_reason = "insufficient_total_samples";
@@ -4067,7 +4298,7 @@ function [windSpeed, windDir] = autosimPickScenarioWind(cfg, scenarioId)
         return;
     end
 
-    idx = mod(max(1, scenarioId) - 1, profileN) + 1;
+    idx = autosimResolveKmaProfileIndex(cfg, scenarioId, profileN);
     windSpeed = profile.speed_sec(idx);
     windDir = profile.dir_sec(idx);
 end
@@ -4090,9 +4321,35 @@ function offsetSec = autosimPickScenarioWindOffsetSec(cfg, scenarioId)
     end
 
     n = numel(profile.speed_sec);
+    idx = autosimResolveKmaProfileIndex(cfg, scenarioId, n);
+    offsetSec = max(0, idx - 1);
+end
+
+
+function idx = autosimResolveKmaProfileIndex(cfg, scenarioId, n)
+    idx = 1;
+    if nargin < 3 || n < 1
+        return;
+    end
+
+    pickMode = "sequential";
+    if isfield(cfg, 'wind') && isfield(cfg.wind, 'kma_pick_mode')
+        pickMode = string(cfg.wind.kma_pick_mode);
+    end
+
+    if pickMode == "random"
+        seedBase = 0;
+        if isfield(cfg, 'wind') && isfield(cfg.wind, 'random_seed_base') && isfinite(cfg.wind.random_seed_base)
+            seedBase = double(cfg.wind.random_seed_base);
+        end
+        seed = mod(seedBase + 104729 * max(1, scenarioId), 2147483646) + 1;
+        stream = RandStream('mt19937ar', 'Seed', seed);
+        idx = randi(stream, n);
+        return;
+    end
+
     step = max(1, floor(n / max(1, cfg.scenario.count)));
-    offsetSec = mod(max(1, scenarioId) - 1, n) * step;
-    offsetSec = mod(offsetSec, n);
+    idx = mod((max(1, scenarioId) - 1) * step, n) + 1;
 end
 
 
