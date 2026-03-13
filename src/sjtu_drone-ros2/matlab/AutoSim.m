@@ -1,4 +1,4 @@
-% AutoSim.m
+    % AutoSim.m
 % Integrated autonomous simulation + incremental learning pipeline.
 % It combines online landing decision, per-scenario validation, and model updates.
 %
@@ -193,7 +193,7 @@ function cfg = autosimDefaultConfig()
     cfg.launch.ready_timeout_sec = 15.0;
 
     cfg.scenario = struct();
-    cfg.scenario.count = 30;
+    cfg.scenario.count = 1000;
     cfg.scenario.duration_sec = inf;
     cfg.scenario.sample_period_sec = 0.1;
     cfg.scenario.analysis_stop_at_landing = true;
@@ -3194,12 +3194,13 @@ function plotState = autosimInitPlots()
     plotState.precLine = animatedline(ax1, 'Color', [0.20 0.60 0.20], 'LineWidth', 1.5);
     plotState.recLine = animatedline(ax1, 'Color', [0.85 0.33 0.10], 'LineWidth', 1.5);
     plotState.unsafeLine = animatedline(ax1, 'Color', [0.75 0.20 0.20], 'LineWidth', 1.6);
+    plotState.execUnsafeLine = animatedline(ax1, 'Color', [0.49 0.18 0.56], 'LineWidth', 1.6, 'LineStyle', '--');
     title(ax1, 'Decision Metrics Trend', 'FontSize', 10);
     xlabel(ax1, 'scenario', 'FontSize', 9);
     ylabel(ax1, 'score', 'FontSize', 9);
     ylim(ax1, [0 1]);
     grid(ax1, 'on');
-    legend(ax1, {'accuracy', 'precision', 'safe recall', 'unsafe landing rate'}, 'Location', 'best', 'FontSize', 8);
+    legend(ax1, {'accuracy', 'precision', 'safe recall', 'policy unsafe landing rate', 'executed unsafe landing rate'}, 'Location', 'best', 'FontSize', 8);
 
     ax2 = nexttile(tl, 2);
     plotState.ax2 = ax2;
@@ -3208,11 +3209,13 @@ function plotState = autosimInitPlots()
     plotState.fpLine = animatedline(ax2, 'Color', [0.75 0.20 0.20], 'LineWidth', 1.4);
     plotState.fnLine = animatedline(ax2, 'Color', [0.85 0.33 0.10], 'LineWidth', 1.4);
     plotState.tnLine = animatedline(ax2, 'Color', [0.00 0.45 0.74], 'LineWidth', 1.4);
-    title(ax2, 'Decision Confusion Counts', 'FontSize', 10);
+    plotState.unsafeGtLine = animatedline(ax2, 'Color', [0.40 0.40 0.40], 'LineWidth', 1.4, 'LineStyle', '--');
+    plotState.probeLine = animatedline(ax2, 'Color', [0.55 0.10 0.55], 'LineWidth', 1.4, 'LineStyle', ':');
+    title(ax2, 'Decision Counts And Sample Mix', 'FontSize', 10);
     xlabel(ax2, 'scenario', 'FontSize', 9);
     ylabel(ax2, 'count', 'FontSize', 9);
     grid(ax2, 'on');
-    legend(ax2, {'TP', 'FP', 'FN', 'TN'}, 'Location', 'best', 'FontSize', 8);
+    legend(ax2, {'TP', 'FP', 'FN', 'TN', 'unsafe GT', 'probe episodes'}, 'Location', 'best', 'FontSize', 8);
 end
 
 
@@ -3224,17 +3227,37 @@ function plotState = autosimUpdatePlots(plotState, results, learningHistory)
     sIdx = numel(results);
     summaryTbl = autosimSummaryTable(results);
     dEval = autosimEvaluateDecisionMetrics(summaryTbl);
+    dExec = autosimEvaluateDecisionMetrics(autosimBuildDecisionTable(summaryTbl, 'executed_action'));
+
+    unsafeGtCount = 0;
+    probeCount = 0;
+    if ~isempty(summaryTbl)
+        if ismember('gt_safe_to_land', summaryTbl.Properties.VariableNames)
+            gtLbl = string(summaryTbl.gt_safe_to_land);
+            unsafeGtCount = sum((gtLbl == "unstable") | (gtLbl == "unsafe"));
+        elseif ismember('label', summaryTbl.Properties.VariableNames)
+            unsafeGtCount = sum(string(summaryTbl.label) == "unstable");
+        end
+        if ismember('probe_episode', summaryTbl.Properties.VariableNames)
+            probeCount = sum(logical(autosimToNumeric(summaryTbl.probe_episode)));
+        end
+    end
 
     if dEval.n_valid > 0
         addpoints(plotState.accLine, sIdx, dEval.accuracy);
         addpoints(plotState.precLine, sIdx, dEval.precision);
         addpoints(plotState.recLine, sIdx, dEval.recall);
         addpoints(plotState.unsafeLine, sIdx, dEval.unsafe_landing_rate);
+        if dExec.n_valid > 0
+            addpoints(plotState.execUnsafeLine, sIdx, dExec.unsafe_landing_rate);
+        end
 
         addpoints(plotState.tpLine, sIdx, dEval.tp);
         addpoints(plotState.fpLine, sIdx, dEval.fp);
         addpoints(plotState.fnLine, sIdx, dEval.fn);
         addpoints(plotState.tnLine, sIdx, dEval.tn);
+        addpoints(plotState.unsafeGtLine, sIdx, unsafeGtCount);
+        addpoints(plotState.probeLine, sIdx, probeCount);
     end
 
     drawnow limitrate nocallbacks;
@@ -5273,11 +5296,16 @@ function label = autosimWindLegendLabel(token)
 end
 
 
-function dTbl = autosimBuildDecisionTable(summaryTbl)
+function dTbl = autosimBuildDecisionTable(summaryTbl, decisionField)
     dTbl = table();
     if isempty(summaryTbl) || ~ismember('scenario_id', summaryTbl.Properties.VariableNames)
         return;
     end
+
+    if nargin < 2 || strlength(string(decisionField)) == 0
+        decisionField = "pred_decision";
+    end
+    decisionField = string(decisionField);
 
     n = height(summaryTbl);
     sid = summaryTbl.scenario_id;
@@ -5299,8 +5327,8 @@ function dTbl = autosimBuildDecisionTable(summaryTbl)
 
     predLand = false(n, 1);
     predValid = false(n, 1);
-    if ismember('pred_decision', summaryTbl.Properties.VariableNames)
-        p = string(summaryTbl.pred_decision);
+    if ismember(decisionField, string(summaryTbl.Properties.VariableNames))
+        p = string(summaryTbl.(char(decisionField)));
         predLand = (p == "land");
         predValid = (p == "land") | (p == "abort") | (p == "hover");
     elseif ismember('landing_cmd_time', summaryTbl.Properties.VariableNames)
