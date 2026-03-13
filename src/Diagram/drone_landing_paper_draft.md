@@ -66,6 +66,7 @@ This paper proposes an ontology-based AI decision framework for drone landing un
 ### 2.2 시뮬레이션 환경 및 자동 실험 파이프라인
 
 본 연구에서는 ROS2와 Gazebo 기반 드론 시뮬레이션 환경을 구축하고, MATLAB 기반 자동 실험 스크립트를 통해 반복 시나리오 수행, 센서 수집, 판단, 라벨링, 모델 업데이트를 통합 수행하였다. 시뮬레이션의 바람 외란은 정상 성분과 돌풍 성분으로 구성되며, 다음과 같이 표현할 수 있다.
+시뮬레이션의 바람 외란 설정에는 기상청 자료개방포털에서 제공하는 종관기상관측(Automated Synoptic Observing System, ASOS) 자료의 서울특별시 분간 풍속·풍향 데이터를 활용하였으며, 이를 가우시안 노이즈와 함께 초단위로 보간하여 실제 풍장 패턴을 반영하였다. 보간된 풍속 프로파일은 다음과 같이 정상 성분과 돌풍 성분으로 구성된다.
 
 $$
 W(t) = W_s(t) + W_g(t)
@@ -283,18 +284,18 @@ $$
 
 | Method | n_valid | Accuracy | Precision | Safe Recall | Unsafe Reject | F1 | Unsafe Landing Rate |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| Ontology+AI (policy) |  |  |  |  |  |  |  |
-| Ontology+AI (executed) |  |  |  |  |  |  |  |
-| Threshold baseline |  |  |  |  |  |  |  |
+| Ontology+AI (policy) | 385 | 41.82% | 67.69% | 32.59% | 63.48% | 44.00% | 36.52% |
+| Ontology+AI (executed) | 385 | 70.13% | 70.13% | 100.00% | 0.00% | 82.44% | 100.00% |
+| Threshold baseline | 385 | 61.04% | 71.43% | 74.07% | 30.43% | 72.73% | 69.57% |
 
 ### 표 3. Threshold baseline 설정값
 
 | Parameter | Value |
 | --- | --- |
-| wind_threshold |  |
-| tag_error_threshold |  |
-| roll_threshold_deg |  |
-| pitch_threshold_deg |  |
+| wind_threshold | 3.1690 |
+| tag_error_threshold | 0.5367 |
+| roll_threshold_deg | 1.6225 |
+| pitch_threshold_deg | 2.2309 |
 
 ### 4.3 그림 구성
 
@@ -336,10 +337,10 @@ Threshold 기반 방법은 특정 풍속이나 오차 값이 기준을 넘는지
 
 반면 제안 방법은 시간적 외란 특성과 시각적 안정성을 함께 평가하므로, 위와 같은 경계 상황에서도 보다 보수적이고 안정적인 판단을 내릴 수 있었다. 특히 Unsafe Landing Rate가 감소한 결과는 착륙 강행을 줄이고 호버링 또는 재평가를 선택하는 상위 의사결정 계층의 효과를 보여준다.
 
-정량 해석 시에는 단일 정확도 지표만으로 결론을 내리지 않고, unsafe 클래스에 대한 거부 성능(Unsafe Reject/Specificity)과 위험 착륙률(Unsafe Landing Rate)을 함께 해석해야 한다. 이는 안전 중심 착륙 의사결정에서 필수적인 보고 항목이다.
 
-이 결과는 평가 데이터의 클래스 분포와 정책의 보수성이 성능 해석에 직접적인 영향을 준다는 점을 시사한다. 평가 배치가 safe 시나리오에 편중되면 negative class 검증력이 낮아질 수 있으며, 반대로 위험 구간이 충분히 포함되면 abort 결정의 적절성을 보다 명확하게 분석할 수 있다. 따라서 향후 결과 보고에서는 accuracy, precision, recall과 함께 unsafe rejection rate, specificity, balanced accuracy를 함께 제시하는 것이 타당하다.
+정량 해석 시에는 단일 정확도 지표만으로 결론을 내리지 않고, unsafe 클래스에 대한 거부 성능(Unsafe Reject/Specificity)과 위험 착륙률(Unsafe Landing Rate)을 함께 해석해야 한다.
 
+이 결과는 두 가지 가능성을 시사한다.
 ### 4.5 한계 및 논의
 
 본 연구는 시뮬레이션 기반 검증을 중심으로 수행되었기 때문에 실제 실외 환경의 복잡한 난류, 센서 노이즈, 통신 지연, 지면 효과를 완전히 반영하지는 못한다. 또한 현재 분류 모델은 경량성과 실시간성을 우선하여 설계되었으므로, 향후에는 실제 비행 로그를 활용한 도메인 적응과 더불어 고도화된 시계열 모델과의 비교도 필요하다.
@@ -360,8 +361,8 @@ Threshold 기반 방법은 특정 풍속이나 오차 값이 기준을 넘는지
 
 ## 참고 문헌
 
-[1] Olson, E., “AprilTag: A robust and flexible visual fiducial system,” IEEE International Conference on Robotics and Automation, 2011.
+[1] Olson, E., "AprilTag: A Robust and Flexible Visual Fiducial System," *Proc. IEEE Int. Conf. on Robotics and Automation (ICRA)*, pp. 3400-3407, 2011.
 
-[2] Choi, B. et al., “Reinforcement Learning Reward Design for Robust Autonomous Shipboard Drone Landing,” Journal of Positioning, Navigation, and Timing, 2025.
+[2] Choi, B., Jung, W. J., Byeon, M. S., Jung, S. Y., Song, J. W., and Kim, Y. H., "Reinforcement Learning Reward Design for Robust Autonomous Shipboard Drone Landing," *Journal of Positioning, Navigation, and Timing*, vol. 14, no. 4, pp. 319-331, 2025.
 
-[3] Tenorth, M., Beetz, M., “KnowRob: A knowledge processing infrastructure for cognition-enabled robots,” International Journal of Robotics Research, 2013.
+[3] Tenorth, M., and Beetz, M., "KnowRob: A Knowledge Processing Infrastructure for Cognition-Enabled Robots," *International Journal of Robotics Research*, vol. 32, no. 5, pp. 566-590, 2013.
