@@ -428,7 +428,7 @@ function cfg = autosimDefaultConfig()
     cfg.curriculum.bootstrap_cycle = true;
     cfg.curriculum.hover_timeout_sec = 30.0;
     cfg.curriculum.safe_pool_quantile = [0.05, 0.45];
-    cfg.curriculum.unsafe_pool_quantile = [0.70, 0.98];
+    cfg.curriculum.unsafe_pool_quantile = [0.85, 1.00];
     cfg.curriculum.min_pool_size = 30;
 
     cfg.persistence = struct();
@@ -997,25 +997,15 @@ function state = autosimAnalyzeDatasetState(cfg, results, traceStore, learningHi
         end
     end
 
-    if ismember('gt_safe_to_land', summaryTbl.Properties.VariableNames) && ismember('executed_action', summaryTbl.Properties.VariableNames)
-        gt = string(summaryTbl.gt_safe_to_land);
-        act = string(summaryTbl.executed_action);
-        src = repmat("", height(summaryTbl), 1);
-        if ismember('action_source', summaryTbl.Properties.VariableNames)
-            src = string(summaryTbl.action_source);
+    if ismember('target_case', summaryTbl.Properties.VariableNames)
+        tc = string(summaryTbl.target_case);
+        tc = lower(strtrim(tc));
+        caseNames = lower(string(state.caseNames(:)));
+        counts = zeros(size(caseNames));
+        for ci = 1:numel(caseNames)
+            counts(ci) = sum(tc == caseNames(ci));
         end
-
-        isSafe = (gt == "stable") | (gt == "safe");
-        isLand = (act == "land");
-        isHoverAbort = (act == "abort");
-        isForcedTimeoutLand = isLand & (src == "forced_timeout");
-
-        c1 = sum(isSafe & isLand);
-        c2 = sum(isSafe & isHoverAbort);
-        c3 = sum((~isSafe) & isHoverAbort);
-        c4 = sum((~isSafe) & isForcedTimeoutLand);
-
-        state.caseCounts = [c1, c2, c3, c4];
+        state.caseCounts = counts(:).';
         state.nCaseLabeled = sum(state.caseCounts);
     end
 
@@ -1266,6 +1256,10 @@ function scenarioCfg = autosimApplyCurriculumTargetCase(cfg, scenarioCfg, datase
             scenarioCfg = autosimApplyCurriculumWindTarget(cfg, scenarioCfg, "unsafe", scenarioId);
             scenarioCfg.force_hover_abort_timeout = true;
             scenarioCfg.probe_landing_selected = false;
+            scenarioCfg.hard_negative_hint = true;
+            scenarioCfg.boundary_hint = true;
+            scenarioCfg.gust_amp_scale = max(autosimClampNaN(scenarioCfg.gust_amp_scale, 1.0), 1.35);
+            scenarioCfg.dir_osc_scale = max(autosimClampNaN(scenarioCfg.dir_osc_scale, 1.0), 1.20);
 
         case "unsafe_forced_land"
             scenarioCfg = autosimApplyCurriculumWindTarget(cfg, scenarioCfg, "unsafe", scenarioId);
@@ -1273,6 +1267,8 @@ function scenarioCfg = autosimApplyCurriculumTargetCase(cfg, scenarioCfg, datase
             scenarioCfg.probe_landing_selected = false;
             scenarioCfg.hard_negative_hint = true;
             scenarioCfg.boundary_hint = true;
+            scenarioCfg.gust_amp_scale = max(autosimClampNaN(scenarioCfg.gust_amp_scale, 1.0), 1.35);
+            scenarioCfg.dir_osc_scale = max(autosimClampNaN(scenarioCfg.dir_osc_scale, 1.0), 1.20);
 
         otherwise
     end
