@@ -64,6 +64,10 @@ try
         fprintf('[AUTOSIM] Adaptive policy=%s | stable=%.2f unstable=%.2f boundary=%.2f unsafeRate=%.2f\n', ...
             scenarioPolicy.mode, datasetState.stableRatio, 1.0 - datasetState.stableRatio, ...
             datasetState.boundarySampleRatio, datasetState.unsafeLandingRate);
+        if isfield(scenarioCfg, 'target_case')
+            fprintf('[AUTOSIM] Curriculum target_case=%s | wind=%.2f@%.1f\n', ...
+                char(string(scenarioCfg.target_case)), scenarioCfg.wind_speed, scenarioCfg.wind_dir);
+        end
 
         autosimCleanupProcesses(cfg);
         pause(cfg.process.kill_settle_sec);
@@ -81,6 +85,9 @@ try
             if exist('scenarioCfg', 'var') && isfield(scenarioCfg, 'policy_mode')
                 scenarioResult.scenario_policy = string(scenarioCfg.policy_mode);
             end
+            if exist('scenarioCfg', 'var') && isfield(scenarioCfg, 'target_case')
+                scenarioResult.target_case = string(scenarioCfg.target_case);
+            end
             scenarioResult.label = "unstable";
             scenarioResult.success = false;
             if autosimIsUserInterrupt(ME)
@@ -93,6 +100,9 @@ try
             scenarioTrace = autosimEmptyTraceTable(scenarioId);
             if exist('scenarioCfg', 'var') && isfield(scenarioCfg, 'policy_mode')
                 scenarioTrace.scenario_policy = string(scenarioCfg.policy_mode);
+            end
+            if exist('scenarioCfg', 'var') && isfield(scenarioCfg, 'target_case')
+                scenarioTrace.target_case = string(scenarioCfg.target_case);
             end
             warning('[AUTOSIM] Scenario %d exception: %s', scenarioId, ME.message);
         end
@@ -411,6 +421,16 @@ function cfg = autosimDefaultConfig()
     cfg.probe.allow_uncertain_signal = true;
     cfg.probe.only_when_policy_holds = true;
 
+    cfg.curriculum = struct();
+    cfg.curriculum.enable = true;
+    cfg.curriculum.target_case_names = ["safe_land", "safe_hover_timeout", "unsafe_hover_timeout", "unsafe_forced_land"];
+    cfg.curriculum.target_case_ratio = [0.25, 0.25, 0.25, 0.25];
+    cfg.curriculum.bootstrap_cycle = true;
+    cfg.curriculum.hover_timeout_sec = 30.0;
+    cfg.curriculum.safe_pool_quantile = [0.05, 0.45];
+    cfg.curriculum.unsafe_pool_quantile = [0.70, 0.98];
+    cfg.curriculum.min_pool_size = 30;
+
     cfg.persistence = struct();
     cfg.persistence.checkpoint_mat = fullfile(cfg.paths.data_dir, 'autosim_checkpoint_latest.mat');
     cfg.persistence.checkpoint_csv = fullfile(cfg.paths.data_dir, 'autosim_dataset_latest.csv');
@@ -707,6 +727,10 @@ function scenarioCfg = autosimBuildScenarioConfig(cfg, scenarioId)
     scenarioCfg.probe_landing_selected = false;
     scenarioCfg.probe_landing_probability = 0.0;
     scenarioCfg.probe_landing_reason = "none";
+    scenarioCfg.target_case = "none";
+    scenarioCfg.force_hover_abort_timeout = false;
+    scenarioCfg.force_land_at_timeout = false;
+    scenarioCfg.hover_timeout_sec = nan;
     scenarioCfg.hover_height_m = autosimRandRange(cfg.scenario.hover_height_min_m, cfg.scenario.hover_height_max_m);
     scenarioCfg.wind_profile_offset_sec = 0;
     if cfg.wind.enable
@@ -913,6 +937,9 @@ function state = autosimAnalyzeDatasetState(cfg, results, traceStore, learningHi
     state.recentExploitProbeRatio = 0.0;
     state.recentBoundaryProbeRatio = 0.0;
     state.recentHardNegativeProbeRatio = 0.0;
+    state.caseNames = ["safe_land", "safe_hover_timeout", "unsafe_hover_timeout", "unsafe_forced_land"];
+    state.caseCounts = zeros(1, 4);
+    state.nCaseLabeled = 0;
 
     if isempty(summaryTbl)
         return;
@@ -968,6 +995,28 @@ function state = autosimAnalyzeDatasetState(cfg, results, traceStore, learningHi
                 state.recentHardNegativeProbeRatio = autosimPolicyProbeRatio(recentProbe, recentPolicy, "hard_negative");
             end
         end
+    end
+
+    if ismember('gt_safe_to_land', summaryTbl.Properties.VariableNames) && ismember('executed_action', summaryTbl.Properties.VariableNames)
+        gt = string(summaryTbl.gt_safe_to_land);
+        act = string(summaryTbl.executed_action);
+        src = repmat("", height(summaryTbl), 1);
+        if ismember('action_source', summaryTbl.Properties.VariableNames)
+            src = string(summaryTbl.action_source);
+        end
+
+        isSafe = (gt == "stable") | (gt == "safe");
+        isLand = (act == "land");
+        isHoverAbort = (act == "abort");
+        isForcedTimeoutLand = isLand & (src == "forced_timeout");
+
+        c1 = sum(isSafe & isLand);
+        c2 = sum(isSafe & isHoverAbort);
+        c3 = sum((~isSafe) & isHoverAbort);
+        c4 = sum((~isSafe) & isForcedTimeoutLand);
+
+        state.caseCounts = [c1, c2, c3, c4];
+        state.nCaseLabeled = sum(state.caseCounts);
     end
 
     boundaryByContext = false(height(summaryTbl), 1);
@@ -1181,6 +1230,133 @@ function scenarioCfg = autosimBuildAdaptiveScenarioConfig(cfg, scenarioId, polic
             scenarioCfg.probe_landing_reason = probeReason;
         end
     end
+
+    scenarioCfg = autosimApplyCurriculumTargetCase(cfg, scenarioCfg, datasetState, scenarioId);
+end
+
+
+function scenarioCfg = autosimApplyCurriculumTargetCase(cfg, scenarioCfg, datasetState, scenarioId)
+    if ~isfield(cfg, 'curriculum') || ~isfield(cfg.curriculum, 'enable') || ~cfg.curriculum.enable
+        return;
+    end
+
+    targetCase = autosimChooseCurriculumCase(cfg, datasetState, scenarioId);
+    scenarioCfg.target_case = targetCase;
+
+    timeoutSec = autosimClampNaN(cfg.curriculum.hover_timeout_sec, cfg.control.land_forced_timeout_sec);
+    if ~isfinite(timeoutSec) || timeoutSec <= 0
+        timeoutSec = 30.0;
+    end
+    scenarioCfg.hover_timeout_sec = timeoutSec;
+
+    scenarioCfg.force_hover_abort_timeout = false;
+    scenarioCfg.force_land_at_timeout = false;
+
+    switch targetCase
+        case "safe_land"
+            scenarioCfg = autosimApplyCurriculumWindTarget(cfg, scenarioCfg, "safe", scenarioId);
+            scenarioCfg.probe_landing_selected = false;
+
+        case "safe_hover_timeout"
+            scenarioCfg = autosimApplyCurriculumWindTarget(cfg, scenarioCfg, "safe", scenarioId);
+            scenarioCfg.force_hover_abort_timeout = true;
+            scenarioCfg.probe_landing_selected = false;
+
+        case "unsafe_hover_timeout"
+            scenarioCfg = autosimApplyCurriculumWindTarget(cfg, scenarioCfg, "unsafe", scenarioId);
+            scenarioCfg.force_hover_abort_timeout = true;
+            scenarioCfg.probe_landing_selected = false;
+
+        case "unsafe_forced_land"
+            scenarioCfg = autosimApplyCurriculumWindTarget(cfg, scenarioCfg, "unsafe", scenarioId);
+            scenarioCfg.force_land_at_timeout = true;
+            scenarioCfg.probe_landing_selected = false;
+            scenarioCfg.hard_negative_hint = true;
+            scenarioCfg.boundary_hint = true;
+
+        otherwise
+    end
+end
+
+
+function targetCase = autosimChooseCurriculumCase(cfg, datasetState, scenarioId)
+    caseNames = string(cfg.curriculum.target_case_names(:));
+    if isempty(caseNames)
+        targetCase = "safe_land";
+        return;
+    end
+
+    ratios = double(cfg.curriculum.target_case_ratio(:));
+    if numel(ratios) ~= numel(caseNames) || any(~isfinite(ratios))
+        ratios = ones(numel(caseNames), 1);
+    end
+    ratios = max(0.0, ratios);
+    if sum(ratios) <= 0
+        ratios = ones(numel(caseNames), 1);
+    end
+    ratios = ratios / sum(ratios);
+
+    if isfield(datasetState, 'caseCounts') && numel(datasetState.caseCounts) == numel(caseNames)
+        counts = double(datasetState.caseCounts(:));
+        counts(~isfinite(counts)) = 0;
+    else
+        counts = zeros(numel(caseNames), 1);
+    end
+    total = sum(counts);
+
+    if total <= 0 && isfield(cfg.curriculum, 'bootstrap_cycle') && cfg.curriculum.bootstrap_cycle
+        idx = mod(max(1, scenarioId) - 1, numel(caseNames)) + 1;
+        targetCase = caseNames(idx);
+        return;
+    end
+
+    deficit = ratios * max(1.0, total + 1.0) - counts;
+    [~, idx] = max(deficit + 1e-6 * (1:numel(deficit))');
+    targetCase = caseNames(idx);
+end
+
+
+function scenarioCfg = autosimApplyCurriculumWindTarget(cfg, scenarioCfg, targetRisk, scenarioId)
+    profile = autosimGetKmaWindProfile(cfg);
+    if isempty(profile) || ~isfield(profile, 'speed_sec') || isempty(profile.speed_sec)
+        return;
+    end
+
+    idxPool = [];
+    switch string(targetRisk)
+        case "unsafe"
+            if isfield(profile, 'unsafe_idx')
+                idxPool = double(profile.unsafe_idx(:));
+            end
+        otherwise
+            if isfield(profile, 'safe_idx')
+                idxPool = double(profile.safe_idx(:));
+            end
+    end
+
+    idxPool = idxPool(isfinite(idxPool) & idxPool >= 1 & idxPool <= numel(profile.speed_sec));
+    if isempty(idxPool)
+        idxPool = (1:numel(profile.speed_sec))';
+    end
+
+    pickMode = "sequential";
+    if isfield(cfg.wind, 'kma_pick_mode')
+        pickMode = string(cfg.wind.kma_pick_mode);
+    end
+
+    if pickMode == "random"
+        seedBase = autosimClampNaN(cfg.wind.random_seed_base, 0);
+        seed = mod(seedBase + 104729 * max(1, scenarioId) + 7919 * numel(idxPool), 2147483646) + 1;
+        stream = RandStream('mt19937ar', 'Seed', seed);
+        pick = idxPool(randi(stream, numel(idxPool)));
+    else
+        k = mod(max(1, scenarioId) - 1, numel(idxPool)) + 1;
+        pick = idxPool(k);
+    end
+
+    scenarioCfg.wind_speed = profile.speed_sec(pick);
+    scenarioCfg.wind_dir = profile.dir_sec(pick);
+    scenarioCfg.wind_profile_offset_sec = max(0, round(pick) - 1);
 end
 
 
@@ -1423,6 +1599,11 @@ function [res, traceTbl] = autosimRunScenario(cfg, scenarioCfg, scenarioId, mode
     landingDecisionMode = "abort";
     executedAction = "abort";
     actionSource = "policy_abort";
+    targetCase = "none";
+    if isfield(scenarioCfg, 'target_case')
+        targetCase = string(scenarioCfg.target_case);
+    end
+    hoverTimeoutDecisionDone = false;
     probeLandingTriggered = false;
     probeLandingReason = "none";
     probePolicySelected = isfield(scenarioCfg, 'probe_landing_selected') && logical(scenarioCfg.probe_landing_selected);
@@ -2031,6 +2212,44 @@ function [res, traceTbl] = autosimRunScenario(cfg, scenarioCfg, scenarioId, mode
                 ((tk - decisionEvalStartT) >= cfg.control.land_forced_timeout_sec) && ...
                 ((tk - lastDecisionT) >= cfg.agent.decision_cooldown_sec);
 
+            if isfield(scenarioCfg, 'force_land_at_timeout') && logical(scenarioCfg.force_land_at_timeout)
+                timeoutSec = autosimClampNaN(scenarioCfg.hover_timeout_sec, cfg.control.land_forced_timeout_sec);
+                canLandByForcedTimeout = isFlying && (controlPhase == "xy_hold") && ~landingSent && isfinite(decisionEvalStartT) && ...
+                    isfinite(timeoutSec) && (timeoutSec > 0) && ...
+                    ((tk - decisionEvalStartT) >= timeoutSec) && ...
+                    ((tk - lastDecisionT) >= cfg.agent.decision_cooldown_sec);
+            end
+
+            caseBlockPolicyLanding = (targetCase == "safe_hover_timeout") || (targetCase == "unsafe_hover_timeout") || (targetCase == "unsafe_forced_land");
+            if caseBlockPolicyLanding
+                canLandBySemantic = false;
+                canLandByModel = false;
+                canLandByNoModelThreshold = false;
+                canLandByUncertainModelFallback = false;
+                canLandByProbe = false;
+            end
+
+            if isfield(scenarioCfg, 'force_hover_abort_timeout') && logical(scenarioCfg.force_hover_abort_timeout)
+                hoverTimeoutSec = autosimClampNaN(scenarioCfg.hover_timeout_sec, cfg.control.land_forced_timeout_sec);
+                hoverTimeoutHit = isFlying && (controlPhase == "xy_hold") && ~landingSent && isfinite(decisionEvalStartT) && ...
+                    isfinite(hoverTimeoutSec) && (hoverTimeoutSec > 0) && ...
+                    ((tk - decisionEvalStartT) >= hoverTimeoutSec) && ...
+                    ((tk - lastDecisionT) >= cfg.agent.decision_cooldown_sec);
+                if hoverTimeoutHit && ~hoverTimeoutDecisionDone
+                    landingDecisionMode = "abort";
+                    executedAction = "abort";
+                    actionSource = "timeout_hover_abort";
+                    lastDecisionT = tk;
+                    hoverTimeoutDecisionDone = true;
+                    decisionTxt(k) = "abort_by_hover_timeout";
+                    break;
+                end
+            end
+
+            if ~(isfield(scenarioCfg, 'force_land_at_timeout') && logical(scenarioCfg.force_land_at_timeout))
+                canLandByForcedTimeout = canLandByForcedTimeout && (targetCase ~= "safe_hover_timeout") && (targetCase ~= "unsafe_hover_timeout");
+            end
+
             guardLandingAllowed = ~cfg.agent.block_landing_if_unstable || ~modelSaysUnstable;
 
             if ~landingSent && guardLandingAllowed && canLandBySemantic
@@ -2496,6 +2715,9 @@ function [res, traceTbl] = autosimRunScenario(cfg, scenarioCfg, scenarioId, mode
     if isfield(scenarioCfg, 'policy_mode')
         res.scenario_policy = string(scenarioCfg.policy_mode);
     end
+    if isfield(scenarioCfg, 'target_case')
+        res.target_case = string(scenarioCfg.target_case);
+    end
     if stopRequested
         res.exception_message = string(stopReason);
     end
@@ -2541,6 +2763,7 @@ function [res, traceTbl] = autosimRunScenario(cfg, scenarioCfg, scenarioId, mode
         traceTbl.(['sem_' fn]) = autosimPadLen(semFeat(:, i), n);
     end
     traceTbl.scenario_policy = repmat(string(res.scenario_policy), n, 1);
+    traceTbl.target_case = repmat(string(res.target_case), n, 1);
     traceTbl.pred_decision = repmat(string(res.pred_decision), n, 1);
     traceTbl.executed_action = repmat(string(res.executed_action), n, 1);
     traceTbl.action_source = repmat(string(res.action_source), n, 1);
@@ -2654,6 +2877,9 @@ function out = autosimSummarizeAndLabel(cfg, scenarioId, scenarioCfg, requireLan
     out.scenario_id = scenarioId;
     if isfield(scenarioCfg, 'policy_mode')
         out.scenario_policy = string(scenarioCfg.policy_mode);
+    end
+    if isfield(scenarioCfg, 'target_case')
+        out.target_case = string(scenarioCfg.target_case);
     end
     out.hover_height_cmd = scenarioCfg.hover_height_m;
     out.wind_speed_cmd = scenarioCfg.wind_speed;
@@ -3158,7 +3384,7 @@ function tbl = autosimSummaryTable(results)
         'final_state', ...
         'landing_cmd_time','pred_decision','executed_action','action_source','probe_episode','probe_reason','gt_safe_to_land','decision_outcome', ...
         'semantic_environment','semantic_drone_state','semantic_visual_state','semantic_landing_context', ...
-        'semantic_relation','semantic_integration','landing_feasibility','scenario_policy', ...
+        'semantic_relation','semantic_integration','landing_feasibility','scenario_policy','target_case', ...
         'launch_pid','launch_log','exception_message'
     };
 
@@ -4034,6 +4260,7 @@ function tbl = autosimEmptyTraceTable(scenarioId)
     tbl.sem_visual_enc = nan;
     tbl.sem_context_enc = nan;
     tbl.scenario_policy = "exploit";
+    tbl.target_case = "none";
     tbl.pred_decision = "abort";
     tbl.executed_action = "abort";
     tbl.action_source = "policy_abort";
@@ -4470,13 +4697,59 @@ function profile = autosimGetKmaWindProfile(cfg)
     speedSec = max(0.0, speedSec);
     dirSec = mod(dirSec + 180.0, 360.0) - 180.0;
 
+    % Build risk-ranked pools so curriculum can sample calm vs gust-heavy windows.
+    ds = [0.0; abs(diff(speedSec))];
+    ddir = [0.0; abs(diff(dirSec))];
+    ddir = min(ddir, 360.0 - ddir);
+
+    speedNorm = autosimNormalizeVector(speedSec);
+    dsNorm = autosimNormalizeVector(ds);
+    ddirNorm = autosimNormalizeVector(ddir);
+    riskScore = autosimClamp(0.60 * speedNorm + 0.28 * dsNorm + 0.12 * ddirNorm, 0.0, 1.0);
+
+    qSafe = [0.05, 0.45];
+    qUnsafe = [0.70, 0.98];
+    minPool = 30;
+    if isfield(cfg, 'curriculum')
+        if isfield(cfg.curriculum, 'safe_pool_quantile') && numel(cfg.curriculum.safe_pool_quantile) >= 2
+            qSafe = sort(double(cfg.curriculum.safe_pool_quantile(1:2)));
+        end
+        if isfield(cfg.curriculum, 'unsafe_pool_quantile') && numel(cfg.curriculum.unsafe_pool_quantile) >= 2
+            qUnsafe = sort(double(cfg.curriculum.unsafe_pool_quantile(1:2)));
+        end
+        if isfield(cfg.curriculum, 'min_pool_size') && isfinite(cfg.curriculum.min_pool_size)
+            minPool = max(5, round(cfg.curriculum.min_pool_size));
+        end
+    end
+
+    qSafe = autosimClamp(qSafe, 0.0, 1.0);
+    qUnsafe = autosimClamp(qUnsafe, 0.0, 1.0);
+    safeLo = prctile(riskScore, 100 * qSafe(1));
+    safeHi = prctile(riskScore, 100 * qSafe(2));
+    unsafeLo = prctile(riskScore, 100 * qUnsafe(1));
+    unsafeHi = prctile(riskScore, 100 * qUnsafe(2));
+
+    safeIdx = find(riskScore >= safeLo & riskScore <= safeHi);
+    unsafeIdx = find(riskScore >= unsafeLo & riskScore <= unsafeHi);
+    if numel(safeIdx) < minPool
+        [~, ord] = sort(riskScore, 'ascend');
+        safeIdx = ord(1:min(numel(ord), minPool));
+    end
+    if numel(unsafeIdx) < minPool
+        [~, ord] = sort(riskScore, 'descend');
+        unsafeIdx = ord(1:min(numel(ord), minPool));
+    end
+
     profile = struct( ...
         'speed', speed(:), ...
         'dir', dir(:), ...
         't_sec', tSec(:), ...
         'sec_grid', secGrid(:), ...
         'speed_sec', speedSec(:), ...
-        'dir_sec', dirSec(:));
+        'dir_sec', dirSec(:), ...
+        'risk_score', riskScore(:), ...
+        'safe_idx', safeIdx(:), ...
+        'unsafe_idx', unsafeIdx(:));
     cachedPath = csvPath;
     cachedProfile = profile;
 end
@@ -6033,6 +6306,27 @@ function y = autosimClamp(x, lo, hi)
 end
 
 
+function y = autosimNormalizeVector(x)
+    x = double(x(:));
+    y = zeros(size(x));
+    valid = isfinite(x);
+    if ~any(valid)
+        return;
+    end
+
+    xv = x(valid);
+    lo = min(xv);
+    hi = max(xv);
+    if hi <= lo
+        y(valid) = 0.0;
+        return;
+    end
+
+    y(valid) = (xv - lo) ./ (hi - lo);
+    y = autosimClamp(y, 0.0, 1.0);
+end
+
+
 function autosimPlaceFigureRight(fig, sizeFracWH, centerFracXY)
     if nargin < 2 || numel(sizeFracWH) ~= 2
         sizeFracWH = [0.40, 0.55];
@@ -6618,6 +6912,7 @@ function s = autosimEmptyScenarioResult()
     s.semantic_integration = "unknown";
     s.landing_feasibility = nan;
     s.scenario_policy = "exploit";
+    s.target_case = "none";
     s.launch_pid = -1;
     s.launch_log = "";
 end
