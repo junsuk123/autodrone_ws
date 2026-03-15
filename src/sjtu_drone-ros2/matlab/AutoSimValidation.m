@@ -157,6 +157,7 @@ function override = autosimValidationBuildOverride(batchScenarioCount, seedBase,
     override.learning = struct('enable', false);
     override.adaptive = struct('enable', false);
     override.probe = struct('enable', false);
+    override.curriculum = struct('enable', false);
     override.model = struct('force_model_path', string(modelPath));
     override.wind = struct( ...
         'source', "kma_csv", ...

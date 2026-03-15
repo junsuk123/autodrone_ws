@@ -196,6 +196,41 @@ if ~isempty(traceTbl) && ismember('pred_stable_prob', traceTbl.Properties.Variab
     exportgraphics(fig5, fullfile(outputDir, 'paper_fig5_confidence_hist.png'), 'Resolution', 220);
 end
 
+decisionScoreP = double(predProposed(:));
+decisionScoreB = double(predBaseline(:));
+[windRiskTotal, windMean, windGust] = buildWindRiskSeries(datasetTbl, baseline.thresholds);
+
+fig6 = figure('Name', 'ScenarioDecisionAndWindRisk', 'Color', 'w', 'Position', [190 190 1220 540]);
+ax6 = axes(fig6);
+
+yyaxis(ax6, 'left');
+p1 = stairs(ax6, sid, decisionScoreP, '-', 'LineWidth', 1.9, 'Color', [0.10 0.45 0.78], ...
+    'DisplayName', 'Ontology+AI decision (binary)');
+hold(ax6, 'on');
+p2 = stairs(ax6, sid, decisionScoreB, '--', 'LineWidth', 1.8, 'Color', [0.33 0.33 0.33], ...
+    'DisplayName', 'Threshold decision (binary)');
+ylim(ax6, [-0.15 1.15]);
+yticks(ax6, [0 1]);
+yticklabels(ax6, {'Abort (0)', 'Land (1)'});
+ylabel(ax6, 'decision selection');
+
+yyaxis(ax6, 'right');
+p3 = plot(ax6, sid, smoothAdaptive(windRiskTotal), '-', 'LineWidth', 2.1, 'Color', [0.78 0.22 0.22], ...
+    'DisplayName', 'wind risk total');
+p4 = plot(ax6, sid, smoothAdaptive(windMean), '--', 'LineWidth', 1.5, 'Color', [0.90 0.55 0.12], ...
+    'DisplayName', 'wind speed component');
+p5 = plot(ax6, sid, smoothAdaptive(windGust), ':', 'LineWidth', 1.7, 'Color', [0.56 0.18 0.70], ...
+    'DisplayName', 'gust component');
+ylim(ax6, [0 max(1.05, 1.05 * max(windRiskTotal, [], 'omitnan'))]);
+ylabel(ax6, 'normalized wind risk');
+
+xlabel(ax6, 'scenario step');
+title(ax6, 'Scenario-wise Binary Decision and Wind Risk');
+grid(ax6, 'on');
+legend(ax6, [p1 p2 p3 p4 p5], 'Location', 'northoutside', 'Orientation', 'horizontal');
+
+exportgraphics(fig6, fullfile(outputDir, 'paper_fig6_decision_wind_risk.png'), 'Resolution', 220);
+
 save(fullfile(outputDir, 'paper_metrics_struct.mat'), ...
     'mProposed', 'mExecuted', 'mBaseline', 'baseline', 'datasetPath', 'tracePath', 'perfPath', 'dmetPath');
 
@@ -320,13 +355,20 @@ function b = buildThresholdBaseline(tbl)
     rollAbs = pickNumeric(tbl, {'mean_abs_roll_deg','final_abs_roll_deg'}, nan(n,1));
     pitchAbs = pickNumeric(tbl, {'mean_abs_pitch_deg','final_abs_pitch_deg'}, nan(n,1));
 
+    [hoverWindLimit, landingWindLimit, windLimitMeta] = estimateWindPhysicsLimit(tbl);
+
     safeMask = gtSafe & isfinite(wind) & isfinite(tagErr);
     if sum(safeMask) >= 20
-        windThr = prctile(wind(safeMask), 90);
+        windThrData = prctile(wind(safeMask), 90);
         tagThr = prctile(tagErr(safeMask), 90);
     else
-        windThr = 1.8;
+        windThrData = 1.8;
         tagThr = 0.20;
+    end
+
+    windThr = windThrData;
+    if isfinite(landingWindLimit) && landingWindLimit > 0
+        windThr = min(windThr, landingWindLimit);
     end
 
     if sum(gtSafe & isfinite(rollAbs)) >= 20
@@ -347,10 +389,20 @@ function b = buildThresholdBaseline(tbl)
     b = struct();
     b.predLand = pred;
     b.thresholds = struct( ...
+        'wind_threshold_data', windThrData, ...
         'wind_threshold', windThr, ...
+        'hover_wind_limit', hoverWindLimit, ...
+        'landing_wind_limit', landingWindLimit, ...
         'tag_error_threshold', tagThr, ...
         'roll_threshold_deg', rollThr, ...
-        'pitch_threshold_deg', pitchThr);
+        'pitch_threshold_deg', pitchThr, ...
+        'mass_kg', windLimitMeta.mass_kg, ...
+        'max_total_thrust_n', windLimitMeta.max_total_thrust_n, ...
+        'thrust_margin_n', windLimitMeta.thrust_margin_n, ...
+        'air_density_kgpm3', windLimitMeta.air_density_kgpm3, ...
+        'drag_coefficient', windLimitMeta.drag_coefficient, ...
+        'frontal_area_m2', windLimitMeta.frontal_area_m2, ...
+        'landing_limit_factor', windLimitMeta.landing_limit_factor);
 end
 
 
@@ -364,6 +416,163 @@ function v = pickNumeric(tbl, candidates, fallback)
                 v = double(vv);
                 return;
             end
+        end
+    end
+end
+
+
+function [hoverLimit, landingLimit, meta] = estimateWindPhysicsLimit(tbl)
+    defaults = readDronePhysicsDefaults();
+
+    massKg = pickScalarNumeric(tbl, {'mass_kg','drone_mass_kg','drone_mass','mass'}, defaults.mass_kg);
+    g = pickScalarNumeric(tbl, {'gravity_mps2','gravity'}, 9.81);
+    maxThrust = pickScalarNumeric(tbl, {'max_total_thrust_n','t_max','max_thrust_n','total_thrust_n'}, defaults.max_total_thrust_n);
+    rho = pickScalarNumeric(tbl, {'air_density_kgpm3','rho_air','rho'}, defaults.air_density_kgpm3);
+    cd = pickScalarNumeric(tbl, {'drag_coefficient','c_d','cd'}, defaults.drag_coefficient);
+    area = pickScalarNumeric(tbl, {'frontal_area_m2','drag_area_m2','reference_area_m2','area_m2'}, defaults.frontal_area_m2);
+    landingFactor = pickScalarNumeric(tbl, {'landing_limit_factor'}, defaults.landing_limit_factor);
+    minMargin = pickScalarNumeric(tbl, {'min_thrust_margin_n'}, 0.5);
+
+    margin = max(maxThrust - massKg * g, minMargin);
+    denom = rho * cd * area;
+
+    if isfinite(margin) && isfinite(denom) && denom > 0
+        hoverLimit = sqrt(max(0.0, 2.0 * margin / denom));
+        landingLimit = max(0.0, landingFactor) * hoverLimit;
+    else
+        hoverLimit = nan;
+        landingLimit = nan;
+    end
+
+    meta = struct( ...
+        'mass_kg', massKg, ...
+        'max_total_thrust_n', maxThrust, ...
+        'thrust_margin_n', margin, ...
+        'air_density_kgpm3', rho, ...
+        'drag_coefficient', cd, ...
+        'frontal_area_m2', area, ...
+        'landing_limit_factor', landingFactor);
+end
+
+
+function d = readDronePhysicsDefaults()
+    d = struct( ...
+        'mass_kg', 1.4, ...
+        'max_total_thrust_n', 24.0, ...
+        'air_density_kgpm3', 1.225, ...
+        'drag_coefficient', 1.10, ...
+        'frontal_area_m2', 0.075, ...
+        'landing_limit_factor', 0.5);
+
+    thisDir = fileparts(mfilename('fullpath'));
+    repoRoot = fileparts(thisDir);
+
+    yamlPath = fullfile(repoRoot, 'sjtu_drone_bringup', 'config', 'drone.yaml');
+    urdfPath = fullfile(repoRoot, 'sjtu_drone_description', 'urdf', 'sjtu_drone.urdf');
+    sdfPath = fullfile(repoRoot, 'sjtu_drone_description', 'models', 'sjtu_drone', 'sjtu_drone.sdf');
+
+    if isfile(yamlPath)
+        d.max_total_thrust_n = firstFinite([readYamlScalar(yamlPath, 'maxForce'), d.max_total_thrust_n]);
+        d.mass_kg = firstFinite([readYamlScalar(yamlPath, 'mass_kg'), readYamlScalar(yamlPath, 'mass'), d.mass_kg]);
+        d.frontal_area_m2 = firstFinite([readYamlScalar(yamlPath, 'frontal_area_m2'), readYamlScalar(yamlPath, 'drag_area_m2'), d.frontal_area_m2]);
+        d.drag_coefficient = firstFinite([readYamlScalar(yamlPath, 'drag_coefficient'), readYamlScalar(yamlPath, 'cd'), d.drag_coefficient]);
+        d.air_density_kgpm3 = firstFinite([readYamlScalar(yamlPath, 'air_density_kgpm3'), d.air_density_kgpm3]);
+        d.landing_limit_factor = firstFinite([readYamlScalar(yamlPath, 'landing_limit_factor'), d.landing_limit_factor]);
+    end
+
+    if isfile(urdfPath)
+        d.mass_kg = firstFinite([readXmlAttributeScalar(urdfPath, '<mass', 'value'), d.mass_kg]);
+    end
+
+    if isfile(sdfPath)
+        d.mass_kg = firstFinite([readXmlTagScalar(sdfPath, 'mass'), d.mass_kg]);
+        d.max_total_thrust_n = firstFinite([readXmlTagScalar(sdfPath, 'maxForce'), d.max_total_thrust_n]);
+    end
+end
+
+
+function v = pickScalarNumeric(tbl, candidates, fallback)
+    v = fallback;
+    for i = 1:numel(candidates)
+        fn = candidates{i};
+        if ~ismember(fn, tbl.Properties.VariableNames)
+            continue;
+        end
+        x = tbl.(fn);
+        if ~isnumeric(x)
+            continue;
+        end
+        x = double(x(:));
+        x = x(isfinite(x));
+        if ~isempty(x)
+            v = median(x);
+            return;
+        end
+    end
+end
+
+
+function val = readYamlScalar(filePath, key)
+    val = nan;
+    try
+        txt = fileread(filePath);
+    catch
+        return;
+    end
+    pat = ['(?m)^\s*' regexptranslate('escape', key) '\s*:\s*([-+]?\d*\.?\d+(?:[eE][-+]?\d+)?)\s*$'];
+    tok = regexp(txt, pat, 'tokens', 'once');
+    if ~isempty(tok)
+        num = str2double(tok{1});
+        if isfinite(num)
+            val = num;
+        end
+    end
+end
+
+
+function val = readXmlTagScalar(filePath, tagName)
+    val = nan;
+    try
+        txt = fileread(filePath);
+    catch
+        return;
+    end
+    pat = ['<' regexptranslate('escape', tagName) '>\s*([-+]?\d*\.?\d+(?:[eE][-+]?\d+)?)\s*</' regexptranslate('escape', tagName) '>'];
+    tok = regexp(txt, pat, 'tokens', 'once');
+    if ~isempty(tok)
+        num = str2double(tok{1});
+        if isfinite(num)
+            val = num;
+        end
+    end
+end
+
+
+function val = readXmlAttributeScalar(filePath, tagHead, attrName)
+    val = nan;
+    try
+        txt = fileread(filePath);
+    catch
+        return;
+    end
+    pat = [regexptranslate('escape', tagHead) '[^>]*' regexptranslate('escape', attrName) '\s*=\s*"([-+]?\d*\.?\d+(?:[eE][-+]?\d+)?)"'];
+    tok = regexp(txt, pat, 'tokens', 'once');
+    if ~isempty(tok)
+        num = str2double(tok{1});
+        if isfinite(num)
+            val = num;
+        end
+    end
+end
+
+
+function v = firstFinite(values)
+    v = nan;
+    values = double(values(:));
+    for i = 1:numel(values)
+        if isfinite(values(i))
+            v = values(i);
+            return;
         end
     end
 end
@@ -515,4 +724,110 @@ function m = medianOmitNan(x)
     else
         m = median(x);
     end
+end
+
+
+function [riskTotal, windNorm, gustNorm] = buildWindRiskSeries(tbl, thresholds)
+    n = height(tbl);
+    windRaw = pickNumeric(tbl, ...
+        {'mean_wind_speed','wind_speed_cmd','max_wind_speed','wind_speed','wind_mps'}, ...
+        nan(n,1));
+    gustRaw = pickNumeric(tbl, ...
+        {'gust_speed','max_gust_speed','wind_gust_speed','gust_mps','max_wind_speed'}, ...
+        nan(n,1));
+
+    hasExplicitGust = any(isfinite(gustRaw));
+
+    windRaw = fillSeriesNan(windRaw);
+    gustRaw = fillSeriesNan(gustRaw);
+
+    % If explicit gust data is absent, approximate gustiness from wind deviation.
+    if ~hasExplicitGust || all(abs(gustRaw - windRaw) < 1e-9)
+        gustRaw = max(0, windRaw - movmean(windRaw, max(5, 2 * floor(n / 30) + 1), 'omitnan'));
+    end
+
+    windThr = 1.0;
+    if isfield(thresholds, 'wind_threshold') && isfinite(thresholds.wind_threshold) && thresholds.wind_threshold > 0
+        windThr = thresholds.wind_threshold;
+    elseif isfield(thresholds, 'wind_threshold_data') && isfinite(thresholds.wind_threshold_data) && thresholds.wind_threshold_data > 0
+        windThr = thresholds.wind_threshold_data;
+    end
+
+    gustScale = max(0.5, 0.6 * windThr);
+    windNorm = min(2.0, max(0.0, windRaw ./ windThr));
+    gustNorm = min(2.0, max(0.0, gustRaw ./ gustScale));
+    riskTotal = min(2.0, 0.65 * windNorm + 0.35 * gustNorm);
+end
+
+
+function x = fillSeriesNan(x)
+    x = double(x(:));
+    if all(~isfinite(x))
+        x = zeros(size(x));
+        return;
+    end
+    mid = medianOmitNan(x);
+    x(~isfinite(x)) = mid;
+end
+
+
+function s = buildOntologyDecisionScore(tbl, predLand)
+    n = height(tbl);
+    s = pickNumeric(tbl, ...
+        {'landing_feasibility','pred_stable_prob','model_stable_prob','stable_prob','pred_prob_stable'}, ...
+        nan(n,1));
+
+    if any(isfinite(s))
+        s = fillSeriesNan(s);
+        s = min(1.0, max(0.0, s));
+    else
+        % Fallback: binary decision only if no confidence field exists.
+        s = double(predLand(:));
+    end
+end
+
+
+function s = buildThresholdDecisionScore(tbl, thresholds, predLand)
+    n = height(tbl);
+    wind = fillSeriesNan(pickNumeric(tbl, {'mean_wind_speed','wind_speed_cmd','max_wind_speed'}, nan(n,1)));
+    tagErr = fillSeriesNan(pickNumeric(tbl, {'max_tag_error','mean_tag_error','final_tag_error'}, nan(n,1)));
+    rollAbs = fillSeriesNan(pickNumeric(tbl, {'mean_abs_roll_deg','final_abs_roll_deg'}, nan(n,1)));
+    pitchAbs = fillSeriesNan(pickNumeric(tbl, {'mean_abs_pitch_deg','final_abs_pitch_deg'}, nan(n,1)));
+
+    windThr = pickThreshold(thresholds, {'wind_threshold','wind_threshold_data'}, 1.8);
+    tagThr = pickThreshold(thresholds, {'tag_error_threshold'}, 0.20);
+    rollThr = pickThreshold(thresholds, {'roll_threshold_deg'}, 8.0);
+    pitchThr = pickThreshold(thresholds, {'pitch_threshold_deg'}, 8.0);
+
+    windScore = normalizedSafeScore(wind, windThr);
+    tagScore = normalizedSafeScore(tagErr, tagThr);
+    rollScore = normalizedSafeScore(rollAbs, rollThr);
+    pitchScore = normalizedSafeScore(pitchAbs, pitchThr);
+
+    s = 0.40 * windScore + 0.25 * tagScore + 0.175 * rollScore + 0.175 * pitchScore;
+    if ~any(isfinite(s))
+        s = double(predLand(:));
+    end
+    s = min(1.0, max(0.0, s));
+end
+
+
+function thr = pickThreshold(thresholds, names, fallback)
+    thr = fallback;
+    for i = 1:numel(names)
+        nm = names{i};
+        if isfield(thresholds, nm)
+            v = thresholds.(nm);
+            if isfinite(v) && v > 0
+                thr = v;
+                return;
+            end
+        end
+    end
+end
+
+
+function score = normalizedSafeScore(value, threshold)
+    denom = max(1e-6, threshold);
+    score = 1.0 - min(1.0, max(0.0, value ./ denom));
 end

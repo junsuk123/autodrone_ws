@@ -23,11 +23,18 @@ autosimClearStopRequest();
 
 cfg = autosimDefaultConfig();
 [cfg, overrideInfo] = autosimApplyExternalOverride(cfg, thisDir);
+[cfg, windLimitInfo] = autosimApplyWindPhysicsLimits(cfg);
 autosimEnsureDirectories(cfg);
 lockCleanup = autosimAcquireLock(cfg); %#ok<NASGU>
 
 if overrideInfo.loaded
     fprintf('[AUTOSIM] External override applied: %s\n', overrideInfo.path);
+end
+if windLimitInfo.applied
+    fprintf('[AUTOSIM] Wind physics src[mass=%s,thrust=%s] m=%.3fkg Tmax=%.2fN margin=%.2fN hover=%.2fm/s landing=%.2fm/s\n', ...
+        char(string(windLimitInfo.mass_source)), char(string(windLimitInfo.thrust_source)), ...
+        windLimitInfo.mass_kg, windLimitInfo.max_total_thrust_n, windLimitInfo.thrust_margin_n, ...
+        windLimitInfo.hover_limit_mps, windLimitInfo.landing_limit_mps);
 end
 
 fprintf('\n[AUTOSIM] Start at %s\n', datestr(now, 'yyyy-mm-dd HH:MM:SS'));
@@ -247,6 +254,26 @@ function cfg = autosimDefaultConfig()
     cfg.wind.kma_use_profile_direct = true;
     cfg.wind.kma_pick_mode = "sequential"; % "sequential" | "random"
     cfg.wind.random_seed_base = 20260313;
+    cfg.wind.physics = struct();
+    cfg.wind.physics.enable = true;
+    cfg.wind.physics.mass_kg = 1.4;
+    cfg.wind.physics.gravity_mps2 = 9.81;
+    cfg.wind.physics.max_total_thrust_n = 24.0;
+    cfg.wind.physics.air_density_kgpm3 = 1.225;
+    cfg.wind.physics.drag_coefficient = 1.10;
+    cfg.wind.physics.frontal_area_m2 = 0.075;
+    cfg.wind.physics.min_thrust_margin_n = 0.5;
+    cfg.wind.physics.landing_limit_factor = 0.5;
+    cfg.wind.physics.auto_load_from_drone_files = true;
+    cfg.wind.physics.prefer_file_values = true;
+    cfg.wind.physics.drone_yaml_path = fullfile(cfg.paths.ws, 'src', 'sjtu_drone-ros2', 'sjtu_drone_bringup', 'config', 'drone.yaml');
+    cfg.wind.physics.drone_urdf_path = fullfile(cfg.paths.ws, 'src', 'sjtu_drone-ros2', 'sjtu_drone_description', 'urdf', 'sjtu_drone.urdf');
+    cfg.wind.physics.drone_sdf_path = fullfile(cfg.paths.ws, 'src', 'sjtu_drone-ros2', 'sjtu_drone_description', 'models', 'sjtu_drone', 'sjtu_drone.sdf');
+    cfg.wind.physics.apply_to_agent_gate = true;
+    cfg.wind.physics.apply_to_ontology = true;
+    cfg.wind.physics.ontology_caution_ratio = 0.55;
+    cfg.wind.physics.ontology_unsafe_ratio = 0.90;
+    cfg.wind.physics.agent_gate_ratio = 1.0;
 
     cfg.validation = struct();
     cfg.validation.enable = false;
@@ -424,7 +451,7 @@ function cfg = autosimDefaultConfig()
     cfg.curriculum = struct();
     cfg.curriculum.enable = true;
     cfg.curriculum.target_case_names = ["safe_land", "safe_hover_timeout", "unsafe_hover_timeout", "unsafe_forced_land"];
-    cfg.curriculum.target_case_ratio = [0.25, 0.25, 0.25, 0.25];
+    cfg.curriculum.target_case_ratio = [0.60, 0.10, 0.20, 0.10];
     cfg.curriculum.bootstrap_cycle = true;
     cfg.curriculum.hover_timeout_sec = 30.0;
     cfg.curriculum.safe_pool_quantile = [0.05, 0.45];
@@ -3590,8 +3617,9 @@ function finalInfo = autosimFinalize(cfg, results, traceStore, learningHistory, 
 
     dEval = autosimEvaluateDecisionMetrics(summaryTbl);
     if dEval.n_valid > 0
-        fprintf('[AUTOSIM] Decision metrics | Acc=%.3f Prec=%.3f SafeRec=%.3f UnsafeReject=%.3f UnsafeLand=%.3f F1=%.3f\n', ...
-            dEval.accuracy, dEval.precision, dEval.recall, dEval.specificity, dEval.unsafe_landing_rate, dEval.f1);
+        fprintf('[AUTOSIM] Decision metrics | Acc=%.3f Prec=%.3f SafeRec=%.3f UnsafeReject=%.3f UnsafeLand=%.3f F1=%.3f (excluded: intervention=%d, hover=%d)\n', ...
+            dEval.accuracy, dEval.precision, dEval.recall, dEval.specificity, dEval.unsafe_landing_rate, dEval.f1, ...
+            dEval.n_excluded_intervention, dEval.n_excluded_hover);
     end
 
     finalInfo = struct();
@@ -4524,6 +4552,10 @@ function [windSpeed, windDir] = autosimPickScenarioWind(cfg, scenarioId)
     idx = autosimResolveKmaProfileIndex(cfg, scenarioId, profileN);
     windSpeed = profile.speed_sec(idx);
     windDir = profile.dir_sec(idx);
+    cap = autosimGetWindCommandCap(cfg);
+    if isfinite(cap) && cap > 0
+        windSpeed = min(windSpeed, cap);
+    end
 end
 
 
@@ -4691,6 +4723,10 @@ function profile = autosimGetKmaWindProfile(cfg)
     end
 
     speedSec = max(0.0, speedSec);
+    cap = autosimGetWindCommandCap(cfg);
+    if isfinite(cap) && cap > 0
+        speedSec = min(speedSec, cap);
+    end
     dirSec = mod(dirSec + 180.0, 360.0) - 180.0;
 
     % Build risk-ranked pools so curriculum can sample calm vs gust-heavy windows.
@@ -5003,6 +5039,11 @@ function [speedCmd, dirCmd] = autosimComputeWindCommand(cfg, scenarioCfg, tNow, 
         speedCmd = max(0.0, ramp * (baseSpeed + gust + noise));
     end
 
+    cap = autosimGetWindCommandCap(cfg);
+    if isfinite(cap) && cap > 0
+        speedCmd = min(speedCmd, cap);
+    end
+
     if useProfileDirect
         dirCmd = baseDir;
     else
@@ -5020,6 +5061,305 @@ function [speedCmd, dirCmd] = autosimComputeWindCommand(cfg, scenarioCfg, tNow, 
         dirCmd = baseDir + dirOsc + dirNoise;
     end
     dirCmd = mod(dirCmd + 180.0, 360.0) - 180.0;
+end
+
+
+function cap = autosimGetWindCommandCap(cfg)
+    cap = inf;
+    if isfield(cfg, 'wind') && isfield(cfg.wind, 'speed_max') && isfinite(cfg.wind.speed_max) && cfg.wind.speed_max > 0
+        cap = min(cap, cfg.wind.speed_max);
+    end
+    if isfield(cfg, 'wind') && isfield(cfg.wind, 'hover_limit_mps') && isfinite(cfg.wind.hover_limit_mps) && cfg.wind.hover_limit_mps > 0
+        cap = min(cap, cfg.wind.hover_limit_mps);
+    end
+    if ~isfinite(cap)
+        cap = nan;
+    end
+end
+
+
+function [cfg, info] = autosimApplyWindPhysicsLimits(cfg)
+    info = struct('applied', false, 'hover_limit_mps', nan, 'landing_limit_mps', nan, 'thrust_margin_n', nan, ...
+        'mass_kg', nan, 'max_total_thrust_n', nan, 'mass_source', "", 'thrust_source', "");
+    if ~isfield(cfg, 'wind') || ~isfield(cfg.wind, 'physics') || ~isstruct(cfg.wind.physics)
+        return;
+    end
+
+    p = cfg.wind.physics;
+    enabled = true;
+    if isfield(p, 'enable')
+        enabled = logical(p.enable);
+    end
+    if ~enabled
+        return;
+    end
+
+    p = autosimReadPhysicsFromDroneFiles(p);
+    cfg.wind.physics = p;
+
+    massKg = autosimWindField(p, 'mass_kg', 1.4);
+    g = autosimWindField(p, 'gravity_mps2', 9.81);
+    tMax = autosimWindField(p, 'max_total_thrust_n', 24.0);
+    rho = autosimWindField(p, 'air_density_kgpm3', 1.225);
+    cd = autosimWindField(p, 'drag_coefficient', 1.10);
+    area = autosimWindField(p, 'frontal_area_m2', 0.075);
+    minMargin = autosimWindField(p, 'min_thrust_margin_n', 0.5);
+    landingFactor = autosimWindField(p, 'landing_limit_factor', 0.5);
+
+    margin = tMax - massKg * g;
+    if ~isfinite(margin)
+        return;
+    end
+    margin = max(margin, max(0.0, minMargin));
+
+    denom = rho * cd * area;
+    if ~(isfinite(denom) && denom > 0)
+        return;
+    end
+
+    hoverLimit = sqrt(max(0.0, 2.0 * margin / denom));
+    landingLimit = max(0.0, landingFactor) * hoverLimit;
+    if ~(isfinite(hoverLimit) && isfinite(landingLimit))
+        return;
+    end
+
+    cfg.wind.hover_limit_mps = hoverLimit;
+    cfg.wind.landing_limit_mps = landingLimit;
+    cfg.wind.physics.thrust_margin_n = margin;
+
+    if isfield(p, 'apply_to_agent_gate') && logical(p.apply_to_agent_gate)
+        gateRatio = autosimWindField(p, 'agent_gate_ratio', 1.0);
+        gateLimit = max(0.0, gateRatio * landingLimit);
+        if ~isfield(cfg, 'agent') || ~isstruct(cfg.agent)
+            cfg.agent = struct();
+        end
+        if isfield(cfg.agent, 'no_model_max_wind_speed') && isfinite(cfg.agent.no_model_max_wind_speed)
+            cfg.agent.no_model_max_wind_speed = min(cfg.agent.no_model_max_wind_speed, gateLimit);
+        else
+            cfg.agent.no_model_max_wind_speed = gateLimit;
+        end
+    end
+
+    if isfield(p, 'apply_to_ontology') && logical(p.apply_to_ontology)
+        cautionRatio = autosimWindField(p, 'ontology_caution_ratio', 0.55);
+        unsafeRatio = autosimWindField(p, 'ontology_unsafe_ratio', 0.90);
+        windUnsafe = max(0.0, unsafeRatio * landingLimit);
+        windCaution = max(0.0, cautionRatio * landingLimit);
+        if ~isfield(cfg, 'ontology') || ~isstruct(cfg.ontology)
+            cfg.ontology = struct();
+        end
+        cfg.ontology.wind_caution_speed = windCaution;
+        cfg.ontology.wind_unsafe_speed = windUnsafe;
+        cfg.ontology.wind_variability_warn = 0.12 * windUnsafe;
+        cfg.ontology.wind_variability_high = 0.28 * windUnsafe;
+    end
+
+    info.applied = true;
+    info.hover_limit_mps = hoverLimit;
+    info.landing_limit_mps = landingLimit;
+    info.thrust_margin_n = margin;
+    info.mass_kg = massKg;
+    info.max_total_thrust_n = tMax;
+    info.mass_source = autosimWindStringField(p, 'source_mass', "default_mass");
+    info.thrust_source = autosimWindStringField(p, 'source_max_force', "default_maxForce");
+end
+
+
+function v = autosimWindField(s, name, fallback)
+    v = fallback;
+    if isfield(s, name)
+        tmp = double(s.(name));
+        if isfinite(tmp)
+            v = tmp;
+        end
+    end
+end
+
+
+function p = autosimReadPhysicsFromDroneFiles(p)
+    if ~isstruct(p)
+        return;
+    end
+
+    autoLoad = true;
+    if isfield(p, 'auto_load_from_drone_files')
+        autoLoad = logical(p.auto_load_from_drone_files);
+    end
+    if ~autoLoad
+        return;
+    end
+
+    preferFile = true;
+    if isfield(p, 'prefer_file_values')
+        preferFile = logical(p.prefer_file_values);
+    end
+
+    massFile = nan;
+    maxForceFile = nan;
+    areaFile = nan;
+    cdFile = nan;
+    rhoFile = nan;
+    landingFactorFile = nan;
+
+    yamlPath = autosimWindStringField(p, 'drone_yaml_path', "");
+    if strlength(yamlPath) > 0 && isfile(char(yamlPath))
+        maxForceFile = autosimReadYamlScalar(char(yamlPath), 'maxForce');
+        massFile = autosimFirstFinite([ ...
+            autosimReadYamlScalar(char(yamlPath), 'mass_kg'), ...
+            autosimReadYamlScalar(char(yamlPath), 'mass')]);
+        areaFile = autosimFirstFinite([ ...
+            autosimReadYamlScalar(char(yamlPath), 'frontal_area_m2'), ...
+            autosimReadYamlScalar(char(yamlPath), 'drag_area_m2')]);
+        cdFile = autosimFirstFinite([ ...
+            autosimReadYamlScalar(char(yamlPath), 'drag_coefficient'), ...
+            autosimReadYamlScalar(char(yamlPath), 'cd')]);
+        rhoFile = autosimReadYamlScalar(char(yamlPath), 'air_density_kgpm3');
+        landingFactorFile = autosimReadYamlScalar(char(yamlPath), 'landing_limit_factor');
+    end
+
+    urdfPath = autosimWindStringField(p, 'drone_urdf_path', "");
+    if ~isfinite(massFile) && strlength(urdfPath) > 0 && isfile(char(urdfPath))
+        massFile = autosimReadXmlAttributeScalar(char(urdfPath), '<mass', 'value');
+    end
+
+    sdfPath = autosimWindStringField(p, 'drone_sdf_path', "");
+    if (~isfinite(massFile) || ~isfinite(maxForceFile)) && strlength(sdfPath) > 0 && isfile(char(sdfPath))
+        if ~isfinite(massFile)
+            massFile = autosimReadXmlTagScalar(char(sdfPath), 'mass');
+        end
+        if ~isfinite(maxForceFile)
+            maxForceFile = autosimReadXmlTagScalar(char(sdfPath), 'maxForce');
+        end
+    end
+
+    p.mass_kg = autosimMergePhysicsValue(p, 'mass_kg', massFile, preferFile, 1.4);
+    p.max_total_thrust_n = autosimMergePhysicsValue(p, 'max_total_thrust_n', maxForceFile, preferFile, 24.0);
+    p.frontal_area_m2 = autosimMergePhysicsValue(p, 'frontal_area_m2', areaFile, preferFile, 0.075);
+    p.drag_coefficient = autosimMergePhysicsValue(p, 'drag_coefficient', cdFile, preferFile, 1.10);
+    p.air_density_kgpm3 = autosimMergePhysicsValue(p, 'air_density_kgpm3', rhoFile, preferFile, 1.225);
+    p.landing_limit_factor = autosimMergePhysicsValue(p, 'landing_limit_factor', landingFactorFile, preferFile, 0.5);
+
+    p.source_mass = autosimPhysicsSourceLabel(massFile, urdfPath, sdfPath, 'mass');
+    p.source_max_force = autosimPhysicsSourceLabel(maxForceFile, yamlPath, sdfPath, 'maxForce');
+end
+
+
+function v = autosimMergePhysicsValue(p, name, fileValue, preferFile, fallback)
+    current = fallback;
+    if isfield(p, name)
+        tmp = double(p.(name));
+        if isfinite(tmp)
+            current = tmp;
+        end
+    end
+
+    if preferFile && isfinite(fileValue)
+        v = fileValue;
+    elseif ~preferFile && isfinite(current)
+        v = current;
+    elseif isfinite(fileValue)
+        v = fileValue;
+    else
+        v = current;
+    end
+end
+
+
+function s = autosimWindStringField(st, fieldName, fallback)
+    s = string(fallback);
+    if isfield(st, fieldName)
+        s = string(st.(fieldName));
+    end
+end
+
+
+function val = autosimReadYamlScalar(filePath, key)
+    val = nan;
+    try
+        txt = fileread(filePath);
+    catch
+        return;
+    end
+
+    pat = ['(?m)^\s*' regexptranslate('escape', key) '\s*:\s*([-+]?\d*\.?\d+(?:[eE][-+]?\d+)?)\s*$'];
+    tok = regexp(txt, pat, 'tokens', 'once');
+    if isempty(tok)
+        return;
+    end
+    num = str2double(tok{1});
+    if isfinite(num)
+        val = num;
+    end
+end
+
+
+function val = autosimReadXmlTagScalar(filePath, tagName)
+    val = nan;
+    try
+        txt = fileread(filePath);
+    catch
+        return;
+    end
+
+    pat = ['<' regexptranslate('escape', tagName) '>\s*([-+]?\d*\.?\d+(?:[eE][-+]?\d+)?)\s*</' regexptranslate('escape', tagName) '>'];
+    tok = regexp(txt, pat, 'tokens', 'once');
+    if isempty(tok)
+        return;
+    end
+    num = str2double(tok{1});
+    if isfinite(num)
+        val = num;
+    end
+end
+
+
+function val = autosimReadXmlAttributeScalar(filePath, tagHead, attrName)
+    val = nan;
+    try
+        txt = fileread(filePath);
+    catch
+        return;
+    end
+
+    pat = [regexptranslate('escape', tagHead) '[^>]*' regexptranslate('escape', attrName) '\s*=\s*"([-+]?\d*\.?\d+(?:[eE][-+]?\d+)?)"'];
+    tok = regexp(txt, pat, 'tokens', 'once');
+    if isempty(tok)
+        return;
+    end
+    num = str2double(tok{1});
+    if isfinite(num)
+        val = num;
+    end
+end
+
+
+function v = autosimFirstFinite(values)
+    v = nan;
+    values = double(values(:));
+    for i = 1:numel(values)
+        if isfinite(values(i))
+            v = values(i);
+            return;
+        end
+    end
+end
+
+
+function label = autosimPhysicsSourceLabel(val, pathA, pathB, kind)
+    if ~isfinite(val)
+        label = "default_" + string(kind);
+        return;
+    end
+
+    pa = string(pathA);
+    pb = string(pathB);
+    if strlength(pa) > 0 && isfile(char(pa))
+        label = "file:" + pa;
+    elseif strlength(pb) > 0 && isfile(char(pb))
+        label = "file:" + pb;
+    else
+        label = "resolved_" + string(kind);
+    end
 end
 
 
@@ -5853,20 +6193,36 @@ function dTbl = autosimBuildDecisionTable(summaryTbl, decisionField)
 
     predLand = false(n, 1);
     predValid = false(n, 1);
+    predHover = false(n, 1);
     if ismember(decisionField, string(summaryTbl.Properties.VariableNames))
         p = string(summaryTbl.(char(decisionField)));
         predLand = (p == "land");
-        predValid = (p == "land") | (p == "abort") | (p == "hover");
+        predHover = (p == "hover");
+        predValid = (p == "land") | (p == "abort");
     elseif ismember('landing_cmd_time', summaryTbl.Properties.VariableNames)
         lct = summaryTbl.landing_cmd_time;
         predLand = isfinite(lct);
         predValid = true(n, 1);
     end
 
+    interventionCase = false(n, 1);
+    if ismember('target_case', summaryTbl.Properties.VariableNames)
+        tc = string(summaryTbl.target_case);
+        interventionCase = interventionCase | ...
+            (tc == "safe_hover_timeout") | (tc == "unsafe_hover_timeout") | (tc == "unsafe_forced_land");
+    end
+    if ismember('action_source', summaryTbl.Properties.VariableNames)
+        as = string(summaryTbl.action_source);
+        interventionCase = interventionCase | (as == "timeout_hover_abort") | (as == "timeout_forced_land");
+    end
+
     dTbl.scenario_id = sid;
     dTbl.gt_safe = gtSafe;
     dTbl.pred_land = predLand;
-    dTbl.valid = gtValid & predValid;
+    dTbl.pred_hover = predHover;
+    dTbl.intervention_case = interventionCase;
+    dTbl.valid = gtValid & predValid & ~interventionCase;
+    dTbl.valid_raw = gtValid & predValid;
 end
 
 
@@ -5887,6 +6243,8 @@ function de = autosimEvaluateDecisionMetrics(inTbl)
     de.f1 = nan;
     de.unsafe_landing_rate = nan;
     de.risk_score = nan;
+    de.n_excluded_intervention = 0;
+    de.n_excluded_hover = 0;
 
     if isempty(inTbl)
         return;
@@ -5895,6 +6253,12 @@ function de = autosimEvaluateDecisionMetrics(inTbl)
     if ismember('gt_safe', inTbl.Properties.VariableNames) && ismember('pred_land', inTbl.Properties.VariableNames)
         gtSafe = logical(inTbl.gt_safe);
         predLand = logical(inTbl.pred_land);
+        if ismember('pred_hover', inTbl.Properties.VariableNames)
+            de.n_excluded_hover = sum(logical(inTbl.pred_hover));
+        end
+        if ismember('intervention_case', inTbl.Properties.VariableNames)
+            de.n_excluded_intervention = sum(logical(inTbl.intervention_case));
+        end
         if ismember('valid', inTbl.Properties.VariableNames)
             valid = logical(inTbl.valid);
         else
