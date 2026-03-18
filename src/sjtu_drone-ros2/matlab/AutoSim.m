@@ -338,6 +338,9 @@ function cfg = autosimDefaultConfig()
     cfg.agent.model_uncertain_margin = 0.12;
     cfg.agent.model_uncertain_fallback_enable = true;
     cfg.agent.model_semantic_fusion_weight = 0.65;
+    cfg.agent.adaptive_fusion_by_ontology = true;
+    cfg.agent.fusion_semantic_boost_on_caution = 0.10;
+    cfg.agent.fusion_semantic_boost_on_conflict = 0.20;
     cfg.agent.semantic_assist_enable = true;
     cfg.agent.semantic_assist_land_min = 0.78;
     cfg.agent.semantic_assist_abort_max = 0.28;
@@ -364,6 +367,11 @@ function cfg = autosimDefaultConfig()
     cfg.agent.model_min_total_samples_for_use = 10;
     cfg.agent.model_min_class_samples_for_use = 1;
     cfg.agent.model_minority_ratio_for_use = 0.05;
+    cfg.agent.ontology_guard_enable = true;
+    cfg.agent.ontology_guard_context_min = 0.45;
+    cfg.agent.ontology_guard_visual_min = 0.35;
+    cfg.agent.ontology_guard_max_wind_risk = 0.80;
+    cfg.agent.ontology_guard_block_conflicting_relation = true;
 
     cfg.learning = struct();
     cfg.learning.enable = true;
@@ -611,26 +619,40 @@ function lockCleanup = autosimAcquireLock(cfg)
     lockPath = cfg.paths.lock_file;
 
     if isfile(lockPath)
-        try
-            oldPid = str2double(strtrim(fileread(lockPath)));
-        catch
-            oldPid = nan;
-        end
+        oldLock = autosimReadLockInfo(lockPath);
+        if isfinite(oldLock.pid) && oldLock.pid > 1
+            proc = autosimGetProcessInfo(round(oldLock.pid));
+            if proc.exists
+                sameProcess = true;
+                if isfinite(oldLock.start_ticks) && isfinite(proc.start_ticks)
+                    sameProcess = (oldLock.start_ticks == proc.start_ticks);
+                end
 
-        if isfinite(oldPid) && oldPid > 1
-            [st, ~] = system(sprintf('bash -i -c "kill -0 %d >/dev/null 2>&1"', round(oldPid)));
-            if st == 0
-                error('Another AutoSim instance is running (pid=%d). Stop it first.', round(oldPid));
+                if sameProcess && autosimIsLikelyAutoSimProcess(proc.cmdline)
+                    error('Another AutoSim instance is running (pid=%d). Stop it first.', round(oldLock.pid));
+                end
+
+                warning('[AUTOSIM] Replacing stale lock (pid=%d).', round(oldLock.pid));
             end
         end
     end
 
     thisPid = feature('getpid');
+    thisProc = autosimGetProcessInfo(thisPid);
     fid = fopen(lockPath, 'w');
     if fid < 0
         error('Failed to create lock file: %s', lockPath);
     end
-    fprintf(fid, '%d\n', round(thisPid));
+    fprintf(fid, 'pid=%d\n', round(thisPid));
+    if isfinite(thisProc.start_ticks)
+        fprintf(fid, 'start_ticks=%.0f\n', thisProc.start_ticks);
+    else
+        fprintf(fid, 'start_ticks=nan\n');
+    end
+    if strlength(thisProc.cmdline) > 0
+        safeCmd = regexprep(char(thisProc.cmdline), '[\r\n]+', ' ');
+        fprintf(fid, 'cmdline=%s\n', safeCmd);
+    end
     fclose(fid);
 
     lockCleanup = onCleanup(@() autosimReleaseLock(lockPath));
@@ -644,6 +666,80 @@ function autosimReleaseLock(lockPath)
         end
     catch
     end
+end
+
+
+function info = autosimReadLockInfo(lockPath)
+    info = struct('pid', nan, 'start_ticks', nan, 'cmdline', "");
+
+    try
+        txt = fileread(lockPath);
+    catch
+        return;
+    end
+
+    lines = regexp(txt, '\r?\n', 'split');
+    lines = lines(~cellfun(@isempty, lines));
+    if isempty(lines)
+        return;
+    end
+
+    first = strtrim(lines{1});
+    if startsWith(first, 'pid=')
+        info.pid = str2double(strtrim(extractAfter(string(first), "pid=")));
+    else
+        info.pid = str2double(first);
+    end
+
+    for i = 2:numel(lines)
+        line = strtrim(lines{i});
+        if startsWith(line, 'start_ticks=')
+            info.start_ticks = str2double(strtrim(extractAfter(string(line), "start_ticks=")));
+        elseif startsWith(line, 'cmdline=')
+            info.cmdline = strtrim(extractAfter(string(line), "cmdline="));
+        end
+    end
+end
+
+
+function proc = autosimGetProcessInfo(pid)
+    proc = struct('exists', false, 'start_ticks', nan, 'cmdline', "");
+    pid = round(pid);
+    if ~(isfinite(pid) && pid > 1)
+        return;
+    end
+
+    procDir = fullfile('/proc', sprintf('%d', pid));
+    if ~exist(procDir, 'dir')
+        return;
+    end
+
+    proc.exists = true;
+    try
+        statRaw = strtrim(fileread(fullfile(procDir, 'stat')));
+        closeParen = find(statRaw == ')', 1, 'last');
+        if ~isempty(closeParen)
+            tail = strtrim(statRaw(closeParen + 1:end));
+            fields = regexp(tail, '\s+', 'split');
+            if numel(fields) >= 20
+                proc.start_ticks = str2double(fields{20});
+            end
+        end
+    catch
+    end
+
+    try
+        cmdRaw = fileread(fullfile(procDir, 'cmdline'));
+        cmdRaw(cmdRaw == char(0)) = ' ';
+        proc.cmdline = strtrim(string(cmdRaw));
+    catch
+    end
+end
+
+
+function tf = autosimIsLikelyAutoSimProcess(cmdline)
+    cmd = lower(char(cmdline));
+    tf = contains(cmd, 'matlab') || contains(cmd, 'autosim');
 end
 
 
@@ -2099,6 +2195,18 @@ function [res, traceTbl] = autosimRunScenario(cfg, scenarioCfg, scenarioId, mode
                 end
 
                 fusionWeight = autosimClampNaN(cfg.agent.model_semantic_fusion_weight, 0.65);
+                if isfield(cfg.agent, 'adaptive_fusion_by_ontology') && cfg.agent.adaptive_fusion_by_ontology
+                    semBoost = 0.0;
+                    if isfield(semantic, 'semantic_relation') && string(semantic.semantic_relation) == "conflicting"
+                        semBoost = max(semBoost, autosimClampNaN(cfg.agent.fusion_semantic_boost_on_conflict, 0.20));
+                    elseif isfield(semantic, 'landing_context') && string(semantic.landing_context) == "caution"
+                        semBoost = max(semBoost, autosimClampNaN(cfg.agent.fusion_semantic_boost_on_caution, 0.10));
+                    end
+                    if isfield(semantic, 'semantic_integration') && string(semantic.semantic_integration) == "abort_recommended"
+                        semBoost = max(semBoost, autosimClampNaN(cfg.agent.fusion_semantic_boost_on_conflict, 0.20));
+                    end
+                    fusionWeight = fusionWeight - semBoost;
+                end
                 fusionWeight = autosimClamp(fusionWeight, 0.0, 1.0);
                 decisionStableProb = fusionWeight * predStableProb(k) + (1.0 - fusionWeight) * semanticStableProb;
 
@@ -2144,6 +2252,24 @@ function [res, traceTbl] = autosimRunScenario(cfg, scenarioCfg, scenarioId, mode
             modelIsUncertain = hasTrainedModel && modelGateEnabled && isfinite(decisionStableProb) && ...
                 (~modelSaysStable) && (~modelSaysUnstable);
 
+            ontologyGuardForModel = true;
+            if isfield(cfg.agent, 'ontology_guard_enable') && cfg.agent.ontology_guard_enable
+                contextEncNow = autosimClampNaN(semantic.context_enc, 0.0);
+                visualEncNow = autosimClampNaN(semantic.visual_enc, 0.0);
+                windRiskEncNow = autosimClampNaN(semantic.wind_risk_enc, 1.0);
+                relationConflicting = isfield(semantic, 'semantic_relation') && (string(semantic.semantic_relation) == "conflicting");
+                abortRecommended = isfield(semantic, 'semantic_integration') && (string(semantic.semantic_integration) == "abort_recommended");
+                blockConflicting = ~isfield(cfg.agent, 'ontology_guard_block_conflicting_relation') || cfg.agent.ontology_guard_block_conflicting_relation;
+
+                ontologyGuardForModel = ...
+                    (contextEncNow >= autosimClampNaN(cfg.agent.ontology_guard_context_min, 0.45)) && ...
+                    (visualEncNow >= autosimClampNaN(cfg.agent.ontology_guard_visual_min, 0.35)) && ...
+                    (windRiskEncNow <= autosimClampNaN(cfg.agent.ontology_guard_max_wind_risk, 0.80)) && ...
+                    (~abortRecommended) && ...
+                    (~blockConflicting || ~relationConflicting);
+            end
+            modelStableBlockedByOntology = modelSaysStable && ~ontologyGuardForModel;
+
             if ~landingSent && cfg.agent.block_landing_if_unstable && modelSaysUnstable
                 if cfg.agent.freeze_xy_if_unstable
                     cmdX = 0.0;
@@ -2155,6 +2281,8 @@ function [res, traceTbl] = autosimRunScenario(cfg, scenarioCfg, scenarioId, mode
                 if decisionTxt(k) == ""
                     decisionTxt(k) = "wait_hover_unstable";
                 end
+            elseif ~landingSent && modelStableBlockedByOntology && decisionTxt(k) == ""
+                decisionTxt(k) = "hold_by_ontology_guard";
             elseif ~landingSent && modelIsUncertain && decisionTxt(k) == ""
                 decisionTxt(k) = "wait_hover_uncertain";
             end
@@ -2165,6 +2293,7 @@ function [res, traceTbl] = autosimRunScenario(cfg, scenarioCfg, scenarioId, mode
             canLandByModel = hoverEvalReady && hasTrainedModel && modelGateEnabled && ...
                 (activeSampleN >= cfg.agent.min_samples_before_decision) && ...
                 modelSaysStable && ...
+                ontologyGuardForModel && ...
                 isfinite(tagErr(k)) && (tagErr(k) <= cfg.agent.max_tag_error_before_land) && ...
                 isfinite(zEvalNow) && (zEvalNow >= cfg.agent.min_altitude_before_land) && ...
                 ((tk - lastDecisionT) >= cfg.agent.decision_cooldown_sec);
@@ -2202,6 +2331,7 @@ function [res, traceTbl] = autosimRunScenario(cfg, scenarioCfg, scenarioId, mode
 
             canLandByUncertainModelFallback = hoverEvalReady && hasTrainedModel && modelGateEnabled && modelIsUncertain && ...
                 isfield(cfg.agent, 'model_uncertain_fallback_enable') && cfg.agent.model_uncertain_fallback_enable && ...
+                ontologyGuardForModel && ...
                 (activeSampleN >= cfg.agent.no_model_min_samples_before_land) && ...
                 isfinite(tagErr(k)) && (tagErr(k) <= cfg.agent.no_model_max_tag_error) && ...
                 isfinite(zEvalNow) && (zEvalNow >= cfg.agent.min_altitude_before_land) && ...

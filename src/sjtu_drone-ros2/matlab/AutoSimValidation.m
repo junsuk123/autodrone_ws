@@ -22,7 +22,7 @@ if ~exist('modelPath', 'var')
     modelPath = "";
 end
 
-batchScenarioCount = 100;
+batchScenarioCount = 1000;
 targetSafeRatio = 0.50;
 targetTolerance = 0.10;
 maxSupplementRounds = 4;
@@ -91,6 +91,8 @@ fprintf('[AutoSimValidation] aggregate summary saved: %s\n', summaryPath);
 fprintf('[AutoSimValidation] accuracy=%.4f precision=%.4f recall=%.4f specificity=%.4f unsafe_landing_rate=%.4f landing_success_rate=%.4f\n', ...
     aggSummary.accuracy(1), aggSummary.precision(1), aggSummary.safe_recall(1), ...
     aggSummary.unsafe_reject(1), aggSummary.unsafe_landing_rate(1), aggSummary.landing_success_rate(1));
+fprintf('[AutoSimValidation] excluded intervention=%d hover=%d\n', ...
+    aggSummary.n_excluded_intervention(1), aggSummary.n_excluded_hover(1));
 
 if isfile(paperDraftPath)
     autosimValidationFillPaperDraft(summaryPath, comparisonCsv, thresholdCsv, paperDraftPath);
@@ -185,24 +187,50 @@ end
 
 
 function summaryTbl = autosimValidationBuildAggregateSummary(T, runDirs)
-    gtSafe = false(height(T), 1);
-    predLand = false(height(T), 1);
+    n = height(T);
+    gtSafe = false(n, 1);
+    gtValid = false(n, 1);
+    predLand = false(n, 1);
+    predValid = false(n, 1);
+    predHover = false(n, 1);
+    interventionCase = false(n, 1);
+
     if ismember('gt_safe_to_land', T.Properties.VariableNames)
         gt = string(T.gt_safe_to_land);
         gtSafe = (gt == "stable") | (gt == "safe");
+        gtValid = (gt == "stable") | (gt == "safe") | (gt == "unstable") | (gt == "unsafe");
     elseif ismember('label', T.Properties.VariableNames)
-        gtSafe = string(T.label) == "stable";
-    end
-    if ismember('pred_decision', T.Properties.VariableNames)
-        predLand = string(T.pred_decision) == "land";
-    elseif ismember('landing_cmd_time', T.Properties.VariableNames)
-        predLand = isfinite(T.landing_cmd_time);
+        lbl = string(T.label);
+        gtSafe = (lbl == "stable");
+        gtValid = (lbl == "stable") | (lbl == "unstable");
     end
 
-    tp = sum(predLand & gtSafe);
-    fp = sum(predLand & ~gtSafe);
-    fn = sum(~predLand & gtSafe);
-    tn = sum(~predLand & ~gtSafe);
+    if ismember('pred_decision', T.Properties.VariableNames)
+        pd = string(T.pred_decision);
+        predLand = (pd == "land");
+        predHover = (pd == "hover");
+        predValid = (pd == "land") | (pd == "abort");
+    elseif ismember('landing_cmd_time', T.Properties.VariableNames)
+        predLand = isfinite(T.landing_cmd_time);
+        predValid = true(n, 1);
+    end
+
+    if ismember('target_case', T.Properties.VariableNames)
+        tc = string(T.target_case);
+        interventionCase = interventionCase | ...
+            (tc == "safe_hover_timeout") | (tc == "unsafe_hover_timeout") | (tc == "unsafe_forced_land");
+    end
+    if ismember('action_source', T.Properties.VariableNames)
+        as = string(T.action_source);
+        interventionCase = interventionCase | (as == "timeout_hover_abort") | (as == "timeout_forced_land");
+    end
+
+    valid = gtValid & predValid & ~predHover & ~interventionCase;
+
+    tp = sum(predLand(valid) & gtSafe(valid));
+    fp = sum(predLand(valid) & ~gtSafe(valid));
+    fn = sum(~predLand(valid) & gtSafe(valid));
+    tn = sum(~predLand(valid) & ~gtSafe(valid));
     nValid = tp + fp + fn + tn;
     accuracy = autosimValidationSafeDiv(tp + tn, nValid);
     precision = autosimValidationSafeDiv(tp, tp + fp);
@@ -216,9 +244,10 @@ function summaryTbl = autosimValidationBuildAggregateSummary(T, runDirs)
     successRate = autosimValidationComputeSuccessRate(T);
 
     summaryTbl = table( ...
-        string(strjoin(cellstr(runDirs), ';')), nValid, sum(gtSafe), sum(~gtSafe), ...
+        string(strjoin(cellstr(runDirs), ';')), nValid, sum(gtSafe(valid)), sum(~gtSafe(valid)), ...
         accuracy, precision, safeRecall, unsafeReject, f1, unsafeLandingRate, successRate, ...
-        'VariableNames', {'run_dir','n_valid','n_safe','n_unsafe','accuracy','precision','safe_recall','unsafe_reject','f1','unsafe_landing_rate','landing_success_rate'});
+        sum(interventionCase), sum(predHover), ...
+        'VariableNames', {'run_dir','n_valid','n_safe','n_unsafe','accuracy','precision','safe_recall','unsafe_reject','f1','unsafe_landing_rate','landing_success_rate','n_excluded_intervention','n_excluded_hover'});
 end
 
 

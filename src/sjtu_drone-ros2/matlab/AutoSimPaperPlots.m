@@ -4,15 +4,27 @@
 % Usage:
 % 1) Open this file in MATLAB and Run.
 % 2) Optional: set runDir/outputDir below before running.
-
 close all;
-
-% Optional overrides (leave empty to auto-detect latest run).
-if ~exist('runDir', 'var')
-    runDir = "";
+defaultRunDir = "";
+% Optional overrides.
+% Accept both runDir and run_dir to avoid name-mismatch issues.
+if ~exist('runDir', 'var') || strlength(string(runDir)) == 0
+    if exist('run_dir', 'var') && strlength(string(run_dir)) > 0
+        runDir = run_dir;
+    elseif strlength(defaultRunDir) > 0
+        runDir = defaultRunDir;
+    else
+        runDir = "";
+    end
 end
-if ~exist('outputDir', 'var')
-    outputDir = "";
+
+% Accept both outputDir and output_dir.
+if ~exist('outputDir', 'var') || strlength(string(outputDir)) == 0
+    if exist('output_dir', 'var') && strlength(string(output_dir)) > 0
+        outputDir = output_dir;
+    else
+        outputDir = "";
+    end
 end
 
 rootDir = fileparts(mfilename('fullpath'));
@@ -28,13 +40,27 @@ if strlength(string(outputDir)) == 0
     [~, runName] = fileparts(runDir);
     outputDir = fullfile(plotRoot, ['paper_' runName '_' datestr(now, 'yyyymmdd_HHMMSS')]);
 end
+
+% Script variables persist in MATLAB base workspace.
+% If outputDir is unchanged from the previous run, force a fresh timestamped folder.
+if exist('paperPlotResult', 'var') && isstruct(paperPlotResult) && isfield(paperPlotResult, 'outputDir')
+    prevOut = string(paperPlotResult.outputDir);
+    if strlength(prevOut) > 0 && string(outputDir) == prevOut
+        [~, runName] = fileparts(runDir);
+        outputDir = fullfile(plotRoot, ['paper_' runName '_' datestr(now, 'yyyymmdd_HHMMSS')]);
+    end
+end
+
 outputDir = char(string(outputDir));
 ensureDir(outputDir);
 
-FONT_AX = 11;
-FONT_LABEL = 12;
-FONT_TITLE = 13;
-FONT_LEGEND = 10;
+fprintf('[AutoSimPaperPlots] runDir=%s\n', runDir);
+fprintf('[AutoSimPaperPlots] outputDir=%s\n', outputDir);
+
+FONT_AX = 24;
+FONT_LABEL = 24;
+FONT_TITLE = 36;
+FONT_LEGEND = 24;
 
 datasetPath = pickFile(runDir, {'autosim_dataset_latest.csv', 'autosim_dataset_*_completed.csv'});
 tracePath = pickFile(runDir, {'autosim_trace_latest.csv', 'autosim_trace_*_completed.csv'});
