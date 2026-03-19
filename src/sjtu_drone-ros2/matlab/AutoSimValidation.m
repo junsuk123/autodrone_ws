@@ -88,9 +88,9 @@ autosimValidationSaveDistributionReports(aggregateDataset, char(runDirs(end)));
 [comparisonCsv, thresholdCsv] = autosimValidationRunPaperPlots(rootDir, dataRoot, aggregateDataset);
 
 fprintf('[AutoSimValidation] aggregate summary saved: %s\n', summaryPath);
-fprintf('[AutoSimValidation] accuracy=%.4f precision=%.4f recall=%.4f specificity=%.4f unsafe_landing_rate=%.4f landing_success_rate=%.4f\n', ...
+fprintf('[AutoSimValidation] accuracy=%.4f precision=%.4f recall=%.4f specificity=%.4f balanced_accuracy=%.4f unsafe_landing_rate=%.4f landing_success_rate=%.4f\n', ...
     aggSummary.accuracy(1), aggSummary.precision(1), aggSummary.safe_recall(1), ...
-    aggSummary.unsafe_reject(1), aggSummary.unsafe_landing_rate(1), aggSummary.landing_success_rate(1));
+    aggSummary.unsafe_reject(1), aggSummary.balanced_accuracy(1), aggSummary.unsafe_landing_rate(1), aggSummary.landing_success_rate(1));
 fprintf('[AutoSimValidation] excluded intervention=%d hover=%d\n', ...
     aggSummary.n_excluded_intervention(1), aggSummary.n_excluded_hover(1));
 
@@ -144,12 +144,12 @@ function ratio = autosimValidationComputeGtSafeRatio(T)
     if isempty(T) || ~ismember('gt_safe_to_land', T.Properties.VariableNames)
         return;
     end
-    gt = string(T.gt_safe_to_land);
-    valid = (gt == "stable") | (gt == "safe") | (gt == "unstable") | (gt == "unsafe");
+    gt = autosimValidationNormalizeActionLabel(T.gt_safe_to_land);
+    valid = (gt == "AttemptLanding") | (gt == "HoldLanding");
     if ~any(valid)
         return;
     end
-    ratio = mean((gt(valid) == "stable") | (gt(valid) == "safe"));
+    ratio = mean(gt(valid) == "AttemptLanding");
 end
 
 
@@ -196,17 +196,17 @@ function summaryTbl = autosimValidationBuildAggregateSummary(T, runDirs)
     interventionCase = false(n, 1);
 
     if ismember('gt_safe_to_land', T.Properties.VariableNames)
-        gt = string(T.gt_safe_to_land);
-        gtSafe = (gt == "stable") | (gt == "safe");
-        gtValid = (gt == "stable") | (gt == "safe") | (gt == "unstable") | (gt == "unsafe");
+        gt = autosimValidationNormalizeActionLabel(T.gt_safe_to_land);
+        gtSafe = (gt == "AttemptLanding");
+        gtValid = (gt == "AttemptLanding") | (gt == "HoldLanding");
     elseif ismember('label', T.Properties.VariableNames)
-        lbl = string(T.label);
-        gtSafe = (lbl == "stable");
-        gtValid = (lbl == "stable") | (lbl == "unstable");
+        lbl = autosimValidationNormalizeActionLabel(T.label);
+        gtSafe = (lbl == "AttemptLanding");
+        gtValid = (lbl == "AttemptLanding") | (lbl == "HoldLanding");
     end
 
     if ismember('pred_decision', T.Properties.VariableNames)
-        pd = string(T.pred_decision);
+        pd = autosimValidationNormalizeActionLabel(T.pred_decision);
         predLand = (pd == "AttemptLanding");
         predHover = (pd == "hover");
         predValid = (pd == "AttemptLanding") | (pd == "HoldLanding");
@@ -236,6 +236,13 @@ function summaryTbl = autosimValidationBuildAggregateSummary(T, runDirs)
     precision = autosimValidationSafeDiv(tp, tp + fp);
     safeRecall = autosimValidationSafeDiv(tp, tp + fn);
     unsafeReject = autosimValidationSafeDiv(tn, tn + fp);
+    validBalanced = [safeRecall, unsafeReject];
+    validBalanced = validBalanced(isfinite(validBalanced));
+    if isempty(validBalanced)
+        balancedAccuracy = nan;
+    else
+        balancedAccuracy = mean(validBalanced);
+    end
     f1 = nan;
     if isfinite(precision) && isfinite(safeRecall) && (precision + safeRecall) > 0
         f1 = 2 * precision * safeRecall / (precision + safeRecall);
@@ -245,9 +252,9 @@ function summaryTbl = autosimValidationBuildAggregateSummary(T, runDirs)
 
     summaryTbl = table( ...
         string(strjoin(cellstr(runDirs), ';')), nValid, sum(gtSafe(valid)), sum(~gtSafe(valid)), ...
-        accuracy, precision, safeRecall, unsafeReject, f1, unsafeLandingRate, successRate, ...
+        accuracy, precision, safeRecall, unsafeReject, balancedAccuracy, f1, unsafeLandingRate, successRate, ...
         sum(interventionCase), sum(predHover), ...
-        'VariableNames', {'run_dir','n_valid','n_safe','n_unsafe','accuracy','precision','safe_recall','unsafe_reject','f1','unsafe_landing_rate','landing_success_rate','n_excluded_intervention','n_excluded_hover'});
+        'VariableNames', {'run_dir','n_valid','n_safe','n_unsafe','accuracy','precision','safe_recall','unsafe_reject','balanced_accuracy','f1','unsafe_landing_rate','landing_success_rate','n_excluded_intervention','n_excluded_hover'});
 end
 
 
@@ -268,11 +275,11 @@ function autosimValidationSaveDistributionReports(T, runDir)
     gtSafe = false(height(T), 1);
     predLand = false(height(T), 1);
     if ismember('gt_safe_to_land', T.Properties.VariableNames)
-        gt = string(T.gt_safe_to_land);
-        gtSafe = (gt == "stable") | (gt == "safe");
+        gt = autosimValidationNormalizeActionLabel(T.gt_safe_to_land);
+        gtSafe = (gt == "AttemptLanding");
     end
     if ismember('pred_decision', T.Properties.VariableNames)
-        pd = string(T.pred_decision);
+        pd = autosimValidationNormalizeActionLabel(T.pred_decision);
         predLand = (pd == "AttemptLanding");
     end
 
@@ -302,6 +309,25 @@ function autosimValidationSaveDistributionReports(T, runDir)
         end
         writetable(windTbl, fullfile(runDir, 'autosim_validation_wind_distribution.csv'));
     end
+end
+
+
+function label = autosimValidationNormalizeActionLabel(x)
+    s = lower(strtrim(string(x)));
+    label = repmat("HoldLanding", size(s));
+
+    attemptMask = (s == "attemptlanding") | (s == "attempt_landing") | (s == "land") | ...
+        (s == "landing") | (s == "safe") | (s == "stable") | (s == "safetoland") | ...
+        (s == "proceed") | (s == "1") | (s == "true");
+
+    holdMask = (s == "holdlanding") | (s == "hold_landing") | (s == "hold") | ...
+        (s == "abort") | (s == "abortlanding") | (s == "delaylanding") | ...
+        (s == "continuehover") | (s == "reapproach") | (s == "descend") | ...
+        (s == "cancellanding") | (s == "goaround") | (s == "unsafe") | ...
+        (s == "unstable") | (s == "unsafetoland") | (s == "stop") | (s == "0") | (s == "false");
+
+    label(attemptMask) = "AttemptLanding";
+    label(holdMask) = "HoldLanding";
 end
 
 

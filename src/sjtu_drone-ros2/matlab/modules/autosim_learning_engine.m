@@ -110,7 +110,11 @@ end
 
 function [model, info] = incremental_train_and_save(cfg, summaryTbl, modelPrev, scenarioId)
 valid = false(height(summaryTbl), 1);
-if ismember("label", summaryTbl.Properties.VariableNames)
+if ismember("gt_safe_to_land", summaryTbl.Properties.VariableNames)
+    gt = string(summaryTbl.gt_safe_to_land);
+    valid = (gt == "stable") | (gt == "safe") | (gt == "unstable") | (gt == "unsafe") | ...
+        (gt == "AttemptLanding") | (gt == "HoldLanding");
+elseif ismember("label", summaryTbl.Properties.VariableNames)
     valid = (summaryTbl.label == "stable") | (summaryTbl.label == "unstable");
 end
 
@@ -148,11 +152,10 @@ if isfield(cfg.learning, "save_every_scenario") && ~cfg.learning.save_every_scen
 end
 
 trainTbl = summaryTbl(valid, :);
-y = string(trainTbl.label);
-y(y ~= "stable") = "unstable";
+y = build_action_target_labels(trainTbl);
 
-nStable = sum(y == "stable");
-nUnstable = sum(y == "unstable");
+nStable = sum(y == "AttemptLanding");
+nUnstable = sum(y == "HoldLanding");
 nTrain = numel(y);
 minorityRatio = min(nStable, nUnstable) / max(1, nTrain);
 
@@ -203,7 +206,10 @@ model.schema_version = string(cfg.model.schema_version);
 model.n_train = nTrain;
 model.n_stable = nStable;
 model.n_unstable = nUnstable;
-model.stable_ratio = mean(y == "stable");
+model.n_attempt_landing = nStable;
+model.n_hold_landing = nUnstable;
+model.stable_ratio = mean(y == "AttemptLanding");
+model.attempt_landing_ratio = mean(y == "AttemptLanding");
 model.minority_ratio = minorityRatio;
 model.last_update_scenario = scenarioId;
 
@@ -214,6 +220,24 @@ save(modelPath, "model");
 info = make_learn_info(scenarioId, "", nTrain, nStable, nUnstable);
 info.model_updated = true;
 info.model_path = string(modelPath);
+end
+
+function y = build_action_target_labels(trainTbl)
+if ismember("gt_safe_to_land", trainTbl.Properties.VariableNames)
+    gt = string(trainTbl.gt_safe_to_land);
+    y = repmat("HoldLanding", height(trainTbl), 1);
+    y((gt == "stable") | (gt == "safe") | (gt == "AttemptLanding")) = "AttemptLanding";
+    y((gt == "unstable") | (gt == "unsafe") | (gt == "HoldLanding")) = "HoldLanding";
+    return;
+end
+
+if ismember("label", trainTbl.Properties.VariableNames)
+    y = repmat("HoldLanding", height(trainTbl), 1);
+    y(string(trainTbl.label) == "stable") = "AttemptLanding";
+    return;
+end
+
+y = repmat("HoldLanding", height(trainTbl), 1);
 end
 
 function info = make_learn_info(scenarioId, skipReason, nTrain, nStable, nUnstable)

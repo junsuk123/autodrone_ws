@@ -560,6 +560,7 @@ function cfg = autosimDefaultConfig()
     cfg.model.schema_version = "decision_v2";
     cfg.model.feature_names = [ ...
         "mean_wind_speed", "max_wind_speed", "mean_abs_roll_deg", "mean_abs_pitch_deg", ...
+        "wind_velocity", "wind_acceleration", ...
         "mean_abs_vz", "max_abs_vz", "mean_tag_error", "max_tag_error", ...
         "stability_std_z", "stability_std_vz", ...
         "mean_imu_ang_vel", "max_imu_ang_vel", "mean_imu_lin_acc", "max_imu_lin_acc", ...
@@ -607,7 +608,7 @@ function cfg = autosimDefaultConfig()
     cfg.ontology.tag_error_drift_warn = 0.015;
     cfg.ontology.tag_error_drift_high = 0.060;
     cfg.ontology.semantic_feature_names = [ ...
-        "wind_speed", "wind_dir_norm", "roll_abs", "pitch_abs", ...
+        "wind_speed", "wind_velocity", "wind_acceleration", "wind_dir_norm", "roll_abs", "pitch_abs", ...
         "tag_u", "tag_v", "jitter", "stability_score", ...
         "wind_risk_enc", "alignment_enc", "visual_enc", "context_enc" ...
     ];
@@ -903,7 +904,7 @@ function model = autosimCreatePlaceholderModel(cfg, reason)
     nFeat = numel(cfg.model.feature_names);
     model = struct();
     model.kind = "gaussian_nb";
-    model.class_names = ["stable"; "unstable"];
+    model.class_names = ["AttemptLanding"; "HoldLanding"];
     model.feature_names = cfg.model.feature_names;
     model.schema_version = string(cfg.model.schema_version);
     model.mu = zeros(2, nFeat);
@@ -2559,7 +2560,7 @@ function [res, traceTbl] = autosimRunScenario(cfg, scenarioCfg, scenarioId, mode
             decisionStableProb = semanticStableProb;
             if modelGateEnabled
                 [predLabel, predScore] = autosimPredictModel(model, feat, featureSchema, cfg);
-                if predLabel == "stable"
+                if autosimIsAttemptLandingLabel(predLabel)
                     predStableProb(k) = predScore;
                 else
                     predStableProb(k) = 1.0 - predScore;
@@ -2573,7 +2574,7 @@ function [res, traceTbl] = autosimRunScenario(cfg, scenarioCfg, scenarioId, mode
                     elseif isfield(semantic, 'landing_context') && string(semantic.landing_context) == "caution"
                         semBoost = max(semBoost, autosimClampNaN(cfg.agent.fusion_semantic_boost_on_caution, 0.10));
                     end
-                    if isfield(semantic, 'semantic_integration') && string(semantic.semantic_integration) == "abort_recommended"
+                    if isfield(semantic, 'semantic_integration') && autosimNormalizeActionLabel(semantic.semantic_integration) == "HoldLanding"
                         semBoost = max(semBoost, autosimClampNaN(cfg.agent.fusion_semantic_boost_on_conflict, 0.20));
                     end
                     fusionWeight = fusionWeight - semBoost;
@@ -2595,9 +2596,9 @@ function [res, traceTbl] = autosimRunScenario(cfg, scenarioCfg, scenarioId, mode
             else
                 predStableProb(k) = autosimClampNaN(semantic.landing_feasibility, 0.0);
                 if predStableProb(k) >= autosimClampNaN(cfg.agent.semantic_land_threshold, 0.70)
-                    predLabel = "stable";
+                    predLabel = "AttemptLanding";
                 else
-                    predLabel = "unstable";
+                    predLabel = "HoldLanding";
                 end
                 predScore = predStableProb(k);
                 decisionStableProb = predStableProb(k);
@@ -2629,7 +2630,7 @@ function [res, traceTbl] = autosimRunScenario(cfg, scenarioCfg, scenarioId, mode
                 visualEncNow = autosimClampNaN(semantic.visual_enc, 0.0);
                 windRiskEncNow = autosimClampNaN(semantic.wind_risk_enc, 1.0);
                 relationConflicting = isfield(semantic, 'semantic_relation') && (string(semantic.semantic_relation) == "conflicting");
-                abortRecommended = isfield(semantic, 'semantic_integration') && (string(semantic.semantic_integration) == "hold_landing_recommended");
+                abortRecommended = isfield(semantic, 'semantic_integration') && (autosimNormalizeActionLabel(semantic.semantic_integration) == "HoldLanding");
                 blockConflicting = ~isfield(cfg.agent, 'ontology_guard_block_conflicting_relation') || cfg.agent.ontology_guard_block_conflicting_relation;
 
                 ontologyGuardForModel = ...
@@ -3421,6 +3422,14 @@ function feat = autosimBuildOnlineFeatureVector(z, vz, speedAbs, rollDeg, pitchD
     feat = struct();
     feat.mean_wind_speed = autosimNanMean(windSpeed);
     feat.max_wind_speed = autosimNanMax(windSpeed);
+    if isempty(windVelocity)
+        windVelocity = windSpeed;
+    end
+    if isempty(windAcceleration)
+        windAcceleration = 0.0;
+    end
+    feat.wind_velocity = autosimNanMean(windVelocity);
+    feat.wind_acceleration = autosimNanMean(windAcceleration);
     feat.mean_abs_roll_deg = autosimNanMean(abs(rollDeg));
     feat.mean_abs_pitch_deg = autosimNanMean(abs(pitchDeg));
     feat.mean_abs_vz = autosimNanMean(abs(vz));
@@ -3774,14 +3783,31 @@ function [model, info] = autosimIncrementalTrainAndSave(cfg, results, modelPrev,
     model = modelPrev;
     info = autosimLearningDisabledInfo(scenarioId);
     info.skip_reason = "learning_engine_unavailable";
-    if ismember('label', tbl.Properties.VariableNames)
-        valid = (tbl.label == "stable") | (tbl.label == "unstable");
+    if ismember('gt_safe_to_land', tbl.Properties.VariableNames)
+        yAll = autosimNormalizeActionLabel(tbl.gt_safe_to_land);
+        valid = (yAll == "AttemptLanding") | (yAll == "HoldLanding");
         info.n_train = sum(valid);
         if any(valid)
-            y = string(tbl.label(valid));
-            info.n_stable = sum(y == "stable");
-            info.n_unstable = sum(y == "unstable");
+            y = yAll(valid);
+            info.n_stable = sum(y == "AttemptLanding");
+            info.n_unstable = sum(y == "HoldLanding");
+            info.n_attempt_landing = info.n_stable;
+            info.n_hold_landing = info.n_unstable;
             info.stable_ratio = info.n_stable / max(1, info.n_train);
+            info.attempt_landing_ratio = info.stable_ratio;
+        end
+    elseif ismember('label', tbl.Properties.VariableNames)
+        yAll = autosimNormalizeActionLabel(tbl.label);
+        valid = (yAll == "AttemptLanding") | (yAll == "HoldLanding");
+        info.n_train = sum(valid);
+        if any(valid)
+            y = yAll(valid);
+            info.n_stable = sum(y == "AttemptLanding");
+            info.n_unstable = sum(y == "HoldLanding");
+            info.n_attempt_landing = info.n_stable;
+            info.n_hold_landing = info.n_unstable;
+            info.stable_ratio = info.n_stable / max(1, info.n_train);
+            info.attempt_landing_ratio = info.stable_ratio;
         end
     end
 end
@@ -3801,15 +3827,22 @@ function tf = autosimIsModelReliable(model, cfg)
         return;
     end
 
-    if ~isfield(model, 'n_train') || ~isfield(model, 'n_stable') || ~isfield(model, 'n_unstable')
+    hasLegacyCounts = isfield(model, 'n_stable') && isfield(model, 'n_unstable');
+    hasActionCounts = isfield(model, 'n_attempt_landing') && isfield(model, 'n_hold_landing');
+    if ~isfield(model, 'n_train') || (~hasLegacyCounts && ~hasActionCounts)
         % Legacy model files may not carry training-count metadata.
         tf = autosimHasUsableModelParameters(model);
         return;
     end
 
     nTrain = double(model.n_train);
-    nStable = double(model.n_stable);
-    nUnstable = double(model.n_unstable);
+    if hasActionCounts
+        nStable = double(model.n_attempt_landing);
+        nUnstable = double(model.n_hold_landing);
+    else
+        nStable = double(model.n_stable);
+        nUnstable = double(model.n_unstable);
+    end
     if ~isfinite(nTrain) || ~isfinite(nStable) || ~isfinite(nUnstable)
         return;
     end
@@ -3842,7 +3875,9 @@ function tf = autosimHasUsableModelParameters(model)
     end
 
     cls = string(model.class_names(:));
-    if numel(cls) < 2 || ~all(ismember(["stable"; "unstable"], cls))
+    hasActionClasses = all(ismember(["AttemptLanding"; "HoldLanding"], cls));
+    hasLegacyClasses = all(ismember(["stable"; "unstable"], cls));
+    if numel(cls) < 2 || (~hasActionClasses && ~hasLegacyClasses)
         return;
     end
 
@@ -4067,7 +4102,18 @@ function [predLabel, predScore] = autosimPredictGaussianNB(model, X, cfg)
         a = logp(k,:) - mx(k);
         lse(k) = mx(k) + log(sum(exp(a)));
     end
-    predScore = exp(mx - lse);
+    ex = exp(logp - max(logp, [], 2));
+    post = ex ./ max(sum(ex, 2), eps);
+    cls = string(model.class_names(:));
+    attemptIdx = find(cls == "AttemptLanding", 1, 'first');
+    if isempty(attemptIdx)
+        attemptIdx = find(cls == "stable", 1, 'first');
+    end
+    if isempty(attemptIdx)
+        predScore = exp(mx - lse);
+    else
+        predScore = post(:, attemptIdx);
+    end
 end
 
 
@@ -4700,7 +4746,7 @@ function autosimUpdateScenarioRealtimePlot(viz, state)
             sprintf('%s\np=%s', string(autosimVizField(state, 'inferTxt', "NO-LAND")), predTxt) ...
         };
 
-        decisionMode = string(autosimVizField(semantic, 'semantic_integration', "monitor_and_reassess"));
+        decisionMode = string(autosimVizField(semantic, 'semantic_integration', "hold_landing"));
         [summaryColor, summaryTextStr] = autosimVizDecisionBadge(decisionMode, autosimVizField(state, 'inferTxt', "NO-LAND"), feasibilityScore, predTxt);
         set(viz.summaryBox, 'FaceColor', summaryColor, 'EdgeColor', 0.75 * summaryColor);
         set(viz.summaryText, 'String', summaryTextStr, 'Color', [0.08 0.08 0.10]);
@@ -4824,13 +4870,15 @@ end
 
 function out = autosimVizCompactToken(token)
     token = string(token);
+    tokenNorm = autosimNormalizeActionLabel(token);
+    if tokenNorm == "AttemptLanding"
+        out = "attempt landing";
+        return;
+    elseif tokenNorm == "HoldLanding"
+        out = "hold landing";
+        return;
+    end
     switch token
-        case "monitor_and_reassess"
-            out = "monitor/reassess";
-        case "abort_recommended"
-            out = "abort rec";
-        case "clear_to_land"
-            out = "clear to land";
         case "conditional"
             out = "conditional";
         case "conflicting"
@@ -4872,13 +4920,13 @@ end
 
 
 function [color, textOut] = autosimVizDecisionBadge(integration, inferTxt, feasibilityScore, predTxt)
-    integration = string(integration);
+    integration = autosimNormalizeActionLabel(integration);
     inferTxt = string(inferTxt);
     switch integration
-        case "attempt_landing_recommended"
+        case "AttemptLanding"
             color = [0.72 0.89 0.74];
             titleTxt = "ATTEMPT_LANDING";
-        case "hold_landing_recommended"
+        case "HoldLanding"
             color = [0.94 0.76 0.76];
             titleTxt = "HOLD_LANDING";
         otherwise
@@ -6464,7 +6512,11 @@ function semantic = autosimOntologyReasoning(onto, cfg)
     t = onto.entities.TagObservation;
     c = onto.entities.LandingContext;
 
-    condScore = autosimNormalize01(w.wind_speed, c.wind_speed_caution, c.wind_speed_unsafe);
+    windVelocity = autosimClampNaN(w.wind_speed, 0.0);
+    windAcceleration = autosimClampNaN(g.dvdt_peak, 0.0);
+    velScore = autosimNormalize01(windVelocity, c.wind_speed_caution, c.wind_speed_unsafe);
+    accScore = autosimNormalize01(abs(windAcceleration), cfg.ontology.gust_dvdt_min, cfg.ontology.gust_dvdt_high);
+    condScore = autosimClamp(0.72 * velScore + 0.28 * accScore, 0.0, 1.0);
     windRiskRuleEnc = autosimClamp( ...
         0.26 * condScore + 0.22 * g.intensity + 0.22 * tp.wind_persistence + 0.14 * tp.wind_variability + 0.08 * tp.wind_direction_shift + 0.08 * tp.wind_direction_spread, 0.0, 1.0);
 
@@ -6630,14 +6682,14 @@ function semantic = autosimOntologyReasoning(onto, cfg)
         0.15 * droneStability, 0.0, 1.0);
 
     if landingFeasibility >= cfg.agent.semantic_land_threshold && strcmp(contextState, 'safe')
-        semanticIntegration = 'clear_to_land';
-        finalDecision = 'land';
+        semanticIntegration = 'AttemptLanding';
+        finalDecision = 'AttemptLanding';
     elseif landingFeasibility <= cfg.agent.semantic_abort_threshold || strcmp(contextState, 'unsafe')
-        semanticIntegration = 'abort_recommended';
-        finalDecision = 'abort';
+        semanticIntegration = 'HoldLanding';
+        finalDecision = 'HoldLanding';
     else
-        semanticIntegration = 'monitor_and_reassess';
-        finalDecision = 'abort';
+        semanticIntegration = 'HoldLanding';
+        finalDecision = 'HoldLanding';
     end
 
     semantic = struct();
@@ -6655,7 +6707,9 @@ function semantic = autosimOntologyReasoning(onto, cfg)
     semantic.semantic_integration = semanticIntegration;
     semantic.landing_feasibility = landingFeasibility;
     semantic.final_decision = finalDecision;
-    semantic.isSafeForLanding = strcmp(finalDecision, 'land');
+    semantic.isSafeForLanding = strcmp(finalDecision, 'AttemptLanding');
+    semantic.wind_velocity = windVelocity;
+    semantic.wind_acceleration = windAcceleration;
     semantic.wind_risk_enc = windRiskEnc;
     semantic.alignment_enc = alignEnc;
     semantic.visual_enc = visualEnc;
@@ -6677,6 +6731,8 @@ function vec = autosimBuildSemanticFeatures(windObs, droneObs, tagObs, semantic,
 
     vec = [ ...
         autosimNormalize01(windObs.wind_speed, 0.0, cfg.wind.speed_max), ...
+        autosimNormalize01(autosimVizField(windObs, 'wind_velocity', windObs.wind_speed), 0.0, cfg.wind.speed_max), ...
+        autosimNormalize01(abs(autosimVizField(windObs, 'wind_acceleration', 0.0)), 0.0, max(1.0, cfg.ontology.gust_dvdt_high)), ...
         autosimWrapTo180(windObs.wind_direction) / 180.0, ...
         autosimNormalize01(abs(droneObs.roll), 0.0, deg2rad(cfg.thresholds.final_attitude_max_deg)*1.5), ...
         autosimNormalize01(abs(droneObs.pitch), 0.0, deg2rad(cfg.thresholds.final_attitude_max_deg)*1.5), ...
@@ -7131,13 +7187,13 @@ function dTbl = autosimBuildDecisionTable(summaryTbl, decisionField)
     gtSafe = false(n, 1);
     gtValid = false(n, 1);
     if ismember('gt_safe_to_land', summaryTbl.Properties.VariableNames)
-        gtLbl = string(summaryTbl.gt_safe_to_land);
-        gtSafe = (gtLbl == "stable") | (gtLbl == "safe");
-        gtValid = (gtLbl == "stable") | (gtLbl == "safe") | (gtLbl == "unstable") | (gtLbl == "unsafe");
+        gtLbl = autosimNormalizeActionLabel(summaryTbl.gt_safe_to_land);
+        gtSafe = (gtLbl == "AttemptLanding");
+        gtValid = (gtLbl == "AttemptLanding") | (gtLbl == "HoldLanding");
     elseif ismember('label', summaryTbl.Properties.VariableNames)
-        lbl = string(summaryTbl.label);
-        gtSafe = (lbl == "stable");
-        gtValid = (lbl == "stable") | (lbl == "unstable");
+        lbl = autosimNormalizeActionLabel(summaryTbl.label);
+        gtSafe = (lbl == "AttemptLanding");
+        gtValid = (lbl == "AttemptLanding") | (lbl == "HoldLanding");
     elseif ismember('success', summaryTbl.Properties.VariableNames)
         gtSafe = logical(summaryTbl.success);
         gtValid = true(n, 1);
@@ -7147,9 +7203,9 @@ function dTbl = autosimBuildDecisionTable(summaryTbl, decisionField)
     predValid = false(n, 1);
     predHover = false(n, 1);
     if ismember(decisionField, string(summaryTbl.Properties.VariableNames))
-        p = string(summaryTbl.(char(decisionField)));
+        p = autosimNormalizeActionLabel(summaryTbl.(char(decisionField)));
         predLand = (p == "AttemptLanding");
-        predHover = (p == "hover");
+        predHover = false(n, 1);
         predValid = (p == "AttemptLanding") | (p == "HoldLanding");
     elseif ismember('landing_cmd_time', summaryTbl.Properties.VariableNames)
         lct = summaryTbl.landing_cmd_time;
@@ -7165,7 +7221,7 @@ function dTbl = autosimBuildDecisionTable(summaryTbl, decisionField)
     end
     if ismember('action_source', summaryTbl.Properties.VariableNames)
         as = string(summaryTbl.action_source);
-        interventionCase = interventionCase | (as == "timeout_hover_abort") | (as == "timeout_forced_land");
+        interventionCase = interventionCase | (as == "timeout_hover_abort") | (as == "timeout_hover_hold") | (as == "timeout_forced_land");
     end
 
     dTbl.scenario_id = sid;
@@ -7260,8 +7316,8 @@ end
 
 
 function out = autosimClassifyDecisionOutcome(gtSafeLabel, predDecision)
-    gtSafe = (string(gtSafeLabel) == "stable") || (string(gtSafeLabel) == "safe");
-    predLand = (string(predDecision) == "AttemptLanding");
+    gtSafe = autosimNormalizeActionLabel(gtSafeLabel) == "AttemptLanding";
+    predLand = autosimNormalizeActionLabel(predDecision) == "AttemptLanding";
 
     if gtSafe && predLand
         out = "TP";
@@ -7272,6 +7328,30 @@ function out = autosimClassifyDecisionOutcome(gtSafeLabel, predDecision)
     else
         out = "TN";
     end
+end
+
+
+function label = autosimNormalizeActionLabel(x)
+    s = lower(strtrim(string(x)));
+    label = repmat("HoldLanding", size(s));
+
+    attemptMask = (s == "attemptlanding") | (s == "attempt_landing") | (s == "land") | ...
+        (s == "landing") | (s == "safe") | (s == "stable") | (s == "safetoland") | ...
+        (s == "proceed") | (s == "1") | (s == "true");
+
+    holdMask = (s == "holdlanding") | (s == "hold_landing") | (s == "hold") | ...
+        (s == "abort") | (s == "abortlanding") | (s == "delaylanding") | ...
+        (s == "continuehover") | (s == "reapproach") | (s == "descend") | ...
+        (s == "cancellanding") | (s == "goaround") | (s == "unsafe") | ...
+        (s == "unstable") | (s == "unsafetoland") | (s == "stop") | (s == "0") | (s == "false");
+
+    label(attemptMask) = "AttemptLanding";
+    label(holdMask) = "HoldLanding";
+end
+
+
+function tf = autosimIsAttemptLandingLabel(x)
+    tf = autosimNormalizeActionLabel(x) == "AttemptLanding";
 end
 
 

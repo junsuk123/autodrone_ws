@@ -44,28 +44,46 @@ onto.wind_speed_hist = asv(windObs, 'wind_speed_hist', nan);
 onto.wind_dir_hist = asv(windObs, 'wind_dir_hist', nan);
 onto.dt = max(asv(windObs, 'dt', 0.1), 1e-3);
 
+% MathematicalObject layer
+onto.wind_velocity = onto.wind_speed;
+onto.wind_acceleration = compute_wind_acceleration(onto.wind_speed_hist, onto.dt);
+onto.wind_risk = compute_wind_risk(onto.wind_velocity, onto.wind_acceleration, cfg.ontology.wind_caution_speed, cfg.ontology.wind_unsafe_speed);
+
 onto.gust_intensity = nanstd_safe(diff_with_zero(onto.wind_speed_hist));
 onto.wind_variability = nanstd_safe(onto.wind_speed_hist);
 onto.wind_dir_shift = abs(last_safe(onto.wind_dir_hist) - first_safe(onto.wind_dir_hist));
 onto.wind_dir_spread = nanstd_safe(onto.wind_dir_hist);
 onto.tag_error_volatility = nanstd_safe(onto.tag_err_hist);
 onto.tag_error_drift = temporal_slope(onto.tag_err_hist, onto.dt);
+
+% Minimal ontology node taxonomy for runtime reasoning.
+onto.Event = struct( ...
+    'WindObservedEvent', true, ...
+    'MarkerObservedEvent', logical(onto.tag_detected), ...
+    'LandingRiskUpdatedEvent', true);
+onto.SpatialThing = struct( ...
+    'Drone', true, ...
+    'LandingPad', true, ...
+    'VisualMarker', logical(onto.tag_detected), ...
+    'WindRegion', true);
+onto.MathObject = struct( ...
+    'WindVelocity', onto.wind_velocity, ...
+    'WindAcceleration', onto.wind_acceleration, ...
+    'WindRisk', onto.wind_risk, ...
+    'MarkerCenterError', sqrt(asv(tagObs, 'u_norm', 0.0)^2 + asv(tagObs, 'v_norm', 0.0)^2), ...
+    'FeatureVector', [], ...
+    'DecisionAlgorithm', "OntologyAIFusion");
 end
 
 function semantic = reason(onto, cfg)
 semantic = struct();
 
-% Compute WindAcceleration: rate of change of wind speed over time
-% acceleration = (v_now - v_prev) / dt
-windAcc = compute_wind_acceleration(onto.wind_speed_hist, onto.dt);
-
-% Compute WindRisk from both WindVelocity (current speed) and WindAcceleration
-% This ensures the risk assessment reflects not just current conditions but also 
-% how rapidly conditions are changing.
+% WindRisk is explicitly derived from WindVelocity and WindAcceleration.
+windVelocity = asv(onto, 'wind_velocity', onto.wind_speed);
+windAcc = asv(onto, 'wind_acceleration', 0.0);
 windCaution = cfg.ontology.wind_caution_speed;
 windUnsafe = cfg.ontology.wind_unsafe_speed;
-
-windRisk = compute_wind_risk(onto.wind_speed, windAcc, windCaution, windUnsafe);
+windRisk = compute_wind_risk(windVelocity, windAcc, windCaution, windUnsafe);
 
 % Assign wind risk display name and encoding
 if windRisk >= windUnsafe
@@ -80,7 +98,7 @@ else
 end
 
 % Store raw physical measurements for downstream use
-semantic.wind_velocity = onto.wind_speed;
+semantic.wind_velocity = windVelocity;
 semantic.wind_acceleration = windAcc;
 
 attWarn = deg2rad(cfg.ontology.control_attitude_warn_deg);
@@ -139,10 +157,13 @@ end
 semantic.landing_feasibility = clamp(0.55 * semantic.context_enc + 0.25 * semantic.alignment_enc + 0.20 * semantic.visual_enc, 0.0, 1.0);
 semantic.isSafeForLanding = semantic.landing_feasibility >= 0.55;
 if semantic.isSafeForLanding
-    semantic.semantic_integration = "attempt_landing_recommended";
+    semantic.semantic_integration = "AttemptLanding";
+    semantic.final_decision = "AttemptLanding";
 else
-    semantic.semantic_integration = "hold_landing_recommended";
+    semantic.semantic_integration = "HoldLanding";
+    semantic.final_decision = "HoldLanding";
 end
+semantic.action = semantic.final_decision;
 semantic.environment_state = semantic.wind_risk;
 end
 
@@ -154,6 +175,10 @@ for i = 1:numel(names)
     switch key
         case "wind_speed"
             vec(i) = asv(windObs, 'wind_speed', 0.0);
+        case "wind_velocity"
+            vec(i) = asv(windObs, 'wind_velocity', asv(windObs, 'wind_speed', 0.0));
+        case "wind_acceleration"
+            vec(i) = asv(windObs, 'wind_acceleration', 0.0);
         case "wind_dir_norm"
             vec(i) = abs(asv(windObs, 'wind_direction', 0.0)) / 180.0;
         case "roll_abs"

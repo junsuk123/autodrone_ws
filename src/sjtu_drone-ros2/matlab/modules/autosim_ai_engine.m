@@ -20,6 +20,12 @@ function feat = build_online_features(z, vz, speedAbs, rollDeg, pitchDeg, tagErr
 feat = struct();
 feat.mean_wind_speed = nanmean_safe(windSpeed);
 feat.max_wind_speed = nanmax_safe(windSpeed);
+if nargin < 18 || isempty(windVelocity)
+    windVelocity = windSpeed;
+end
+if nargin < 19 || isempty(windAcceleration)
+    windAcceleration = 0.0;
+end
 feat.wind_velocity = nanmean_safe(windVelocity);  % Current wind speed (m/s)
 feat.wind_acceleration = nanmean_safe(windAcceleration);  % Wind speed change rate (m/s^2)
 feat.mean_abs_roll_deg = nanmean_safe(abs(rollDeg));
@@ -121,11 +127,16 @@ predLabel = model.class_names(idx);
 if k >= 2
     ex = exp(logPost - max(logPost, [], 2));
     post = ex ./ max(sum(ex, 2), eps);
-    stableIdx = find(string(model.class_names) == "stable", 1, 'first');
-    if isempty(stableIdx)
+    cls = string(model.class_names);
+    attemptIdx = find(cls == "AttemptLanding", 1, 'first');
+    if isempty(attemptIdx)
+        % Backward compatibility with legacy model files.
+        attemptIdx = find(cls == "stable", 1, 'first');
+    end
+    if isempty(attemptIdx)
         predScore = post(:,1);
     else
-        predScore = post(:, stableIdx);
+        predScore = post(:, attemptIdx);
     end
 else
     predScore = ones(n,1);

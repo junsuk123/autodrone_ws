@@ -100,13 +100,14 @@ cmpTbl = table( ...
     [mProposed.precision; mExecuted.precision; mBaseline.precision], ...
     [mProposed.recall; mExecuted.recall; mBaseline.recall], ...
     [mProposed.specificity; mExecuted.specificity; mBaseline.specificity], ...
+    [mProposed.balancedAccuracy; mExecuted.balancedAccuracy; mBaseline.balancedAccuracy], ...
     [mProposed.f1; mExecuted.f1; mBaseline.f1], ...
     [mProposed.unsafeLandingRate; mExecuted.unsafeLandingRate; mBaseline.unsafeLandingRate], ...
     [mProposed.tp; mExecuted.tp; mBaseline.tp], ...
     [mProposed.fp; mExecuted.fp; mBaseline.fp], ...
     [mProposed.fn; mExecuted.fn; mBaseline.fn], ...
     [mProposed.tn; mExecuted.tn; mBaseline.tn], ...
-    'VariableNames', {'method','n_valid','accuracy','precision','safe_recall','unsafe_reject','f1','unsafe_landing_rate','TP','FP','FN','TN'});
+    'VariableNames', {'method','n_valid','accuracy','precision','safe_recall','unsafe_reject','balanced_accuracy','f1','unsafe_landing_rate','TP','FP','FN','TN'});
 
 writetable(cmpTbl, fullfile(outputDir, 'paper_table_method_comparison.csv'));
 writetable(struct2table(baseline.thresholds), fullfile(outputDir, 'paper_table_thresholds.csv'));
@@ -434,13 +435,13 @@ function gtSafe = buildGtSafe(tbl)
     n = height(tbl);
     gtSafe = false(n, 1);
     if ismember('gt_safe_to_land', tbl.Properties.VariableNames)
-        gt = string(tbl.gt_safe_to_land);
-        gtSafe = (gt == "stable") | (gt == "safe");
+        gt = normalizeActionLabel(tbl.gt_safe_to_land);
+        gtSafe = (gt == "AttemptLanding");
         return;
     end
     if ismember('label', tbl.Properties.VariableNames)
-        lb = string(tbl.label);
-        gtSafe = (lb == "stable");
+        lb = normalizeActionLabel(tbl.label);
+        gtSafe = (lb == "AttemptLanding");
         return;
     end
     if ismember('success', tbl.Properties.VariableNames)
@@ -454,7 +455,7 @@ function predLand = buildDecision(tbl, decisionField, fallbackNumericField)
     predLand = false(n, 1);
 
     if ismember(decisionField, tbl.Properties.VariableNames)
-        p = string(tbl.(decisionField));
+        p = normalizeActionLabel(tbl.(decisionField));
         predLand = (p == "AttemptLanding");
         return;
     end
@@ -712,6 +713,13 @@ function m = evalDecision(gtSafe, predLand)
     m.precision = safeDiv(m.tp, m.tp + m.fp);
     m.recall = safeDiv(m.tp, m.tp + m.fn);
     m.specificity = safeDiv(m.tn, m.tn + m.fp);
+    vals = [m.recall, m.specificity];
+    vals = vals(isfinite(vals));
+    if isempty(vals)
+        m.balancedAccuracy = nan;
+    else
+        m.balancedAccuracy = mean(vals);
+    end
     if isfinite(m.precision) && isfinite(m.recall) && (m.precision + m.recall) > 0
         m.f1 = 2 * m.precision * m.recall / (m.precision + m.recall);
     else
@@ -804,8 +812,8 @@ function plotConfusion(ax, m, ttl)
     axis(ax, 'tight');
     xticks(ax, 1:2);
     yticks(ax, 1:2);
-    xticklabels(ax, {'Pred Land', 'Pred Abort'});
-    yticklabels(ax, {'GT Safe', 'GT Unsafe'});
+    xticklabels(ax, {'Pred AttemptLanding', 'Pred HoldLanding'});
+    yticklabels(ax, {'GT AttemptLanding', 'GT HoldLanding'});
     title(ax, ttl, 'FontSize', 13);
     set(ax, 'FontSize', 11);
 
@@ -848,9 +856,29 @@ function dumpMetric(fid, m)
     fprintf(fid, 'precision: %.4f\n', m.precision);
     fprintf(fid, 'safe_recall: %.4f\n', m.recall);
     fprintf(fid, 'unsafe_reject: %.4f\n', m.specificity);
+    fprintf(fid, 'balanced_accuracy: %.4f\n', m.balancedAccuracy);
     fprintf(fid, 'f1: %.4f\n', m.f1);
     fprintf(fid, 'unsafe_landing_rate: %.4f\n', m.unsafeLandingRate);
     fprintf(fid, 'TP=%d FP=%d FN=%d TN=%d\n', m.tp, m.fp, m.fn, m.tn);
+end
+
+
+function label = normalizeActionLabel(x)
+    s = lower(strtrim(string(x)));
+    label = repmat("HoldLanding", size(s));
+
+    attemptMask = (s == "attemptlanding") | (s == "attempt_landing") | (s == "land") | ...
+        (s == "landing") | (s == "safe") | (s == "stable") | (s == "safetoland") | ...
+        (s == "proceed") | (s == "1") | (s == "true");
+
+    holdMask = (s == "holdlanding") | (s == "hold_landing") | (s == "hold") | ...
+        (s == "abort") | (s == "abortlanding") | (s == "delaylanding") | ...
+        (s == "continuehover") | (s == "reapproach") | (s == "descend") | ...
+        (s == "cancellanding") | (s == "goaround") | (s == "unsafe") | ...
+        (s == "unstable") | (s == "unsafetoland") | (s == "stop") | (s == "0") | (s == "false");
+
+    label(attemptMask) = "AttemptLanding";
+    label(holdMask) = "HoldLanding";
 end
 
 
