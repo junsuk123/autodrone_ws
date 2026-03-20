@@ -472,6 +472,8 @@ function cfg = autosimDefaultConfig()
     cfg.ros.bumper_log_missing_msg_support = true;
     cfg.ros.prioritize_tag_callback = true;
     cfg.ros.receive_timeout_sec = 0.002;
+    cfg.ros.wind_poll_disable_on_startup_stale = true;
+    cfg.ros.wind_poll_disable_after_sec = 2.5;
     cfg.ros.health_log_enable = true;
     cfg.ros.health_log_period_sec = 1.0;
 

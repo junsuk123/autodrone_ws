@@ -190,6 +190,12 @@ function [res, traceTbl] = autosimRunScenario(cfg, scenarioCfg, scenarioId, mode
     lastWindRxT = nan;
     tagRxCount = 0;
     windRxCount = 0;
+    windPollEnabled = true;
+    windPollDisableOnStartupStale = isfield(cfg, 'ros') && isfield(cfg.ros, 'wind_poll_disable_on_startup_stale') && logical(cfg.ros.wind_poll_disable_on_startup_stale);
+    windPollDisableAfterSec = 2.5;
+    if isfield(cfg, 'ros') && isfield(cfg.ros, 'wind_poll_disable_after_sec') && isfinite(cfg.ros.wind_poll_disable_after_sec)
+        windPollDisableAfterSec = max(0.0, cfg.ros.wind_poll_disable_after_sec);
+    end
     k = 0;
     while true
         iterStartT = toc(t0);
@@ -309,7 +315,16 @@ function [res, traceTbl] = autosimRunScenario(cfg, scenarioCfg, scenarioId, mode
         [predOk, uPred, vPred] = autosimPredictTagCenter(tagHist, tagHistCount, uTag, vTag, tk, lastTagDetectT, ...
             cfg.control.tag_predict_horizon_sec, cfg.control.tag_predict_timeout_sec, cfg.scenario.sample_period_sec, cfg.control.tag_min_predict_samples);
 
-        windMsg = autosimTryReceive(subWind, recvTimeoutSec);
+        if windPollEnabled && windPollDisableOnStartupStale && ~isfinite(lastWindRxT) && (tk >= windPollDisableAfterSec)
+            windPollEnabled = false;
+            fprintf('[AUTOSIM] s%03d wind polling disabled after %.1fs startup stale window (no /wind_condition rx). Using command/profile fallback.\n', ...
+                scenarioId, windPollDisableAfterSec);
+        end
+
+        windMsg = [];
+        if windPollEnabled
+            windMsg = autosimTryReceive(subWind, recvTimeoutSec);
+        end
         windSpObs = nan;
         windDirObs = nan;
         if ~isempty(windMsg)
@@ -1308,7 +1323,10 @@ function [res, traceTbl] = autosimRunScenario(cfg, scenarioCfg, scenarioId, mode
             tagErr(end+1,1) = nan; %#ok<AGROW>
         end
 
-        windMsg = autosimTryReceive(subWind, recvTimeoutSec);
+        windMsg = [];
+        if windPollEnabled
+            windMsg = autosimTryReceive(subWind, recvTimeoutSec);
+        end
         if ~isempty(windMsg)
             [wsPost, ~] = autosimParseWindConditionMsg(windMsg);
             windSpeed(end+1,1) = wsPost; %#ok<AGROW>
