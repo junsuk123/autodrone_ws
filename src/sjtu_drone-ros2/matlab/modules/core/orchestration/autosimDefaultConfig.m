@@ -331,6 +331,9 @@ function cfg = autosimDefaultConfig()
     cfg.process.takeoff_publish_interval_sec = 0.20;
     cfg.process.takeoff_wait_flying_timeout_sec = 8.0;
     cfg.process.takeoff_settle_sec = 1.0;
+    cfg.process.soft_reset_enable = true;
+    cfg.process.soft_reset_fallback_to_topic = false;
+    cfg.process.soft_reset_service_timeout_sec = 6.0;
     cfg.process.kill_settle_sec = 2.0;
     cfg.process.cleanup_verify_timeout_sec = 8.0;
 

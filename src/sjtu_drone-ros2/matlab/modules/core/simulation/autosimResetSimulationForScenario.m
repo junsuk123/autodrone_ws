@@ -3,10 +3,7 @@ function ok = autosimResetSimulationForScenario(cfg, rosCtx, scenarioId, scenari
     if nargin < 2 || isempty(rosCtx) || ~isstruct(rosCtx)
         return;
     end
-    if ~isfield(rosCtx, 'pubReset') || isempty(rosCtx.pubReset) || ~isfield(rosCtx, 'msgReset') || isempty(rosCtx.msgReset)
-        warning('[AUTOSIM] Reset publisher unavailable; cannot reuse simulation for scenario %d.', scenarioId);
-        return;
-    end
+    hasTopicResetPub = isfield(rosCtx, 'pubReset') && ~isempty(rosCtx.pubReset) && isfield(rosCtx, 'msgReset') && ~isempty(rosCtx.msgReset);
     
     hoverHeightForReset = nan;
     if nargin >= 4 && isstruct(scenarioCfg) && isfield(scenarioCfg, 'hover_height_m') && isfinite(scenarioCfg.hover_height_m)
@@ -40,6 +37,8 @@ function ok = autosimResetSimulationForScenario(cfg, rosCtx, scenarioId, scenari
     dtTakeoffPub = 0.20;
     flyingTimeoutSec = 8.0;
     takeoffSettleSec = 1.0;
+    softResetEnable = true;
+    softResetFallbackToTopic = true;
     landStateValue = 0;
     flyingStateValue = 1;
     if isfield(cfg, 'process')
@@ -82,6 +81,12 @@ function ok = autosimResetSimulationForScenario(cfg, rosCtx, scenarioId, scenari
         if isfield(cfg.process, 'takeoff_settle_sec') && isfinite(cfg.process.takeoff_settle_sec)
             takeoffSettleSec = max(0.0, cfg.process.takeoff_settle_sec);
         end
+        if isfield(cfg.process, 'soft_reset_enable')
+            softResetEnable = logical(cfg.process.soft_reset_enable);
+        end
+        if isfield(cfg.process, 'soft_reset_fallback_to_topic')
+            softResetFallbackToTopic = logical(cfg.process.soft_reset_fallback_to_topic);
+        end
     end
     if isfield(cfg, 'thresholds') && isfield(cfg.thresholds, 'land_state_value') && isfinite(cfg.thresholds.land_state_value)
         landStateValue = round(cfg.thresholds.land_state_value);
@@ -112,14 +117,26 @@ function ok = autosimResetSimulationForScenario(cfg, rosCtx, scenarioId, scenari
         end
     end
 
-    try
-        for i = 1:nPub
-            send(rosCtx.pubReset, rosCtx.msgReset);
-            pause(dtPub);
+    softResetOK = false;
+    if softResetEnable
+        softResetOK = autosimSoftReset(cfg, scenarioId);
+    end
+
+    doTopicReset = (~softResetOK) || softResetFallbackToTopic;
+    if doTopicReset
+        if ~hasTopicResetPub
+            warning('[AUTOSIM] Reset publisher unavailable and soft reset failed/disabled for scenario %d.', scenarioId);
+            return;
         end
-    catch ME
-        warning('[AUTOSIM] Reset publish failed for scenario %d: %s', scenarioId, ME.message);
-        return;
+        try
+            for i = 1:nPub
+                send(rosCtx.pubReset, rosCtx.msgReset);
+                pause(dtPub);
+            end
+        catch ME
+            warning('[AUTOSIM] Reset publish failed for scenario %d: %s', scenarioId, ME.message);
+            return;
+        end
     end
 
     if settleSec > 0

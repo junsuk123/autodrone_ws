@@ -19,7 +19,14 @@ AutoSim은 다음 과정을 자동화한다.
 
 - `AutoSimMain.m`: 진입점
 - `AutoSim.m`: 오케스트레이션(루프/예외/저장/종료)
-- `modules/core/*.m`: 핵심 기능 함수(시뮬레이션 실행, 특징 추출, 온톨로지 추론, 학습/평가)
+- `modules/core/decision_making/`: 정책 선택, feature 조합, 지표 계산
+- `modules/core/simulation/`: 시나리오 실행, 리셋, 착륙/동역학 집계
+- `modules/core/ontology/`: 온톨로지 상태/관계 추론
+- `modules/core/learning/`: 모델 로드/학습/예측
+- `modules/core/ros_io/`: ROS2 I/O, 파싱, 콜백 관리
+- `modules/core/visualization/`: 실시간/오프라인 시각화
+- `modules/core/orchestration/`: 설정/체크포인트/종료 처리
+- `modules/core/utils/`: 공통 유틸리티
 - `modules/autosim_ai_engine.m`: AI 관련 엔진 함수
 - `modules/autosim_learning_engine.m`: 학습 제어 엔진 함수
 - `modules/autosim_ontology_engine.m`: 온톨로지 엔진 함수

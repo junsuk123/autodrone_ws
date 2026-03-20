@@ -1,4 +1,6 @@
 function autosimSetDronePositionToOrigin(rosCtx, hoverHeightM, scenarioId)
+    persistent warnedMissingMsgSupport
+
     if ~isfield(rosCtx, 'node') || isempty(rosCtx.node)
         return;
     end
@@ -32,6 +34,13 @@ function autosimSetDronePositionToOrigin(rosCtx, hoverHeightM, scenarioId)
             fprintf('[AUTOSIM] Scenario %d drone position reset to origin (0.0, 0.0, %.2f).\\n', scenarioId, hoverHeightM);
         end
     catch ME
+        if autosimLooksLikeMissingMatlabMsgSupport(ME.message)
+            if isempty(warnedMissingMsgSupport) || ~warnedMissingMsgSupport
+                warnedMissingMsgSupport = true;
+                fprintf('[AUTOSIM] Gazebo set_model_state MATLAB message type is unavailable; skipping pose-origin reset.\n');
+            end
+            return;
+        end
         warning('[AUTOSIM] Scenario %d gazebo set_model_state failed: %s', scenarioId, ME.message);
     end
 end

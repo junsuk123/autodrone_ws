@@ -12,7 +12,26 @@
 % Usage:
 %   run('/home/j/INCSL/IICC26_ws/src/sjtu_drone-ros2/matlab/AutoSim.m')
 
-clear; clc; close all;
+clear; clc;
+
+% Close stale figures without invoking outdated CloseRequestFcn callbacks.
+try
+    figs = findall(0, 'Type', 'figure');
+    for i = 1:numel(figs)
+        try
+            set(figs(i), 'CloseRequestFcn', 'closereq');
+        catch
+        end
+    end
+    if ~isempty(figs)
+        close(figs);
+    end
+catch
+    try
+        delete(findall(0, 'Type', 'figure'));
+    catch
+    end
+end
 
 thisDir = fileparts(mfilename('fullpath'));
 if ~isempty(thisDir)
@@ -23,7 +42,7 @@ if ~isempty(thisDir)
     end
     coreDir = fullfile(modDir, 'core');
     if exist(coreDir, 'dir')
-        addpath(coreDir);
+        addpath(genpath(coreDir));
     end
     autosimAddGeneratedMsgPath(thisDir);
 end
