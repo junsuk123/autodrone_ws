@@ -23,7 +23,7 @@ F_{margin} = T_{max} - mg
 $$
 
 $$
-v_{hover\_limit} = \sqrt{\frac{2(T_{max}-mg)}{\rho C_d A}}
+v_{hover\_{limit}} = \sqrt{\frac{2(T_{max}-mg)}{\rho C_d A}}
 $$
 
 착륙 구간은 호버보다 보수적으로 제한한다.
