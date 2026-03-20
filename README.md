@@ -81,6 +81,126 @@ $$
 
 본 연구에서는 단순 정확도보다 `Unsafe Landing Rate`, `Specificity`, `Balanced Accuracy`를 핵심 안전 지표로 본다.
 
+## 데이터 처리 파이프라인 (Sensor to Decision)
+
+다음은 센서 입력에서 최종 착륙 의사결정까지의 전체 데이터 흐름을 나타냅니다. 각 단계에서 의미론적 특성과 통계적 특성이 함께 추출되어 의사결정을 위한 정보로 조합됩니다.
+
+```mermaid
+graph TD
+    subgraph Input["SENSOR INPUT STAGE"]
+        S1["Wind Sensors<br/>---<br/>v: wind speed<br/>theta: wind direction<br/>a_v: wind acceleration"]
+        S2["IMU<br/>---<br/>phi, theta: roll, pitch<br/>v_z: vertical velocity<br/>omega, a: angular/linear acc"]
+        S3["Vision System<br/>---<br/>u, v: tag position<br/>error: projection error<br/>jitter: frame variance"]
+    end
+
+    subgraph OntoProc["ONTOLOGY ENCODING STAGE"]
+        direction LR
+        O1["Wind Risk Computation<br/>---<br/>r_w = min(1, max(0, alpha_v*v/v_thr + alpha_a*a_w/a_thr))<br/>output: wind_risk_enc"]
+        O2["Alignment Confidence<br/>---<br/>c_v = min(1, max(0, 1 - e_tag/e_thr))<br/>output: alignment_enc"]
+        O3["Attitude Stability<br/>---<br/>s_a = exp(-beta_r*|phi|/phi_thr - beta_p*|theta|/theta_thr)<br/>output: visual_enc"]
+        O4["Temporal Context<br/>---<br/>m_ctx: consistency across decision window<br/>output: context_enc"]
+    end
+
+    subgraph SemFeat["SEMANTIC FEATURE VECTOR"]
+        SF["Dimension: 14<br/>---<br/>wind_speed, wind_velocity<br/>wind_acceleration, wind_dir_norm<br/>roll_abs, pitch_abs<br/>tag_u, tag_v<br/>jitter, stability_score<br/>wind_risk_enc<br/>alignment_enc<br/>visual_enc<br/>context_enc"]
+    end
+
+    subgraph StatExtract["STATISTICAL FEATURE EXTRACTION"]
+        direction LR
+        FE1["Window Aggregation<br/>---<br/>T_window = decision_horizon<br/>Attributes: mean, max, std"]
+        FE2["Compositional Features<br/>---<br/>vector_x, vector_y<br/>magnitude: sqrt(x^2 + y^2)"]
+    end
+
+    subgraph AIInput["AI INPUT VECTOR (24-dim)"]
+        AI["Schema: decision_v2<br/>---<br/>Aggregate Statistics:<br/>  mean_wind_speed, max_wind_speed<br/>  mean_abs_roll_deg, mean_abs_pitch_deg<br/>  wind_velocity_x, wind_velocity_y, wind_velocity<br/>  wind_acceleration_x, wind_acceleration_y, wind_acceleration<br/>  mean_abs_vz, max_abs_vz<br/>  mean_tag_error, max_tag_error<br/>  stability_std_z, stability_std_vz<br/>  mean_imu_ang_vel, max_imu_ang_vel<br/>  mean_imu_lin_acc, max_imu_lin_acc<br/>Encoded Terms:<br/>  wind_risk_enc, alignment_enc<br/>  visual_enc, context_enc"]
+    end
+
+    subgraph Learning["LEARNING MODULE<br/>(Gaussian Naive Bayes)"]
+        direction LR
+        L1["Training Phase<br/>---<br/>Per-class statistics:<br/>mu_k = E[X|y=k]<br/>sigma2_k = Var[X|y=k]<br/>p_k = P(y=k)<br/><br/>Prior blending for imbalance:<br/>p_k = (1-lambda)*empirical + lambda/K"]
+        L2["Inference Phase<br/>---<br/>Likelihood: P(x|y=k)<br/>= exp(-0.5*sum((x-mu_k)^2/sigma2_k))<br/><br/>Posterior:<br/>P(y=k|x) = softmax(log P(x|y=k) + log p_k)"]
+    end
+
+    subgraph Decision["FUSION & DECISION"]
+        direction LR
+        D1["Semantic Safety Score<br/>---<br/>s_semantic = w_w*(1-r_w) + w_v*c_v<br/>          + w_a*s_a + w_m*m_ctx"]
+        D2["Model Fusion<br/>---<br/>s_fusion = w_m * p_model(safe)<br/>         + (1-w_m) * s_semantic"]
+        D3["Decision Rule<br/>---<br/>if s_fusion >= tau:<br/>  AttemptLanding<br/>else:<br/>  HoldLanding"]
+    end
+
+    S1 --> O1
+    S2 --> O2
+    S2 --> O3
+    S3 --> O3
+    S3 --> O4
+
+    O1 --> SF
+    O2 --> SF
+    O3 --> SF
+    O4 --> SF
+
+    SF --> FE1
+    S1 --> FE2
+    S2 --> FE2
+
+    FE1 --> AI
+    FE2 --> AI
+    SF --> AI
+
+    AI --> L1
+    AI --> L2
+    L1 -.-> L2
+
+    SF --> D1
+    L2 --> D2
+    D1 --> D2
+    D2 --> D3
+```
+
+### 파이프라인 단계별 설명
+
+**1) 센서 입력 (Sensor Input Stage)**
+- 풍속, 풍향, 가속도 센서
+- IMU (roll, pitch, vertical velocity, angular/linear acceleration)
+- AprilTag 비전 시스템 (태그 위치, 투영 오차, 프레임 간 떨림)
+
+**2) 온톨로지 인코딩 (Ontology Encoding Stage)**
+
+각 센서 도메인을 의미론적 점수로 변환합니다.
+
+- **풍속 위험도 $r_w$**: 풍속과 풍가속도로부터 계산된 정규화된 위험도 (0~1)
+- **정렬 신뢰도 $c_v$**: 태그 투영 오차로부터 비전 정렬 품질 평가
+- **자세 안정도 $s_a$**: Roll/Pitch 각도의 지수 감쇠 모델로 자세 안정성 평가
+- **시간 일관성 $m_{ctx}$**: 결정 윈도우 내 상태 변화 패턴 추적
+
+**3) 의미론적 특성 벡터 (Semantic Feature Vector)**
+
+14차원 벡터로 온톨로지 규칙 평가에 직접 사용됩니다.
+
+**4) 통계적 특성 추출 (Statistical Feature Extraction)**
+
+결정 윈도우 $T_{window}$ 내의 데이터로부터:
+- 평균(mean), 최대값(max), 표준편차(std) 계산
+- 벡터 성분($x$, $y$)과 크기(magnitude) 동시 보존
+
+**5) AI 입력 벡터 (24-dim Decision Schema)**
+
+통계 특성(20개) + 온톨로지 인코딩(4개)으로 구성된 최종 입력 벡터
+
+**6) 학습 모듈 (Gaussian Naive Bayes)**
+
+- **학습**: 클래스별 평균, 분산, 사전확률 추정 (클래스 불균형 보정용 사전 혼합)
+- **추론**: 우도(likelihood)와 사전확률의 로그합으로부터 사후확률 계산
+
+**7) 융합 및 의사결정 (Fusion & Decision)**
+
+의미론적 점수와 모델 확률을 가중 결합하여 최종 착륙 판단 생성:
+
+$$s_{fusion} = w_m \cdot p_{model}(safe) + (1-w_m) \cdot s_{semantic}$$
+
+임계값 비교로 이진 의사결정:
+$$\hat{y} = \begin{cases} \mathrm{AttemptLanding}, & s_{fusion} \ge \tau \\ \mathrm{HoldLanding}, & s_{fusion} < \tau \end{cases}$$
+
 ## 워크스페이스 구조
 
 - `src/sjtu_drone-ros2/`: 실제 연구 코드 저장소
