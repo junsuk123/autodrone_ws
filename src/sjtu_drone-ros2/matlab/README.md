@@ -102,7 +102,7 @@ run('/home/j/INCSL/IICC26_ws/src/sjtu_drone-ros2/matlab/AutoSim.m')
 풍속과 풍가속도를 함께 반영한 정규화 위험도를 다음과 같이 둔다.
 
 $$
-r_w = \operatorname{clip}\left(\alpha_v \frac{v}{v_{thr}} + \alpha_a \frac{|a_w|}{a_{thr}},\ 0,\ 1\right)
+r_w = \min\left(1,\max\left(0,\alpha_v \frac{v}{v_{thr}} + \alpha_a \frac{|a_w|}{a_{thr}}\right)\right)
 $$
 
 - $v$: 풍속
@@ -113,7 +113,7 @@ $$
 시각 정렬 신뢰도는 태그 중심 오차를 기준으로 다음과 같이 정의한다.
 
 $$
-c_v = \operatorname{clip}\left(1 - \frac{e_{tag}}{e_{thr}},\ 0,\ 1\right)
+c_v = \min\left(1,\max\left(0,1 - \frac{e_{tag}}{e_{thr}}\right)\right)
 $$
 
 - $e_{tag}$: 태그 중심 오차(정규화)
@@ -142,8 +142,8 @@ $$
 $$
 \hat{y}_{policy} =
 \begin{cases}
-	ext{AttemptLanding}, & s_{sem} \ge \tau_{sem} \\
-	ext{HoldLanding}, & s_{sem} < \tau_{sem}
+\mathrm{AttemptLanding}, & s_{sem} \ge \tau_{sem} \\
+\mathrm{HoldLanding}, & s_{sem} < \tau_{sem}
 \end{cases}
 $$
 
