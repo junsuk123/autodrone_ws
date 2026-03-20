@@ -14,6 +14,26 @@ Gazebo/ROS 상에서 시나리오를 실제 실행하고 리셋/착륙 흐름을
 - 환경 관점: 풍속/풍향 시계열 및 가속도 기반 난류 성분 반영
 - 안전 판정: 상태/자세/속도/접촉 지표를 조합해 stable/unstable 라벨링
 
+풍속 가속도는 최근 시계열 기울기로 계산한다.
+
+$$
+a_w \approx \frac{dv}{dt}
+$$
+
+풍속/풍향은 벡터로 유지한다.
+
+$$
+v_x = v\cos\theta,\quad v_y = v\sin\theta,\quad |\mathbf{v}|=\sqrt{v_x^2+v_y^2}
+$$
+
+최종 라벨은 다중 안전 조건의 논리곱으로 표현된다.
+
+$$
+\mathrm{stable} = \bigwedge_i c_i,
+\quad
+\mathrm{unstable}=\neg\mathrm{stable}
+$$
+
 ## 대표 파일
 
 - `autosimRunScenario.m`

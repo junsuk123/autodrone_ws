@@ -14,6 +14,24 @@
 - 시각 안정도: 태그 검출 연속성 + 중심 오차 + jitter
 - 최종 의미 점수는 decision feature의 `*_enc`로 전달
 
+풍속/가속도 기반 위험도 예시는 다음과 같다.
+
+$$
+r_w = \min\left(1,\max\left(0,\alpha_v\frac{v}{v_{thr}}+\alpha_a\frac{|a_w|}{a_{thr}}\right)\right)
+$$
+
+시각 정렬 신뢰도는 중심 오차 정규화로 계산한다.
+
+$$
+c_v = \min\left(1,\max\left(0,1-\frac{e_{tag}}{e_{thr}}\right)\right)
+$$
+
+최종 의미 점수는 가중 결합 형태다.
+
+$$
+s_{sem}=w_w(1-r_w)+w_v c_v+w_a s_a+w_m m_{ctx}
+$$
+
 ## 대표 파일
 
 - `autosimBuildOntologyState.m`

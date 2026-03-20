@@ -14,6 +14,24 @@
 - feature schema 불일치 시 안전하게 placeholder 모델로 폴백
 - class imbalance를 고려한 업데이트 조건 포함
 
+클래스별 조건부 분포는 가우시안으로 둔다.
+
+$$
+p(x\mid y=c)=\prod_{j=1}^{d}\mathcal{N}(x_j;\mu_{c,j},\sigma_{c,j}^2)
+$$
+
+예측은 사후확률 최대 클래스를 선택한다.
+
+$$
+\hat{y}=\arg\max_c\;\log p(y=c)+\sum_{j=1}^{d}\log \mathcal{N}(x_j;\mu_{c,j},\sigma_{c,j}^2)
+$$
+
+불균형 완화를 위해 prior를 균등 prior와 혼합한다.
+
+$$
+\pi'_c=(1-\lambda)\pi_c+\lambda\frac{1}{K}
+$$
+
 ## 대표 파일
 
 - `autosimLoadOrInitModel.m`

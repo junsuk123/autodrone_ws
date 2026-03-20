@@ -13,6 +13,24 @@
 - nan-safe 유틸은 센서 결측 상황에서 실험 중단을 방지
 - lock/process 유틸은 반복 실험의 안정성 보장
 
+기본 수치 유틸은 다음 형태를 따른다.
+
+$$
+\mathrm{clamp}(x,l,u)=\min(\max(x,l),u)
+$$
+
+$$
+\mathrm{nanmean}(\mathbf{x})=\frac{1}{|\mathcal{I}|}\sum_{i\in\mathcal{I}}x_i,
+\quad
+\mathcal{I}=\{i\mid x_i\in\mathbb{R},\;\mathrm{isfinite}(x_i)\}
+$$
+
+풍속 벡터 크기 계산은 다음과 같다.
+
+$$
+|\mathbf{v}|=\sqrt{v_x^2+v_y^2}
+$$
+
 ## 대표 파일
 
 - `autosimClamp.m`, `autosimNanMean.m`, `autosimSafeDivide.m`

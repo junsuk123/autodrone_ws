@@ -13,6 +13,25 @@
 - 단일 정확도보다 FP/FN 분해가 안전 연구에서 핵심
 - 풍속 밴드/문맥 상태별 시각화가 정책 편향 탐지에 유효
 
+시각화의 핵심 축은 confusion 분해다.
+
+$$
+\mathrm{Accuracy}=\frac{TP+TN}{TP+FP+FN+TN},\quad
+\mathrm{F1}=\frac{2\cdot \mathrm{Precision}\cdot \mathrm{Recall}}{\mathrm{Precision}+\mathrm{Recall}}
+$$
+
+안전 관점에서는 위험 착륙 비율을 별도로 추적한다.
+
+$$
+\mathrm{UnsafeLandingRate}=\frac{FP}{FP+TN}
+$$
+
+풍속 밴드별 비율은 집계형 시각화로 해석한다.
+
+$$
+P(\mathrm{safe}\mid b)=\frac{N_{safe,b}}{N_b}
+$$
+
 ## 대표 파일
 
 - `autosimInitPlots.m`

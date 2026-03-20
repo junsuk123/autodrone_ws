@@ -13,6 +13,26 @@
 - 재현성은 설정 고정과 저장 일관성에 의존
 - 장시간 실험에서 안전 종료/복구 가능성이 중요
 
+실험 단위 재현성은 설정 함수 고정으로 표현할 수 있다.
+
+$$
+\mathcal{D}_{run}=F(\theta, s)
+$$
+
+- $\theta$: 고정된 설정 집합
+- $s$: 시나리오/샘플링 정책
+
+체크포인트 기반 복구는 단계별 상태 저장으로 모델링된다.
+
+$$
+S_k = \{R_k, T_k, M_k, H_k\}
+$$
+
+- $R_k$: results
+- $T_k$: trace
+- $M_k$: model
+- $H_k$: learning history
+
 ## 대표 파일
 
 - `autosimDefaultConfig.m`
