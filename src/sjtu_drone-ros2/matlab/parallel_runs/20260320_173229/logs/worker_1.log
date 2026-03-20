@@ -1,0 +1,212 @@
+[AUTOSIM] Worker 1/1 | cleanup_scope=instance | domain=60 | gazebo_port=13045
+[AUTOSIM] Wind physics src[mass=file:/home/j/INCSL/IICC26_ws/src/sjtu_drone-ros2/sjtu_drone_description/urdf/sjtu_drone.urdf,thrust=file:/home/j/INCSL/IICC26_ws/src/sjtu_drone-ros2/sjtu_drone_bringup/config/drone.yaml] m=1.477kg Tmax=30.00N margin=15.51N hover=17.52m/s landing=8.76m/s
+
+[AUTOSIM] Start at 2026-03-20 17:32:37
+[AUTOSIM] Scenario count: 300
+[AUTOSIM] Initial model source: cold_start_placeholder
+Server: (argc: 5) (argv[0]: /usr/local/MATLAB/R2024b/toolbox/ros/bin/glnxa64/libmwros2server) started (pid: 617529)
+Current directory: "/home/j/INCSL/IICC26_ws/src/sjtu_drone-ros2/matlab"
+[AUTOSIM] AprilTag callback-priority subscriber enabled on /landing_tag_state
+
+[AUTOSIM] Scenario 1/300
+[AUTOSIM] Adaptive policy=exploit | stable=0.50 unstable=0.50 boundary=0.00 unsafeRate=0.00
+[AUTOSIM] Curriculum target_case=safe_land | wind=2.07@-127.4
+[AUTOSIM] Launch started (pid=618135), hover=2.31, wind=2.07@-127.4
+[AUTOSIM] s001 sensor_rx | loop=10.0Hz target=10.0Hz | pad=ok age=0.00s err=0.086 det=1 rx=267 | wind=stale age=Infs sp=0.00 dir=0.0 rx=0 | pose_age=0.00s
+[AUTOSIM] s001 global pad estimate ready (n=5, x=0.24, y=0.01)
+[AUTOSIM] s001 sensor_rx | loop=10.0Hz target=10.0Hz | pad=ok age=0.00s err=0.026 det=1 rx=284 | wind=stale age=Infs sp=0.00 dir=0.0 rx=0 | pose_age=0.00s
+[AUTOSIM] s001 sensor_rx | loop=10.0Hz target=10.0Hz | pad=ok age=0.00s err=0.070 det=1 rx=299 | wind=stale age=Infs sp=0.00 dir=0.0 rx=0 | pose_age=0.00s
+[AUTOSIM] s001 wind polling disabled after 2.5s startup stale window (no /wind_condition rx). Using command/profile fallback.
+[AUTOSIM] s001 sensor_rx | loop=10.0Hz target=10.0Hz | pad=ok age=0.00s err=0.138 det=1 rx=314 | wind=stale age=Infs sp=2.07 dir=-127.4 rx=0 | pose_age=0.00s
+[AUTOSIM] s001 sensor_rx | loop=10.0Hz target=10.0Hz | pad=ok age=0.00s err=0.207 det=1 rx=329 | wind=stale age=Infs sp=0.00 dir=0.0 rx=0 | pose_age=0.00s
+[AUTOSIM] s001 sensor_rx | loop=10.0Hz target=10.0Hz | pad=ok age=0.00s err=0.292 det=1 rx=344 | wind=stale age=Infs sp=0.00 dir=0.0 rx=0 | pose_age=0.00s
+[AUTOSIM] s001 sensor_rx | loop=10.0Hz target=10.0Hz | pad=ok age=0.00s err=0.263 det=1 rx=359 | wind=stale age=Infs sp=0.00 dir=0.0 rx=0 | pose_age=0.00s
+[AUTOSIM] s001 sensor_rx | loop=10.0Hz target=10.0Hz | pad=ok age=0.00s err=0.256 det=1 rx=374 | wind=stale age=Infs sp=0.00 dir=0.0 rx=0 | pose_age=0.00s
+[AUTOSIM] s001 wind armed by timeout at t=7.2s (center-hold unmet)
+[AUTOSIM] s001 sensor_rx | loop=10.0Hz target=10.0Hz | pad=ok age=0.00s err=0.284 det=1 rx=390 | wind=stale age=Infs sp=2.07 dir=-127.4 rx=0 | pose_age=0.00s
+[AUTOSIM] s001 sensor_rx | loop=10.0Hz target=10.0Hz | pad=ok age=0.02s err=0.122 det=1 rx=405 | wind=stale age=Infs sp=1.85 dir=-127.2 rx=0 | pose_age=0.00s
+[AUTOSIM] s001 sensor_rx | loop=10.0Hz target=10.0Hz | pad=ok age=0.00s err=0.076 det=1 rx=420 | wind=stale age=Infs sp=1.64 dir=-127.4 rx=0 | pose_age=0.00s
+[AUTOSIM] s001 landing lock acquired at (x=0.36, y=-0.10), stable_frames=8
+[AUTOSIM] s001 sensor_rx | loop=10.0Hz target=10.0Hz | pad=ok age=0.00s err=0.042 det=1 rx=435 | wind=stale age=Infs sp=1.65 dir=-119.9 rx=0 | pose_age=0.00s
+[AUTOSIM] s001 sensor_rx | loop=10.0Hz target=10.0Hz | pad=ok age=0.00s err=0.102 det=1 rx=450 | wind=stale age=Infs sp=2.50 dir=-121.7 rx=0 | pose_age=0.00s
+[AUTOSIM] s001 sensor_rx | loop=10.0Hz target=10.0Hz | pad=ok age=0.00s err=0.105 det=1 rx=465 | wind=stale age=Infs sp=2.57 dir=-116.9 rx=0 | pose_age=0.00s
+[AUTOSIM] s001 sensor_rx | loop=10.0Hz target=10.0Hz | pad=ok age=0.00s err=0.092 det=1 rx=480 | wind=stale age=Infs sp=2.09 dir=-122.6 rx=0 | pose_age=0.00s
+[AUTOSIM] s001 sensor_rx | loop=10.0Hz target=10.0Hz | pad=ok age=0.00s err=0.085 det=1 rx=495 | wind=stale age=Infs sp=1.69 dir=-125.6 rx=0 | pose_age=0.00s
+[AUTOSIM] s001 sensor_rx | loop=10.0Hz target=10.0Hz | pad=ok age=0.00s err=0.114 det=1 rx=510 | wind=stale age=Infs sp=2.07 dir=-127.4 rx=0 | pose_age=0.00s
+[AUTOSIM] s001 sensor_rx | loop=10.0Hz target=10.0Hz | pad=ok age=0.00s err=0.040 det=1 rx=525 | wind=stale age=Infs sp=2.37 dir=-137.7 rx=0 | pose_age=0.00s
+[AUTOSIM] s001 sensor_rx | loop=10.0Hz target=10.0Hz | pad=ok age=0.00s err=0.096 det=1 rx=540 | wind=stale age=Infs sp=2.72 dir=-131.6 rx=0 | pose_age=0.00s
+[AUTOSIM] s001 sensor_rx | loop=10.0Hz target=10.0Hz | pad=ok age=0.00s err=0.087 det=1 rx=555 | wind=stale age=Infs sp=1.95 dir=-135.0 rx=0 | pose_age=0.00s
+[AUTOSIM] s001 sensor_rx | loop=10.0Hz target=10.0Hz | pad=ok age=0.00s err=0.091 det=1 rx=570 | wind=stale age=Infs sp=1.79 dir=-128.3 rx=0 | pose_age=0.00s
+[AUTOSIM] s001 sensor_rx | loop=10.0Hz target=10.0Hz | pad=ok age=0.00s err=0.089 det=1 rx=586 | wind=stale age=Infs sp=1.95 dir=-125.0 rx=0 | pose_age=0.00s
+[AUTOSIM] s001 sensor_rx | loop=10.0Hz target=10.0Hz | pad=ok age=0.00s err=0.105 det=1 rx=602 | wind=stale age=Infs sp=2.22 dir=-119.4 rx=0 | pose_age=0.00s
+[AUTOSIM] s001 sensor_rx | loop=10.0Hz target=10.0Hz | pad=ok age=0.00s err=0.134 det=1 rx=617 | wind=stale age=Infs sp=2.73 dir=-116.3 rx=0 | pose_age=0.00s
+[AUTOSIM] s001 sensor_rx | loop=10.0Hz target=10.0Hz | pad=ok age=0.00s err=0.151 det=1 rx=631 | wind=stale age=Infs sp=2.62 dir=-120.2 rx=0 | pose_age=0.00s
+[AUTOSIM] s001 sensor_rx | loop=10.0Hz target=10.0Hz | pad=ok age=0.00s err=NaN det=0 rx=647 | wind=stale age=Infs sp=2.01 dir=-125.8 rx=0 | pose_age=0.00s
+[AUTOSIM] s001 sensor_rx | loop=10.0Hz target=10.0Hz | pad=ok age=0.00s err=NaN det=0 rx=661 | wind=stale age=Infs sp=1.49 dir=-124.1 rx=0 | pose_age=0.00s
+[AUTOSIM] s001 sensor_rx | loop=10.0Hz target=10.0Hz | pad=ok age=0.00s err=NaN det=0 rx=676 | wind=stale age=Infs sp=1.63 dir=-137.9 rx=0 | pose_age=0.00s
+[AUTOSIM] s001 sensor_rx | loop=10.0Hz target=10.0Hz | pad=ok age=0.00s err=NaN det=0 rx=691 | wind=stale age=Infs sp=2.06 dir=-136.9 rx=0 | pose_age=0.00s
+[AUTOSIM] s001 sensor_rx | loop=10.0Hz target=10.0Hz | pad=ok age=0.00s err=NaN det=0 rx=706 | wind=stale age=Infs sp=2.47 dir=-134.0 rx=0 | pose_age=0.00s
+[AUTOSIM] s001 sensor_rx | loop=10.0Hz target=10.0Hz | pad=ok age=0.00s err=NaN det=0 rx=721 | wind=stale age=Infs sp=1.92 dir=-134.2 rx=0 | pose_age=0.00s
+[AUTOSIM] s001 sensor_rx | loop=10.0Hz target=10.0Hz | pad=ok age=0.00s err=NaN det=0 rx=736 | wind=stale age=Infs sp=1.81 dir=-131.9 rx=0 | pose_age=0.00s
+[AUTOSIM] s001 sensor_rx | loop=10.0Hz target=10.0Hz | pad=ok age=0.00s err=NaN det=0 rx=751 | wind=stale age=Infs sp=1.48 dir=-127.7 rx=0 | pose_age=0.00s
+[Warning: [AUTOSIM] Scenario 1 exception: Arrays have incompatible sizes for
+this operation.] 
+[> In AutoSim (line 162)
+In run (line 112)] 
+[Warning: [AUTOSIM] Checkpoint save failed: Cannot create
+'autosim_checkpoint_latest.mat' because
+'/home/j/INCSL/IICC26_ws/src/sjtu_drone-ros2/matlab/data/20260320_173237' does
+not exist.] 
+[> In autosimSaveCheckpoint (line 16)
+In AutoSim (line 177)
+In run (line 112)] 
+[AUTOSIM] Stats 1/300: stable=0 (0.0%), unstable=1 (100.0%)
+[AUTOSIM] Model update skipped (warmup_before_first_update): n=1, stable=0, unstable=0
+
+[AUTOSIM] Scenario 2/300
+[AUTOSIM] Adaptive policy=exploit | stable=0.00 unstable=1.00 boundary=0.00 unsafeRate=0.00
+[AUTOSIM] Curriculum target_case=unsafe_hover_timeout | wind=2.43@-126.1
+[AUTOSIM] Scenario 2 pre-reset landing confirmed.
+[Warning: [AUTOSIM] s002 soft reset: service list failed.] 
+[> In autosimSoftReset (line 31)
+In autosimResetSimulationForScenario (line 122)
+In AutoSim (line 119)
+In run (line 112)] 
+[AUTOSIM] Scenario 2 reset complete (state=landed).
+Server: (argc: 5) (argv[0]: /usr/local/MATLAB/R2024b/toolbox/ros/bin/glnxa64/libmwros2server) started (pid: 621108)
+Current directory: "/home/j/INCSL/IICC26_ws/src/sjtu_drone-ros2/matlab"
+[AUTOSIM] Gazebo set_model_state MATLAB message type is unavailable; skipping pose-origin reset.
+[AUTOSIM] Scenario 2 reset + takeoff complete.
+[AUTOSIM] s002 sensor_rx | loop=10.0Hz target=10.0Hz | pad=ok age=0.00s err=0.300 det=1 rx=883 | wind=stale age=Infs sp=0.00 dir=0.0 rx=0 | pose_age=0.00s
+[AUTOSIM] s002 global pad estimate ready (n=5, x=0.17, y=-0.24)
+[AUTOSIM] s002 sensor_rx | loop=10.0Hz target=10.0Hz | pad=ok age=0.00s err=0.280 det=1 rx=898 | wind=stale age=Infs sp=0.00 dir=0.0 rx=0 | pose_age=0.00s
+[AUTOSIM] s002 sensor_rx | loop=10.0Hz target=10.0Hz | pad=ok age=0.00s err=0.275 det=1 rx=913 | wind=stale age=Infs sp=0.00 dir=0.0 rx=0 | pose_age=0.00s
+[AUTOSIM] s002 wind polling disabled after 2.5s startup stale window (no /wind_condition rx). Using command/profile fallback.
+[AUTOSIM] s002 sensor_rx | loop=10.0Hz target=10.0Hz | pad=ok age=0.00s err=0.275 det=1 rx=928 | wind=stale age=Infs sp=0.00 dir=0.0 rx=0 | pose_age=0.00s
+[AUTOSIM] s002 wind armed by timeout at t=3.2s (center-hold unmet)
+[AUTOSIM] s002 sensor_rx | loop=10.0Hz target=10.0Hz | pad=ok age=0.00s err=0.295 det=1 rx=943 | wind=stale age=Infs sp=1.57 dir=-129.7 rx=0 | pose_age=0.00s
+[AUTOSIM] s002 sensor_rx | loop=10.0Hz target=10.0Hz | pad=ok age=0.00s err=0.066 det=1 rx=958 | wind=stale age=Infs sp=2.43 dir=-126.1 rx=0 | pose_age=0.00s
+[AUTOSIM] s002 landing lock acquired at (x=0.27, y=-0.10), stable_frames=8
+[AUTOSIM] s002 sensor_rx | loop=10.0Hz target=10.0Hz | pad=ok age=0.00s err=0.028 det=1 rx=973 | wind=stale age=Infs sp=2.43 dir=-126.1 rx=0 | pose_age=0.00s
+[AUTOSIM] s002 sensor_rx | loop=10.0Hz target=10.0Hz | pad=ok age=0.00s err=0.037 det=1 rx=988 | wind=stale age=Infs sp=3.00 dir=-138.9 rx=0 | pose_age=0.00s
+[AUTOSIM] s002 sensor_rx | loop=10.0Hz target=10.0Hz | pad=ok age=0.00s err=0.120 det=1 rx=1003 | wind=stale age=Infs sp=2.79 dir=-139.4 rx=0 | pose_age=0.00s
+[AUTOSIM] s002 sensor_rx | loop=10.0Hz target=10.0Hz | pad=ok age=0.00s err=0.026 det=1 rx=1018 | wind=stale age=Infs sp=1.77 dir=-131.7 rx=0 | pose_age=0.00s
+[AUTOSIM] s002 sensor_rx | loop=10.0Hz target=10.0Hz | pad=ok age=0.00s err=0.052 det=1 rx=1033 | wind=stale age=Infs sp=1.86 dir=-125.0 rx=0 | pose_age=0.00s
+[AUTOSIM] s002 sensor_rx | loop=10.0Hz target=10.0Hz | pad=ok age=0.00s err=0.081 det=1 rx=1048 | wind=stale age=Infs sp=2.27 dir=-120.8 rx=0 | pose_age=0.00s
+[AUTOSIM] s002 sensor_rx | loop=10.0Hz target=10.0Hz | pad=ok age=0.00s err=0.134 det=1 rx=1063 | wind=stale age=Infs sp=3.00 dir=-112.4 rx=0 | pose_age=0.00s
+[AUTOSIM] s002 sensor_rx | loop=10.0Hz target=10.0Hz | pad=ok age=0.00s err=0.092 det=1 rx=1078 | wind=stale age=Infs sp=3.00 dir=-114.7 rx=0 | pose_age=0.00s
+[AUTOSIM] s002 sensor_rx | loop=10.0Hz target=10.0Hz | pad=ok age=0.00s err=0.147 det=1 rx=1093 | wind=stale age=Infs sp=2.05 dir=-118.1 rx=0 | pose_age=0.00s
+[AUTOSIM] s002 sensor_rx | loop=10.0Hz target=10.0Hz | pad=ok age=0.00s err=0.070 det=1 rx=1108 | wind=stale age=Infs sp=1.46 dir=-126.2 rx=0 | pose_age=0.00s
+[AUTOSIM] s002 sensor_rx | loop=10.0Hz target=10.0Hz | pad=ok age=0.00s err=0.064 det=1 rx=1123 | wind=stale age=Infs sp=1.77 dir=-127.3 rx=0 | pose_age=0.00s
+[AUTOSIM] s002 sensor_rx | loop=10.0Hz target=10.0Hz | pad=ok age=0.00s err=0.022 det=1 rx=1138 | wind=stale age=Infs sp=2.77 dir=-136.2 rx=0 | pose_age=0.00s
+[AUTOSIM] s002 sensor_rx | loop=10.0Hz target=10.0Hz | pad=ok age=0.00s err=0.033 det=1 rx=1153 | wind=stale age=Infs sp=3.00 dir=-139.7 rx=0 | pose_age=0.00s
+[AUTOSIM] s002 sensor_rx | loop=10.0Hz target=10.0Hz | pad=ok age=0.00s err=0.012 det=1 rx=1168 | wind=stale age=Infs sp=2.80 dir=-133.0 rx=0 | pose_age=0.00s
+[AUTOSIM] s002 sensor_rx | loop=10.0Hz target=10.0Hz | pad=ok age=0.00s err=0.070 det=1 rx=1183 | wind=stale age=Infs sp=1.87 dir=-128.8 rx=0 | pose_age=0.00s
+[AUTOSIM] s002 sensor_rx | loop=10.0Hz target=10.0Hz | pad=ok age=0.00s err=0.084 det=1 rx=1198 | wind=stale age=Infs sp=1.44 dir=-121.8 rx=0 | pose_age=0.00s
+[AUTOSIM] s002 sensor_rx | loop=10.0Hz target=10.0Hz | pad=ok age=0.00s err=0.016 det=1 rx=1213 | wind=stale age=Infs sp=2.17 dir=-115.7 rx=0 | pose_age=0.00s
+[AUTOSIM] s002 sensor_rx | loop=10.0Hz target=10.0Hz | pad=ok age=0.00s err=0.077 det=1 rx=1228 | wind=stale age=Infs sp=3.00 dir=-113.1 rx=0 | pose_age=0.00s
+[AUTOSIM] s002 sensor_rx | loop=10.0Hz target=10.0Hz | pad=ok age=0.00s err=0.087 det=1 rx=1243 | wind=stale age=Infs sp=3.00 dir=-110.7 rx=0 | pose_age=0.00s
+[AUTOSIM] s002 sensor_rx | loop=10.0Hz target=10.0Hz | pad=ok age=0.00s err=0.046 det=1 rx=1258 | wind=stale age=Infs sp=2.63 dir=-118.7 rx=0 | pose_age=0.00s
+[AUTOSIM] s002 sensor_rx | loop=10.0Hz target=10.0Hz | pad=ok age=0.00s err=0.116 det=1 rx=1273 | wind=stale age=Infs sp=2.43 dir=-126.1 rx=0 | pose_age=0.00s
+[AUTOSIM] s002 sensor_rx | loop=10.0Hz target=10.0Hz | pad=ok age=0.06s err=0.058 det=1 rx=1287 | wind=stale age=Infs sp=1.83 dir=-129.9 rx=0 | pose_age=0.00s
+[AUTOSIM] s002 sensor_rx | loop=10.0Hz target=10.0Hz | pad=ok age=0.00s err=0.146 det=1 rx=1303 | wind=stale age=Infs sp=2.71 dir=-135.4 rx=0 | pose_age=0.00s
+[AUTOSIM] s002 sensor_rx | loop=10.0Hz target=10.0Hz | pad=ok age=0.04s err=0.067 det=1 rx=1317 | wind=stale age=Infs sp=3.00 dir=-140.1 rx=0 | pose_age=0.00s
+[AUTOSIM] s002 sensor_rx | loop=10.0Hz target=10.0Hz | pad=ok age=0.00s err=0.106 det=1 rx=1333 | wind=stale age=Infs sp=2.99 dir=-135.3 rx=0 | pose_age=0.00s
+[AUTOSIM] s002 sensor_rx | loop=10.0Hz target=10.0Hz | pad=ok age=0.00s err=0.045 det=1 rx=1347 | wind=stale age=Infs sp=1.67 dir=-137.2 rx=0 | pose_age=0.00s
+[AUTOSIM] s002 sensor_rx | loop=10.0Hz target=10.0Hz | pad=ok age=0.04s err=0.054 det=1 rx=1362 | wind=stale age=Infs sp=1.37 dir=-121.0 rx=0 | pose_age=0.00s
+[AUTOSIM] s002 sensor_rx | loop=10.0Hz target=10.0Hz | pad=ok age=0.00s err=0.073 det=1 rx=1377 | wind=stale age=Infs sp=2.43 dir=-126.1 rx=0 | pose_age=0.00s
+[AUTOSIM] s002 sensor_rx | loop=10.0Hz target=10.0Hz | pad=ok age=0.00s err=0.080 det=1 rx=1392 | wind=stale age=Infs sp=2.95 dir=-112.5 rx=0 | pose_age=0.00s
+[AUTOSIM] s002 sensor_rx | loop=10.0Hz target=10.0Hz | pad=ok age=0.00s err=0.045 det=1 rx=1407 | wind=stale age=Infs sp=2.43 dir=-126.1 rx=0 | pose_age=0.00s
+[AUTOSIM] s002 sensor_rx | loop=10.0Hz target=10.0Hz | pad=ok age=0.00s err=0.058 det=1 rx=1422 | wind=stale age=Infs sp=2.56 dir=-111.4 rx=0 | pose_age=0.00s
+[AUTOSIM] s002 sensor_rx | loop=10.0Hz target=10.0Hz | pad=ok age=0.02s err=0.061 det=1 rx=1437 | wind=stale age=Infs sp=1.62 dir=-122.4 rx=0 | pose_age=0.00s
+[AUTOSIM] s002 sensor_rx | loop=10.0Hz target=10.0Hz | pad=ok age=0.00s err=0.037 det=1 rx=1452 | wind=stale age=Infs sp=1.52 dir=-125.1 rx=0 | pose_age=0.00s
+[AUTOSIM] s002 sensor_rx | loop=10.0Hz target=10.0Hz | pad=ok age=0.00s err=0.012 det=1 rx=1467 | wind=stale age=Infs sp=2.58 dir=-136.7 rx=0 | pose_age=0.00s
+[AUTOSIM] s002 sensor_rx | loop=10.0Hz target=10.0Hz | pad=ok age=0.02s err=0.048 det=1 rx=1482 | wind=stale age=Infs sp=2.73 dir=-139.7 rx=0 | pose_age=0.00s
+[AUTOSIM] s002 sensor_rx | loop=10.0Hz target=10.0Hz | pad=ok age=0.00s err=0.053 det=1 rx=1499 | wind=stale age=Infs sp=2.57 dir=-135.3 rx=0 | pose_age=0.00s
+[AUTOSIM] s002 sensor_rx | loop=10.0Hz target=10.0Hz | pad=ok age=0.00s err=0.046 det=1 rx=1514 | wind=stale age=Infs sp=2.43 dir=-126.1 rx=0 | pose_age=0.00s
+[AUTOSIM] s002 sensor_rx | loop=10.0Hz target=10.0Hz | pad=ok age=0.11s err=0.010 det=1 rx=1527 | wind=stale age=Infs sp=1.95 dir=-124.7 rx=0 | pose_age=0.00s
+[AUTOSIM] s002 sensor_rx | loop=10.0Hz target=10.0Hz | pad=ok age=0.00s err=0.023 det=1 rx=1545 | wind=stale age=Infs sp=2.43 dir=-126.1 rx=0 | pose_age=0.00s
+[AUTOSIM] s002 sensor_rx | loop=10.0Hz target=10.0Hz | pad=ok age=0.00s err=NaN det=0 rx=1560 | wind=stale age=Infs sp=2.96 dir=-117.4 rx=0 | pose_age=0.00s
+[AUTOSIM] s002 sensor_rx | loop=10.0Hz target=10.0Hz | pad=ok age=0.00s err=NaN det=0 rx=1575 | wind=stale age=Infs sp=2.95 dir=-115.2 rx=0 | pose_age=0.00s
+[AUTOSIM] s002 sensor_rx | loop=10.0Hz target=10.0Hz | pad=ok age=0.00s err=NaN det=0 rx=1590 | wind=stale age=Infs sp=2.43 dir=-126.1 rx=0 | pose_age=0.00s
+[AUTOSIM] s002 sensor_rx | loop=10.0Hz target=10.0Hz | pad=ok age=0.00s err=NaN det=0 rx=1605 | wind=stale age=Infs sp=2.07 dir=-122.0 rx=0 | pose_age=0.00s
+[AUTOSIM] s002 sensor_rx | loop=10.0Hz target=10.0Hz | pad=ok age=0.00s err=NaN det=0 rx=1620 | wind=stale age=Infs sp=1.62 dir=-132.7 rx=0 | pose_age=0.00s
+[AUTOSIM] s002 sensor_rx | loop=10.0Hz target=10.0Hz | pad=ok age=0.00s err=NaN det=0 rx=1635 | wind=stale age=Infs sp=2.85 dir=-135.8 rx=0 | pose_age=0.00s
+[AUTOSIM] s002 sensor_rx | loop=10.0Hz target=10.0Hz | pad=ok age=0.00s err=NaN det=0 rx=1650 | wind=stale age=Infs sp=2.96 dir=-133.0 rx=0 | pose_age=0.00s
+[AUTOSIM] s002 sensor_rx | loop=10.0Hz target=10.0Hz | pad=ok age=0.00s err=NaN det=0 rx=1665 | wind=stale age=Infs sp=2.76 dir=-133.7 rx=0 | pose_age=0.00s
+[AUTOSIM] s002 sensor_rx | loop=10.0Hz target=10.0Hz | pad=ok age=0.04s err=NaN det=0 rx=1679 | wind=stale age=Infs sp=2.43 dir=-126.1 rx=0 | pose_age=0.00s
+[AUTOSIM] s002 sensor_rx | loop=10.0Hz target=10.0Hz | pad=ok age=0.04s err=NaN det=0 rx=1694 | wind=stale age=Infs sp=1.77 dir=-122.8 rx=0 | pose_age=0.00s
+[AUTOSIM] s002 sensor_rx | loop=10.0Hz target=10.0Hz | pad=ok age=0.04s err=NaN det=0 rx=1709 | wind=stale age=Infs sp=2.03 dir=-119.0 rx=0 | pose_age=0.00s
+[AUTOSIM] s002 sensor_rx | loop=10.0Hz target=10.0Hz | pad=ok age=0.04s err=NaN det=0 rx=1724 | wind=stale age=Infs sp=2.43 dir=-126.1 rx=0 | pose_age=0.00s
+[AUTOSIM] s002 sensor_rx | loop=10.0Hz target=10.0Hz | pad=ok age=0.00s err=NaN det=0 rx=1739 | wind=stale age=Infs sp=3.00 dir=-113.8 rx=0 | pose_age=0.00s
+[AUTOSIM] s002 sensor_rx | loop=10.0Hz target=10.0Hz | pad=ok age=0.00s err=NaN det=0 rx=1754 | wind=stale age=Infs sp=2.42 dir=-115.0 rx=0 | pose_age=0.00s
+[AUTOSIM] s002 sensor_rx | loop=10.0Hz target=10.0Hz | pad=ok age=0.00s err=NaN det=0 rx=1769 | wind=stale age=Infs sp=2.43 dir=-126.1 rx=0 | pose_age=0.00s
+[AUTOSIM] s002 sensor_rx | loop=10.0Hz target=10.0Hz | pad=ok age=0.00s err=NaN det=0 rx=1785 | wind=stale age=Infs sp=1.93 dir=-125.7 rx=0 | pose_age=0.00s
+[AUTOSIM] s002 sensor_rx | loop=10.0Hz target=10.0Hz | pad=ok age=0.00s err=NaN det=0 rx=1800 | wind=stale age=Infs sp=2.63 dir=-138.2 rx=0 | pose_age=0.00s
+[AUTOSIM] s002 sensor_rx | loop=10.0Hz target=10.0Hz | pad=ok age=0.00s err=NaN det=0 rx=1815 | wind=stale age=Infs sp=3.00 dir=-138.4 rx=0 | pose_age=0.00s
+[AUTOSIM] s002 sensor_rx | loop=10.0Hz target=10.0Hz | pad=ok age=0.00s err=NaN det=0 rx=1830 | wind=stale age=Infs sp=2.84 dir=-139.0 rx=0 | pose_age=0.00s
+[AUTOSIM] s002 sensor_rx | loop=10.0Hz target=10.0Hz | pad=ok age=0.00s err=NaN det=0 rx=1845 | wind=stale age=Infs sp=2.06 dir=-132.6 rx=0 | pose_age=0.00s
+[AUTOSIM] s002 sensor_rx | loop=10.0Hz target=10.0Hz | pad=ok age=0.02s err=NaN det=0 rx=1860 | wind=stale age=Infs sp=1.50 dir=-130.5 rx=0 | pose_age=0.00s
+[AUTOSIM] s002 sensor_rx | loop=10.0Hz target=10.0Hz | pad=ok age=0.00s err=0.434 det=1 rx=1875 | wind=stale age=Infs sp=1.94 dir=-115.4 rx=0 | pose_age=0.00s
+[AUTOSIM] s002 sensor_rx | loop=10.0Hz target=10.0Hz | pad=ok age=0.00s err=0.379 det=1 rx=1890 | wind=stale age=Infs sp=3.00 dir=-116.0 rx=0 | pose_age=0.00s
+[AUTOSIM] s002 sensor_rx | loop=10.0Hz target=10.0Hz | pad=ok age=0.00s err=0.169 det=1 rx=1905 | wind=stale age=Infs sp=3.00 dir=-111.8 rx=0 | pose_age=0.00s
+[AUTOSIM] s002 sensor_rx | loop=10.0Hz target=10.0Hz | pad=ok age=0.00s err=0.105 det=1 rx=1920 | wind=stale age=Infs sp=2.51 dir=-115.1 rx=0 | pose_age=0.00s
+[AUTOSIM] s002 sensor_rx | loop=10.0Hz target=10.0Hz | pad=ok age=0.00s err=0.079 det=1 rx=1935 | wind=stale age=Infs sp=1.84 dir=-121.6 rx=0 | pose_age=0.00s
+[AUTOSIM] s002 sensor_rx | loop=10.0Hz target=10.0Hz | pad=ok age=0.00s err=0.059 det=1 rx=1950 | wind=stale age=Infs sp=1.78 dir=-129.1 rx=0 | pose_age=0.00s
+[AUTOSIM] s002 sensor_rx | loop=10.0Hz target=10.0Hz | pad=ok age=0.00s err=0.088 det=1 rx=1965 | wind=stale age=Infs sp=2.45 dir=-135.7 rx=0 | pose_age=0.00s
+[AUTOSIM] s002 sensor_rx | loop=10.0Hz target=10.0Hz | pad=ok age=0.00s err=0.131 det=1 rx=1980 | wind=stale age=Infs sp=3.00 dir=-136.8 rx=0 | pose_age=0.00s
+[AUTOSIM] s002 sensor_rx | loop=10.0Hz target=10.0Hz | pad=ok age=0.00s err=0.217 det=1 rx=1995 | wind=stale age=Infs sp=2.89 dir=-139.3 rx=0 | pose_age=0.00s
+[AUTOSIM] s002 sensor_rx | loop=10.0Hz target=10.0Hz | pad=ok age=0.00s err=0.064 det=1 rx=2010 | wind=stale age=Infs sp=2.19 dir=-133.4 rx=0 | pose_age=0.00s
+[AUTOSIM] s002 sensor_rx | loop=10.0Hz target=10.0Hz | pad=ok age=0.00s err=0.067 det=1 rx=2025 | wind=stale age=Infs sp=2.43 dir=-126.1 rx=0 | pose_age=0.00s
+[AUTOSIM] s002 sensor_rx | loop=10.0Hz target=10.0Hz | pad=ok age=0.00s err=0.022 det=1 rx=2040 | wind=stale age=Infs sp=2.22 dir=-123.1 rx=0 | pose_age=0.00s
+[AUTOSIM] s002 sensor_rx | loop=10.0Hz target=10.0Hz | pad=ok age=0.00s err=0.080 det=1 rx=2055 | wind=stale age=Infs sp=2.93 dir=-114.6 rx=0 | pose_age=0.00s
+[AUTOSIM] s002 sensor_rx | loop=10.0Hz target=10.0Hz | pad=ok age=0.04s err=0.106 det=1 rx=2069 | wind=stale age=Infs sp=2.43 dir=-126.1 rx=0 | pose_age=0.00s
+[AUTOSIM] s002 sensor_rx | loop=10.0Hz target=10.0Hz | pad=ok age=0.04s err=0.128 det=1 rx=2084 | wind=stale age=Infs sp=2.79 dir=-117.8 rx=0 | pose_age=0.00s
+[AUTOSIM] s002 sensor_rx | loop=10.0Hz target=10.0Hz | pad=ok age=0.04s err=0.117 det=1 rx=2099 | wind=stale age=Infs sp=2.43 dir=-126.1 rx=0 | pose_age=0.00s
+[AUTOSIM] s002 sensor_rx | loop=10.0Hz target=10.0Hz | pad=ok age=0.00s err=0.054 det=1 rx=2114 | wind=stale age=Infs sp=1.54 dir=-131.8 rx=0 | pose_age=0.00s
+[AUTOSIM] s002 sensor_rx | loop=10.0Hz target=10.0Hz | pad=ok age=0.04s err=0.081 det=1 rx=2129 | wind=stale age=Infs sp=2.34 dir=-137.2 rx=0 | pose_age=0.00s
+[AUTOSIM] s002 sensor_rx | loop=10.0Hz target=10.0Hz | pad=ok age=0.00s err=0.034 det=1 rx=2144 | wind=stale age=Infs sp=2.91 dir=-136.0 rx=0 | pose_age=0.00s
+[AUTOSIM] s002 sensor_rx | loop=10.0Hz target=10.0Hz | pad=ok age=0.00s err=0.002 det=1 rx=2159 | wind=stale age=Infs sp=2.97 dir=-132.1 rx=0 | pose_age=0.00s
+[AUTOSIM] s002 sensor_rx | loop=10.0Hz target=10.0Hz | pad=ok age=0.00s err=0.031 det=1 rx=2174 | wind=stale age=Infs sp=2.29 dir=-133.6 rx=0 | pose_age=0.00s
+[AUTOSIM] s002 sensor_rx | loop=10.0Hz target=10.0Hz | pad=ok age=0.00s err=0.048 det=1 rx=2189 | wind=stale age=Infs sp=1.73 dir=-125.4 rx=0 | pose_age=0.00s
+[AUTOSIM] s002 sensor_rx | loop=10.0Hz target=10.0Hz | pad=ok age=0.00s err=NaN det=0 rx=2204 | wind=stale age=Infs sp=1.96 dir=-120.7 rx=0 | pose_age=0.00s
+[AUTOSIM] s002 sensor_rx | loop=10.0Hz target=10.0Hz | pad=ok age=0.00s err=NaN det=0 rx=2219 | wind=stale age=Infs sp=2.96 dir=-115.4 rx=0 | pose_age=0.00s
+[AUTOSIM] s002 sensor_rx | loop=10.0Hz target=10.0Hz | pad=ok age=0.00s err=NaN det=0 rx=2234 | wind=stale age=Infs sp=3.00 dir=-116.3 rx=0 | pose_age=0.00s
+[AUTOSIM] s002 sensor_rx | loop=10.0Hz target=10.0Hz | pad=ok age=0.00s err=NaN det=0 rx=2249 | wind=stale age=Infs sp=2.43 dir=-126.1 rx=0 | pose_age=0.00s
+[AUTOSIM] s002 sensor_rx | loop=10.0Hz target=10.0Hz | pad=ok age=0.00s err=NaN det=0 rx=2264 | wind=stale age=Infs sp=1.94 dir=-119.0 rx=0 | pose_age=0.00s
+[AUTOSIM] s002 sensor_rx | loop=10.0Hz target=10.0Hz | pad=ok age=0.00s err=NaN det=0 rx=2279 | wind=stale age=Infs sp=1.53 dir=-127.8 rx=0 | pose_age=0.00s
+[AUTOSIM] s002 sensor_rx | loop=10.0Hz target=10.0Hz | pad=ok age=0.00s err=NaN det=0 rx=2294 | wind=stale age=Infs sp=2.43 dir=-126.1 rx=0 | pose_age=0.00s
+[AUTOSIM] s002 sensor_rx | loop=10.0Hz target=10.0Hz | pad=ok age=0.00s err=NaN det=0 rx=2309 | wind=stale age=Infs sp=3.00 dir=-139.4 rx=0 | pose_age=0.00s
+[AUTOSIM] s002 sensor_rx | loop=10.0Hz target=10.0Hz | pad=ok age=0.00s err=NaN det=0 rx=2324 | wind=stale age=Infs sp=3.00 dir=-138.2 rx=0 | pose_age=0.00s
+[AUTOSIM] s002 sensor_rx | loop=10.0Hz target=10.0Hz | pad=ok age=0.00s err=NaN det=0 rx=2339 | wind=stale age=Infs sp=2.29 dir=-129.7 rx=0 | pose_age=0.00s
+[AUTOSIM] s002 sensor_rx | loop=10.0Hz target=10.0Hz | pad=ok age=0.00s err=NaN det=0 rx=2354 | wind=stale age=Infs sp=1.51 dir=-126.3 rx=0 | pose_age=0.00s
+[AUTOSIM] s002 sensor_rx | loop=10.0Hz target=10.0Hz | pad=ok age=0.00s err=NaN det=0 rx=2369 | wind=stale age=Infs sp=2.06 dir=-121.4 rx=0 | pose_age=0.00s
+[AUTOSIM] s002 sensor_rx | loop=10.0Hz target=10.0Hz | pad=ok age=0.00s err=NaN det=0 rx=2384 | wind=stale age=Infs sp=2.53 dir=-115.2 rx=0 | pose_age=0.00s
+[AUTOSIM] s002 sensor_rx | loop=10.0Hz target=10.0Hz | pad=ok age=0.00s err=0.445 det=1 rx=2398 | wind=stale age=Infs sp=3.00 dir=-111.4 rx=0 | pose_age=0.00s
+[AUTOSIM] s002 sensor_rx | loop=10.0Hz target=10.0Hz | pad=ok age=0.00s err=NaN det=0 rx=2413 | wind=stale age=Infs sp=2.96 dir=-111.8 rx=0 | pose_age=0.00s
+[AUTOSIM] s002 sensor_rx | loop=10.0Hz target=10.0Hz | pad=ok age=0.00s err=0.729 det=1 rx=2428 | wind=stale age=Infs sp=2.43 dir=-126.1 rx=0 | pose_age=0.00s
+[AUTOSIM] s002 sensor_rx | loop=10.0Hz target=10.0Hz | pad=ok age=0.00s err=0.727 det=1 rx=2443 | wind=stale age=Infs sp=1.78 dir=-128.6 rx=0 | pose_age=0.00s
+[AUTOSIM] s002 sensor_rx | loop=10.0Hz target=10.0Hz | pad=ok age=0.00s err=NaN det=0 rx=2458 | wind=stale age=Infs sp=1.97 dir=-133.8 rx=0 | pose_age=0.00s
+[AUTOSIM] s002 sensor_rx | loop=10.0Hz target=10.0Hz | pad=ok age=0.00s err=0.474 det=1 rx=2473 | wind=stale age=Infs sp=3.00 dir=-138.8 rx=0 | pose_age=0.00s
+[AUTOSIM] s002 sensor_rx | loop=10.0Hz target=10.0Hz | pad=ok age=0.00s err=0.163 det=1 rx=2488 | wind=stale age=Infs sp=3.00 dir=-137.1 rx=0 | pose_age=0.00s
+[AUTOSIM] s002 sensor_rx | loop=10.0Hz target=10.0Hz | pad=ok age=0.00s err=0.113 det=1 rx=2503 | wind=stale age=Infs sp=2.23 dir=-135.1 rx=0 | pose_age=0.00s
+[AUTOSIM] s002 sensor_rx | loop=10.0Hz target=10.0Hz | pad=ok age=0.00s err=0.065 det=1 rx=2518 | wind=stale age=Infs sp=1.87 dir=-129.8 rx=0 | pose_age=0.00s
+[AUTOSIM] s002 sensor_rx | loop=10.0Hz target=10.0Hz | pad=ok age=0.00s err=0.169 det=1 rx=2533 | wind=stale age=Infs sp=2.43 dir=-126.1 rx=0 | pose_age=0.00s
+[AUTOSIM] s002 sensor_rx | loop=10.0Hz target=10.0Hz | pad=ok age=0.00s err=0.072 det=1 rx=2548 | wind=stale age=Infs sp=2.74 dir=-118.9 rx=0 | pose_age=0.00s
+[AUTOSIM] s002 sensor_rx | loop=10.0Hz target=10.0Hz | pad=ok age=0.00s err=0.143 det=1 rx=2563 | wind=stale age=Infs sp=3.00 dir=-113.4 rx=0 | pose_age=0.00s
+[AUTOSIM] s002 sensor_rx | loop=10.0Hz target=10.0Hz | pad=ok age=0.00s err=0.064 det=1 rx=2578 | wind=stale age=Infs sp=3.00 dir=-121.2 rx=0 | pose_age=0.00s
+[AUTOSIM] s002 sensor_rx | loop=10.0Hz target=10.0Hz | pad=ok age=0.00s err=0.041 det=1 rx=2593 | wind=stale age=Infs sp=2.05 dir=-121.2 rx=0 | pose_age=0.00s
+[AUTOSIM] s002 sensor_rx | loop=10.0Hz target=10.0Hz | pad=ok age=0.00s err=0.146 det=1 rx=2608 | wind=stale age=Infs sp=1.53 dir=-128.4 rx=0 | pose_age=0.00s
+[AUTOSIM] s002 sensor_rx | loop=10.0Hz target=10.0Hz | pad=ok age=0.00s err=0.128 det=1 rx=2623 | wind=stale age=Infs sp=2.16 dir=-135.1 rx=0 | pose_age=0.00s
+[AUTOSIM] s002 sensor_rx | loop=10.0Hz target=10.0Hz | pad=ok age=0.00s err=0.114 det=1 rx=2638 | wind=stale age=Infs sp=3.00 dir=-136.8 rx=0 | pose_age=0.00s
+[AUTOSIM] s002 sensor_rx | loop=10.0Hz target=10.0Hz | pad=ok age=0.00s err=0.083 det=1 rx=2653 | wind=stale age=Infs sp=2.43 dir=-126.1 rx=0 | pose_age=0.00s
+[AUTOSIM] s002 sensor_rx | loop=10.0Hz target=10.0Hz | pad=ok age=0.00s err=0.066 det=1 rx=2668 | wind=stale age=Infs sp=2.59 dir=-131.7 rx=0 | pose_age=0.00s
+[AUTOSIM] s002 sensor_rx | loop=10.0Hz target=10.0Hz | pad=ok age=0.00s err=0.043 det=1 rx=2683 | wind=stale age=Infs sp=1.94 dir=-131.4 rx=0 | pose_age=0.00s
+[AUTOSIM] s002 sensor_rx | loop=10.0Hz target=10.0Hz | pad=ok age=0.00s err=0.067 det=1 rx=2698 | wind=stale age=Infs sp=2.43 dir=-126.1 rx=0 | pose_age=0.00s
+[AUTOSIM] s002 sensor_rx | loop=10.0Hz target=10.0Hz | pad=ok age=0.00s err=0.025 det=1 rx=2713 | wind=stale age=Infs sp=2.30 dir=-112.3 rx=0 | pose_age=0.00s
+[AUTOSIM] s002 sensor_rx | loop=10.0Hz target=10.0Hz | pad=ok age=0.00s err=0.050 det=1 rx=2728 | wind=stale age=Infs sp=3.00 dir=-110.4 rx=0 | pose_age=0.00s
+[AUTOSIM] s002 sensor_rx | loop=10.0Hz target=10.0Hz | pad=ok age=0.04s err=0.058 det=1 rx=2742 | wind=stale age=Infs sp=2.83 dir=-116.0 rx=0 | pose_age=0.00s
+[AUTOSIM] s002 sensor_rx | loop=10.0Hz target=10.0Hz | pad=ok age=0.04s err=0.086 det=1 rx=2757 | wind=stale age=Infs sp=2.43 dir=-126.1 rx=0 | pose_age=0.00s
+[AUTOSIM] s002 sensor_rx | loop=10.0Hz target=10.0Hz | pad=ok age=0.04s err=0.009 det=1 rx=2772 | wind=stale age=Infs sp=1.61 dir=-128.5 rx=0 | pose_age=0.00s
+[AUTOSIM] s002 sensor_rx | loop=10.0Hz target=10.0Hz | pad=ok age=0.00s err=0.042 det=1 rx=2787 | wind=stale age=Infs sp=2.43 dir=-126.1 rx=0 | pose_age=0.00s
+Server: ending (pid: 621108)

@@ -1,0 +1,3 @@
+pid=703491
+start_ticks=7845849
+cmdline=/usr/local/MATLAB/R2024b/bin/glnxa64/MATLAB -batch run('/home/j/INCSL/IICC26_ws/src/sjtu_drone-ros2/matlab/AutoSim.m')

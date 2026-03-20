@@ -26,6 +26,15 @@ from launch.launch_description_sources import PythonLaunchDescriptionSource
 import xacro
 
 
+def _normalize_namespace(ns: str) -> str:
+    ns = (ns or '').strip()
+    if not ns:
+        return '/drone'
+    if not ns.startswith('/'):
+        ns = '/' + ns
+    return ns
+
+
 def setup_drone_nodes(context, use_sim_time, xacro_file, yaml_file_path):
     takeoff_hover_height = LaunchConfiguration("takeoff_hover_height").perform(context)
     takeoff_vertical_speed = LaunchConfiguration("takeoff_vertical_speed").perform(context)
@@ -40,10 +49,7 @@ def setup_drone_nodes(context, use_sim_time, xacro_file, yaml_file_path):
     )
     robot_desc = robot_description_config.toxml()
 
-    model_ns = "drone"
-    with open(yaml_file_path, 'r') as f:
-        yaml_dict = yaml.load(f, Loader=yaml.FullLoader)
-        model_ns = yaml_dict["namespace"]
+    model_ns = _normalize_namespace(LaunchConfiguration('drone_namespace').perform(context))
 
     return [
         Node(
@@ -79,6 +85,21 @@ def setup_drone_nodes(context, use_sim_time, xacro_file, yaml_file_path):
 
 def generate_launch_description():
     use_sim_time = LaunchConfiguration("use_sim_time", default="true")
+
+    yaml_file_path = os.path.join(
+        get_package_share_directory('sjtu_drone_bringup'),
+        'config', 'drone.yaml'
+    )
+
+    with open(yaml_file_path, 'r') as f:
+        yaml_dict = yaml.load(f, Loader=yaml.FullLoader)
+        default_ns = _normalize_namespace(yaml_dict["namespace"])
+
+    drone_namespace = DeclareLaunchArgument(
+        "drone_namespace",
+        default_value=default_ns,
+        description="Drone ROS namespace (e.g. /drone, /drone_w01)",
+    )
     use_gui = DeclareLaunchArgument("use_gui", default_value="true", choices=["true", "false"],
                                     description="Whether to execute gzclient")
     takeoff_hover_height = DeclareLaunchArgument(
@@ -97,11 +118,7 @@ def generate_launch_description():
         get_package_share_directory("sjtu_drone_description"),
         "urdf", xacro_file_name
     )
-    yaml_file_path = os.path.join(
-        get_package_share_directory('sjtu_drone_bringup'),
-        'config', 'drone.yaml'
-    )   
-    
+
     world_file_default = os.path.join(
         get_package_share_directory("sjtu_drone_description"),
         "worlds", "landingPad.world"
@@ -128,6 +145,7 @@ def generate_launch_description():
     return LaunchDescription([
         world,
         use_gui,
+        drone_namespace,
         takeoff_hover_height,
         takeoff_vertical_speed,
 

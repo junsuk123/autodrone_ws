@@ -51,6 +51,52 @@ AutoSimMain
 run('/home/j/INCSL/IICC26_ws/src/sjtu_drone-ros2/matlab/AutoSim.m')
 ```
 
+## 멀티 워커 병렬 실행
+
+AutoSim은 환경변수 오버라이드로 워커별 도메인/출력/정리 범위를 분리할 수 있다.
+
+주요 환경변수:
+
+- `AUTOSIM_WORKER_ID`, `AUTOSIM_WORKER_COUNT`
+- `AUTOSIM_DOMAIN_ID`, `AUTOSIM_GAZEBO_PORT`
+- `AUTOSIM_OUTPUT_ROOT`
+- `AUTOSIM_CLEANUP_SCOPE` (`instance` 권장)
+- `AUTOSIM_ENABLE_PROGRESS_PLOT`
+- `AUTOSIM_ENABLE_SCENARIO_LIVE_VIZ` (기본 `false`)
+
+병렬 실행 스크립트:
+
+```bash
+cd /home/j/INCSL/IICC26_ws/src/sjtu_drone-ros2
+matlab/scripts/run_autosim_parallel.sh auto
+```
+
+중지:
+
+```bash
+matlab/scripts/stop_autosim_parallel.sh
+```
+
+## 병렬 모니터링
+
+온톨로지 상세 라이브 시각화는 병렬 성능/가독성을 위해 기본 비활성화하고, 워커 전체 상태를 보는 필수 모니터 그래프를 사용한다.
+
+```matlab
+monitor_autosim_parallel('/home/j/INCSL/IICC26_ws/src/sjtu_drone-ros2/matlab/parallel_runs/<session_root>', 2.0)
+```
+
+## 병렬 결과 병합
+
+```bash
+python3 matlab/scripts/merge_autosim_results.py /home/j/INCSL/IICC26_ws/src/sjtu_drone-ros2/matlab/parallel_runs/<session_root>
+```
+
+병합 결과:
+
+- `merged/autosim_dataset_merged.csv`
+- `merged/autosim_trace_merged.csv`
+- `merged/autosim_learning_merged.csv`
+
 ## 분석 구간 정의
 
 유효 분석 구간:

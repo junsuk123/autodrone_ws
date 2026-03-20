@@ -1,0 +1,5 @@
+pid	worker_id	domain_id	gazebo_port	log_file
+695544	1	60	13045	/home/j/INCSL/IICC26_ws/src/sjtu_drone-ros2/matlab/parallel_runs/20260320_183131/logs/worker_1.log
+695633	2	61	13046	/home/j/INCSL/IICC26_ws/src/sjtu_drone-ros2/matlab/parallel_runs/20260320_183131/logs/worker_2.log
+695878	3	62	13047	/home/j/INCSL/IICC26_ws/src/sjtu_drone-ros2/matlab/parallel_runs/20260320_183131/logs/worker_3.log
+696147	4	63	13048	/home/j/INCSL/IICC26_ws/src/sjtu_drone-ros2/matlab/parallel_runs/20260320_183131/logs/worker_4.log

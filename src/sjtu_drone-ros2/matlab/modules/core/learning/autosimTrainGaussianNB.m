@@ -17,6 +17,7 @@ function model = autosimTrainGaussianNB(X, y, featureNames, priorUniformBlend, c
     end
 
     X = autosimSanitize(X);
+    [X, useGpu] = autosimMaybeToGpu(X, cfg);
     cls = unique(y);
     nClass = numel(cls);
     nFeat = size(X, 2);
@@ -42,6 +43,12 @@ function model = autosimTrainGaussianNB(X, y, featureNames, priorUniformBlend, c
     prior = (1.0 - priorUniformBlend) * prior + priorUniformBlend * (ones(nClass, 1) / max(nClass, 1));
     prior = prior / max(sum(prior), eps);
 
+    if useGpu
+        mu = gather(mu);
+        sigma2 = gather(sigma2);
+        prior = gather(prior);
+    end
+
     model = struct();
     model.kind = "gaussian_nb";
     model.class_names = cls;
@@ -51,6 +58,26 @@ function model = autosimTrainGaussianNB(X, y, featureNames, priorUniformBlend, c
     model.prior = prior;
     model.created_at = string(datetime('now'));
     model.placeholder = false;
+end
+
+function [Xout, useGpu] = autosimMaybeToGpu(Xin, cfg)
+    Xout = Xin;
+    useGpu = false;
+    try
+        if ~(isstruct(cfg) && isfield(cfg, 'runtime') && isfield(cfg.runtime, 'use_gpu') && cfg.runtime.use_gpu)
+            return;
+        end
+        if isfield(cfg.runtime, 'gpu_device') && isfinite(cfg.runtime.gpu_device)
+            gpuDevice(max(1, round(cfg.runtime.gpu_device)));
+        else
+            gpuDevice();
+        end
+        Xout = gpuArray(Xin);
+        useGpu = true;
+    catch
+        Xout = Xin;
+        useGpu = false;
+    end
 end
 
 

@@ -1,0 +1,87 @@
+[INFO] [launch]: All log files can be found below /home/j/.ros/log/2026-03-20-17-15-43-392541-j-575522
+[INFO] [launch]: Default logging verbosity is set to INFO
+[INFO] [launch.user]: [bringup] Apriltag config: camera=/drone/bottom, image=/drone/bottom/image_raw, tags=/drone/bottom/tags, bridge=/landing_tag_state, standalone=true, use_target_id=false, target_id=0
+[INFO] [gzserver-1]: process started with pid [575595]
+[INFO] [robot_state_publisher-2]: process started with pid [575597]
+[INFO] [joint_state_publisher-3]: process started with pid [575599]
+[INFO] [spawn_drone-4]: process started with pid [575601]
+[INFO] [static_transform_publisher-5]: process started with pid [575603]
+[INFO] [apriltag_detector_node-6]: process started with pid [575605]
+[INFO] [apriltag_state_bridge-7]: process started with pid [575607]
+[static_transform_publisher-5] [WARN] [1773994543.876927313] []: Old-style arguments are deprecated; see --help for new-style arguments
+[static_transform_publisher-5] [INFO] [1773994543.881882349] [static_transform_publisher_yFBUbMirrJcvfqwU]: Spinning until stopped - publishing transform
+[static_transform_publisher-5] translation: ('0.000000', '0.000000', '0.000000')
+[static_transform_publisher-5] rotation: ('0.000000', '0.000000', '0.000000', '1.000000')
+[static_transform_publisher-5] from 'world' to '/drone/odom'
+[robot_state_publisher-2] [INFO] [1773994543.907420072] [drone.robot_state_publisher]: got segment base_footprint
+[robot_state_publisher-2] [INFO] [1773994543.907528086] [drone.robot_state_publisher]: got segment base_link
+[robot_state_publisher-2] [INFO] [1773994543.907543895] [drone.robot_state_publisher]: got segment bottom_cam_link
+[robot_state_publisher-2] [INFO] [1773994543.907553189] [drone.robot_state_publisher]: got segment front_cam_link
+[robot_state_publisher-2] [INFO] [1773994543.907561132] [drone.robot_state_publisher]: got segment sonar_link
+[apriltag_detector_node-6] [INFO] [1773994543.911259833] [apriltag_detector_node]: tag detector type: umich
+[gzserver-1] Gazebo multi-robot simulator, version 11.10.2
+[gzserver-1] Copyright (C) 2012 Open Source Robotics Foundation.
+[gzserver-1] Released under the Apache 2 License.
+[gzserver-1] http://gazebosim.org
+[gzserver-1] 
+[joint_state_publisher-3] [INFO] [1773994544.155704640] [drone.joint_state_publisher]: Waiting for robot_description to be published on the robot_description topic...
+[apriltag_state_bridge-7] [INFO] [1773994544.211773414] [apriltag_state_bridge]: AprilTag bridge started: /drone/bottom/tags -> /landing_tag_state, use_target_id=False, target_id=0
+[gzserver-1] [1;33m[Wrn] [gazebo_ros_init.cpp:178] [0m[1;33m
+[gzserver-1] #     # ####### ####### ###  #####  #######
+[gzserver-1] ##    # #     #    #     #  #     # #
+[gzserver-1] # #   # #     #    #     #  #       #
+[gzserver-1] #  #  # #     #    #     #  #       #####
+[gzserver-1] #   # # #     #    #     #  #       #
+[gzserver-1] #    ## #     #    #     #  #     # #
+[gzserver-1] #     # #######    #    ###  #####  #######
+[gzserver-1] 
+[gzserver-1] This version of Gazebo, now called Gazebo classic, reaches end-of-life
+[gzserver-1] in January 2025. Users are highly encouraged to migrate to the new Gazebo
+[gzserver-1] using our migration guides (https://gazebosim.org/docs/latest/gazebo_classic_migration?utm_source=gazebo_ros_pkgs&utm_medium=cli)
+[gzserver-1] 
+[gzserver-1] [0m[1;33m
+[gzserver-1] [1;32m[Msg] [0m[1;32mWaiting for master.[0m[1;32m
+[gzserver-1] [0m[1;32m[0m[1;32m[0m[1;32m[Msg] [0m[1;32mConnected to gazebo master @ [0m[1;32mhttp://127.0.0.1:12046[0m[1;32m
+[gzserver-1] [0m[1;32m[0m[1;32m[0m[1;32m[Msg] [0m[1;32mPublicized address: [0m[1;32m172.16.52.147[0m[1;32m
+[gzserver-1] [0m[1;32m[0m[1;32m[0m[1;32m[Msg] [0m[1;32mLoading world file [[0m[1;32m/home/j/INCSL/IICC26_ws/install/sjtu_drone_description/share/sjtu_drone_description/worlds/landingPad.world[0m[1;32m][0m[1;32m
+[gzserver-1] [0m[1;32m[0m[1;32m[0m[1;36m[Dbg] [wind_plugin.cpp:96] [0m[1;36mWindPlugin loaded: speed=[0m[1;36m0[0m[1;36m dir=[0m[1;36m0[0m[1;36m deg area=[0m[1;36m0.1[0m[1;36m coeff=[0m[1;36m1[0m[1;36m
+[gzserver-1] [0m[1;33m[0m[1;33m[0m[1;31m[Err] [Sensor.cc:510] [0m[1;31mGet noise index not valid[0m[1;31m
+[gzserver-1] [0m[1;31m[0m[1;31m[0m[1;31m[Err] [Sensor.cc:510] [0m[1;31mGet noise index not valid[0m[1;31m
+[gzserver-1] [0m[1;31m[0m[1;31m[0m[1;31m[Err] [Sensor.cc:510] [0m[1;31mGet noise index not valid[0m[1;31m
+[gzserver-1] [0m[1;31m[0m[1;31m[0m[1;31m[Err] [Sensor.cc:510] [0m[1;31mGet noise index not valid[0m[1;31m
+[gzserver-1] [0m[1;31m[0m[1;31m[0m[1;31m[Err] [Sensor.cc:510] [0m[1;31mGet noise index not valid[0m[1;31m
+[gzserver-1] [0m[1;31m[0m[1;31m[0m[1;31m[Err] [Sensor.cc:510] [0m[1;31mGet noise index not valid[0m[1;31m
+[gzserver-1] [0m[1;31m[0m[1;31m[0mTopic [default//drone/base_footprint/down_camera/image] is not valid.
+[gzserver-1] [INFO] [1773994545.155678479] [drone.collision_plugin]: Publishing contact states to [/drone/bumper_states]
+[gzserver-1] Topic [default//drone/base_footprint/front_camera/image] is not valid.
+[gzserver-1] [1;33m[Wrn] [Event.cc:61] [0m[1;33mWarning: Deleting a connection right after creation. [0m[1;33mMake sure to save the ConnectionPtr from a Connect call
+[gzserver-1] [0m[INFO] [1773994545.645581868] [drone.camera_bottom]: Publishing camera info to [/drone/bottom/camera_info]
+[gzserver-1] [INFO] [1773994545.651872110] [drone.camera_front]: Publishing camera info to [/drone/front/camera_info]
+[spawn_drone-4] [INFO] [1773994545.670724372] [spawn_drone]: Result True SpawnEntity: Successfully spawned entity [/drone]
+[gzserver-1] [INFO] [1773994545.777660801] [drone.simple_drone]: The drone plugin is loading!
+[gzserver-1] [INFO] [1773994545.777914653] [drone.simple_drone]: pub_odom: 1
+[gzserver-1] [INFO] [1773994545.777959267] [drone.simple_drone]: Using following parameters: 
+[gzserver-1] 		link_name: base_footprint,
+[gzserver-1] 		max_force: 30,
+[gzserver-1] 		motion_small_noise: 0,
+[gzserver-1] 		motion_drift_noise: 0,
+[gzserver-1] 		motion_drift_noise_time: 50,
+[gzserver-1] 		takeoff_hover_height: 1,
+[gzserver-1] 		takeoff_vertical_speed: 1
+[gzserver-1] [INFO] [1773994545.792272481] [drone.simple_drone]: Using the PID parameters: 
+[gzserver-1] 	Roll Pitch:
+[gzserver-1] 		kP: 10, kI: 0,kD: 5, Limit: 0.5, Time Constant: 0
+[gzserver-1] 	Yaw:
+[gzserver-1] 		kP: 2, kI: 0,kD: 1, Limit: 1.5, Time Constant: 0
+[gzserver-1] 	Velocity X:
+[gzserver-1] 		kP: 5, kI: 0,kD: 2.3, Limit: 2, Time Constant: 0
+[gzserver-1] 	Velocity Y:
+[gzserver-1] 		kP: 5, kI: 0,kD: 2.3, Limit: 2, Time Constant: 0
+[gzserver-1] 	Velocity Z:
+[gzserver-1] 		kP: 5, kI: 0,kD: 1, Limit: -1, Time Constant: 0
+[gzserver-1] 	Position XY:
+[gzserver-1] 		kP: 1.1, kI: 0,kD: 0, Limit: 5, Time Constant: 0
+[gzserver-1] 	Position Z:
+[gzserver-1] 		kP: 1, kI: 0,kD: 0.2, Limit: -1, Time Constant: 0
+[gzserver-1] [INFO] [1773994545.792454531] [drone.simple_drone]: The drone plugin finished loading!
+[INFO] [spawn_drone-4]: process has finished cleanly [pid 575601]

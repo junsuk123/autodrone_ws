@@ -1,0 +1,3 @@
+[INFO] [launch]: All log files can be found below /home/j/.ros/log/2026-03-20-18-04-53-392556-j-659339
+[INFO] [launch]: Default logging verbosity is set to INFO
+[ERROR] [launch]: Caught exception in launch (see debug for traceback): local variable 'yaml_file_path' referenced before assignment

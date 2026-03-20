@@ -114,6 +114,5 @@ colcon_package_source_powershell_script "$env:COLCON_CURRENT_PREFIX\share/sjtu_d
 colcon_package_source_powershell_script "$env:COLCON_CURRENT_PREFIX\share/sjtu_drone_bringup/hook/pythonpath.ps1"
 colcon_package_source_powershell_script "$env:COLCON_CURRENT_PREFIX\share/sjtu_drone_bringup/hook/pythonscriptspath.ps1"
 colcon_package_source_powershell_script "$env:COLCON_CURRENT_PREFIX\share/sjtu_drone_bringup/hook/ament_prefix_path.ps1"
-colcon_package_source_powershell_script "$env:COLCON_CURRENT_PREFIX\../../build/sjtu_drone_bringup/share/sjtu_drone_bringup/hook/pythonpath_develop.ps1"
 
 Remove-Item Env:\COLCON_CURRENT_PREFIX

@@ -4,7 +4,6 @@ function cfg = autosimDefaultConfig()
     ros2env = [ ...
         'cd /home/j/INCSL/IICC26_ws && ' ...
         'unset LD_LIBRARY_PATH && ' ...
-        'unset ROS_DOMAIN_ID && ' ...
         'export GAZEBO_PLUGIN_PATH=$GAZEBO_PLUGIN_PATH:/opt/ros/humble/lib && ' ...
         'source /opt/ros/humble/setup.bash && ' ...
         'source /home/j/INCSL/IICC26_ws/install/setup.bash' ...
@@ -22,19 +21,35 @@ function cfg = autosimDefaultConfig()
     cfg.paths.plot_dir = fullfile(cfg.paths.plot_root, cfg.paths.run_id);
     cfg.paths.log_dir = fullfile(cfg.paths.log_root, cfg.paths.run_id);
     cfg.paths.lock_file = fullfile(cfg.paths.data_root, 'autosim.lock');
+
+    cfg.runtime = struct();
+    cfg.runtime.worker_id = 1;
+    cfg.runtime.worker_count = 1;
+    cfg.runtime.domain_id = nan;
+    cfg.runtime.gazebo_port = nan;
+    cfg.runtime.drone_namespace = '/drone';
+    cfg.runtime.use_gpu = false;
+    cfg.runtime.gpu_device = nan;
+    cfg.runtime.launch_env_prefix = "";
+
+    cfg.visualization = struct();
+    cfg.visualization.enable_progress_plot = true;
+    cfg.visualization.enable_scenario_live_view = false;
+
     cfg.launch = struct();
     cfg.launch.command_template = [ ...
         ros2env ' && source ~/.bashrc && ' ...
         'source /opt/ros/humble/setup.bash && ' ...
         'source /home/j/INCSL/IICC26_ws/install/setup.bash && ' ...
         'ros2 launch sjtu_drone_bringup sjtu_drone_bringup.launch.py ' ...
+        'drone_namespace:=%s ' ...
         'initial_x:=0.0 initial_y:=0.0 ' ...
         'takeoff_hover_height:=%0.2f ' ...
         'takeoff_vertical_speed:=0.2 ' ...
         'use_gui:=false use_rviz:=true use_teleop:=false ' ...
-        'use_apriltag:=true apriltag_camera:=/drone/bottom ' ...
+        'use_apriltag:=true apriltag_camera:=%s/bottom ' ...
         'apriltag_image:=image_raw apriltag_tags:=tags apriltag_type:=umich ' ...
-        'apriltag_bridge_topic:=/landing_tag_state ' ...
+        'apriltag_bridge_topic:=%s ' ...
         'apriltag_use_standalone_detector:=true ' ...
         'apriltag_bridge_use_target_id:=true ' ...
         'apriltag_bridge_target_id:=0' ...
@@ -172,6 +187,14 @@ function cfg = autosimDefaultConfig()
     cfg.control.landing_lock_max_tag_error = 0.12;
     cfg.control.landing_lock_xy_follow_enable = true;
     cfg.control.landing_lock_xy_blend_alpha = 0.20;
+    cfg.control.pad_global_tracking_enable = true;
+    cfg.control.pad_global_tracking_scale_x_m_per_norm = 0.60;
+    cfg.control.pad_global_tracking_scale_y_m_per_norm = 0.60;
+    cfg.control.pad_global_tracking_obs_max_tag_error = 0.90;
+    cfg.control.pad_global_tracking_min_samples = 5;
+    cfg.control.pad_global_tracking_use_in_xy_hold = true;
+    cfg.control.pad_global_tracking_use_in_fast_loop = true;
+    cfg.control.pad_global_tracking_use_in_landing_track = true;
 
     cfg.agent = struct();
     cfg.agent.enable_model_decision = true;
@@ -336,6 +359,8 @@ function cfg = autosimDefaultConfig()
     cfg.process.soft_reset_service_timeout_sec = 6.0;
     cfg.process.kill_settle_sec = 2.0;
     cfg.process.cleanup_verify_timeout_sec = 8.0;
+    % global: legacy behavior, instance: only worker-owned launch tree cleanup.
+    cfg.process.cleanup_scope = "global";
 
     cfg.thresholds = struct();
     cfg.thresholds.land_state_value = 0;
@@ -447,18 +472,19 @@ function cfg = autosimDefaultConfig()
     cfg.modules.use_ontology_engine = false;
 
     cfg.topics = struct();
-    cfg.topics.state = '/drone/state';
-    cfg.topics.pose = '/drone/gt_pose';
-    cfg.topics.vel = '/drone/gt_vel';
-    cfg.topics.imu = '/drone/imu';
-    cfg.topics.bumpers = '/drone/bumper_states';
-    cfg.topics.tag_state = '/landing_tag_state';
+    droneNs = cfg.runtime.drone_namespace;
+    cfg.topics.state = [droneNs '/state'];
+    cfg.topics.pose = [droneNs '/gt_pose'];
+    cfg.topics.vel = [droneNs '/gt_vel'];
+    cfg.topics.imu = [droneNs '/imu'];
+    cfg.topics.bumpers = [droneNs '/bumper_states'];
+    cfg.topics.tag_state = [droneNs '/landing_tag_state'];
     cfg.topics.wind_condition = '/wind_condition';
     cfg.topics.wind_command = '/wind_command';
-    cfg.topics.land_cmd = '/drone/land';
-    cfg.topics.takeoff_cmd = '/drone/takeoff';
-    cfg.topics.reset_cmd = '/drone/reset';
-    cfg.topics.cmd_vel = '/drone/cmd_vel';
+    cfg.topics.land_cmd = [droneNs '/land'];
+    cfg.topics.takeoff_cmd = [droneNs '/takeoff'];
+    cfg.topics.reset_cmd = [droneNs '/reset'];
+    cfg.topics.cmd_vel = [droneNs '/cmd_vel'];
 
     cfg.ros = struct();
     cfg.ros.enable_imu_subscription = false;
@@ -487,7 +513,7 @@ function cfg = autosimDefaultConfig()
         ros2env ' && source ~/.bashrc && ' ...
         'source /opt/ros/humble/setup.bash && ' ...
         'source /home/j/INCSL/IICC26_ws/install/setup.bash && ' ...
-        'ros2 topic pub /drone/land std_msgs/msg/Empty {} --once' ...
+        'ros2 topic pub ' cfg.topics.land_cmd ' std_msgs/msg/Empty {} --once' ...
     ];
 end
 

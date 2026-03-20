@@ -1,0 +1,20 @@
+timestamp=20260320_165606
+workspace=/home/j/INCSL/IICC26_ws
+project_dir=/home/j/INCSL/IICC26_ws/src/sjtu_drone-ros2
+hostname=j
+kernel=Linux 6.1.0-1013-oem x86_64 GNU/Linux
+
+[git status]
+ M ../../README.md
+ M README.md
+ M matlab/modules/core/orchestration/autosimDefaultConfig.m
+ M matlab/modules/core/simulation/autosimRunFastTagControlBurst.m
+ M matlab/modules/core/simulation/autosimRunScenario.m
+?? ../../backups/
+?? scripts/backup_before_parallel.sh
+?? scripts/run_parallel_gazebo.sh
+?? scripts/stop_parallel_gazebo.sh
+?? sjtu_drone_bringup/launch/sjtu_drone_parallel.launch.py
+
+[git rev-parse HEAD]
+cae0b7918b6b2ec45eb28271db6dfce78b375a04

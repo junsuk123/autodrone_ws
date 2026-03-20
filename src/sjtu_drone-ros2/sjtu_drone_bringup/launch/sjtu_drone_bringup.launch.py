@@ -25,9 +25,18 @@ from launch.substitutions import LaunchConfiguration
 from launch.conditions import IfCondition
 
 
-def get_teleop_controller(context, *_, **kwargs) -> Node:
+def _normalize_namespace(ns: str) -> str:
+    ns = (ns or '').strip()
+    if not ns:
+        return '/drone'
+    if not ns.startswith('/'):
+        ns = '/' + ns
+    return ns
+
+
+def get_teleop_controller(context, *_, **__) -> Node:
     controller = context.launch_configurations["controller"]
-    namespace = kwargs["model_ns"]
+    namespace = _normalize_namespace(LaunchConfiguration('drone_namespace').perform(context))
 
     if controller == "joystick":
         node = Node(
@@ -82,11 +91,16 @@ def get_apriltag_nodes(context, *_, **__):
         print("[bringup] apriltag_detector package not found. Skipping AprilTag detector launch.")
         return []
 
+    drone_ns = _normalize_namespace(LaunchConfiguration("drone_namespace").perform(context))
     camera_ns = LaunchConfiguration("apriltag_camera").perform(context)
+    if not camera_ns:
+        camera_ns = f'{drone_ns}/bottom'
     image_topic = LaunchConfiguration("apriltag_image").perform(context)
     tags_topic = LaunchConfiguration("apriltag_tags").perform(context)
     detector_type = LaunchConfiguration("apriltag_type").perform(context)
     bridge_topic = LaunchConfiguration("apriltag_bridge_topic").perform(context)
+    if not bridge_topic:
+        bridge_topic = f'{drone_ns}/landing_tag_state'
     bridge_use_target_id = LaunchConfiguration("apriltag_bridge_use_target_id").perform(context)
     bridge_target_id = LaunchConfiguration("apriltag_bridge_target_id").perform(context)
     use_standalone_detector = LaunchConfiguration("apriltag_use_standalone_detector").perform(context)
@@ -169,17 +183,23 @@ def generate_launch_description():
         'config', 'drone.yaml'
     )
 
-    model_ns = "drone"
+    model_ns = "/drone"
 
     with open(yaml_file_path, 'r') as f:
         yaml_dict = yaml.load(f, Loader=yaml.FullLoader)
-        model_ns = yaml_dict["namespace"]
+        model_ns = _normalize_namespace(yaml_dict["namespace"])
 
     return LaunchDescription([
         DeclareLaunchArgument(
             "controller",
             default_value="keyboard",
             description="Type of controller: keyboard (default) or joystick",
+        ),
+
+        DeclareLaunchArgument(
+            "drone_namespace",
+            default_value=model_ns,
+            description="Drone ROS namespace (e.g. /drone, /drone_w01)",
         ),
 
         DeclareLaunchArgument(
@@ -191,7 +211,7 @@ def generate_launch_description():
 
         DeclareLaunchArgument(
             "apriltag_camera",
-            default_value="/drone/bottom",
+            default_value="",
             description="Camera namespace for apriltag detector",
         ),
 
@@ -216,7 +236,7 @@ def generate_launch_description():
 
         DeclareLaunchArgument(
             "apriltag_bridge_topic",
-            default_value="/landing_tag_state",
+            default_value="",
             description="Bridge topic to publish tag state as Float32MultiArray",
         ),
 
@@ -283,6 +303,7 @@ def generate_launch_description():
                 os.path.join(sjtu_drone_bringup_path, 'launch', 'sjtu_drone_gazebo.launch.py')
             ),
             launch_arguments={
+                'drone_namespace': LaunchConfiguration('drone_namespace'),
                 'takeoff_hover_height': LaunchConfiguration('takeoff_hover_height'),
                 'takeoff_vertical_speed': LaunchConfiguration('takeoff_vertical_speed'),
             }.items(),
@@ -292,14 +313,13 @@ def generate_launch_description():
             package='joy',
             executable='joy_node',
             name='joy',
-            namespace=model_ns,
+            namespace=LaunchConfiguration('drone_namespace'),
             output='screen',
             condition=IfCondition(LaunchConfiguration('use_teleop')),
         ),
 
         OpaqueFunction(
             function=get_teleop_controller,
-            kwargs={'model_ns': model_ns},
             condition=IfCondition(LaunchConfiguration('use_teleop')),
         ),
 

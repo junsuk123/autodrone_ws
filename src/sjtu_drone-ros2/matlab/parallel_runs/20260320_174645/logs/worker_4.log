@@ -1,0 +1,44 @@
+[AUTOSIM] Worker 4/4 | cleanup_scope=instance | domain=63 | gazebo_port=13048
+[AUTOSIM] Wind physics src[mass=file:/home/j/INCSL/IICC26_ws/src/sjtu_drone-ros2/sjtu_drone_description/urdf/sjtu_drone.urdf,thrust=file:/home/j/INCSL/IICC26_ws/src/sjtu_drone-ros2/sjtu_drone_bringup/config/drone.yaml] m=1.477kg Tmax=30.00N margin=15.51N hover=17.52m/s landing=8.76m/s
+
+[AUTOSIM] Start at 2026-03-20 17:46:55
+[AUTOSIM] Scenario count: 300
+[AUTOSIM] Initial model source: cold_start_placeholder
+Server: (argc: 5) (argv[0]: /usr/local/MATLAB/R2024b/toolbox/ros/bin/glnxa64/libmwros2server) started (pid: 643056)
+Current directory: "/home/j/INCSL/IICC26_ws/src/sjtu_drone-ros2/matlab"
+[AUTOSIM] AprilTag callback-priority subscriber enabled on /drone_w04/landing_tag_state
+
+[AUTOSIM] Scenario 1/300
+[AUTOSIM] Adaptive policy=exploit | stable=0.50 unstable=0.50 boundary=0.00 unsafeRate=0.00
+[AUTOSIM] Curriculum target_case=safe_land | wind=2.07@-127.4
+[Warning: [AUTOSIM] Fatal exception: File:
+/home/j/INCSL/IICC26_ws/src/sjtu_drone-ros2/matlab/modules/core/simulation/autosimStartLaunch.m
+Line: 23 Column: 25
+Invalid expression. When calling a function or indexing a variable, use
+parentheses. Otherwise, check for mismatched delimiters.] 
+[> In AutoSim (line 203)
+In run (line 112)] 
+Server: ending (pid: 643056)
+[AUTOSIM] Saved dataset: /home/j/INCSL/IICC26_ws/src/sjtu_drone-ros2/matlab/parallel_runs/20260320_174645/output/data/worker_04/20260320_174655_w04/autosim_dataset_20260320_174706_failed.csv
+[AUTOSIM] Saved trace:   /home/j/INCSL/IICC26_ws/src/sjtu_drone-ros2/matlab/parallel_runs/20260320_174645/output/data/worker_04/20260320_174655_w04/autosim_trace_20260320_174706_failed.csv
+[AUTOSIM] Saved model:   /home/j/INCSL/IICC26_ws/src/sjtu_drone-ros2/matlab/parallel_runs/20260320_174645/output/models/worker_04/autosim_model_final_20260320_174706_failed.mat
+[AUTOSIM] Saved plot:    /home/j/INCSL/IICC26_ws/src/sjtu_drone-ros2/matlab/parallel_runs/20260320_174645/output/plots/worker_04/20260320_174655_w04/autosim_result_20260320_174706_failed.png
+[AUTOSIM] Saved perf:    /home/j/INCSL/IICC26_ws/src/sjtu_drone-ros2/matlab/parallel_runs/20260320_174645/output/data/worker_04/20260320_174655_w04/autosim_performance_20260320_174706_failed.csv
+[AUTOSIM] Saved dmetric: /home/j/INCSL/IICC26_ws/src/sjtu_drone-ros2/matlab/parallel_runs/20260320_174645/output/data/worker_04/20260320_174655_w04/autosim_decision_metrics_20260320_174706_failed.csv
+[AUTOSIM] Saved perfpng: /home/j/INCSL/IICC26_ws/src/sjtu_drone-ros2/matlab/parallel_runs/20260320_174645/output/plots/worker_04/20260320_174655_w04/autosim_performance_20260320_174706_failed.png
+[AUTOSIM] Saved gtpred:  /home/j/INCSL/IICC26_ws/src/sjtu_drone-ros2/matlab/parallel_runs/20260320_174645/output/plots/worker_04/20260320_174655_w04/autosim_gt_vs_pred_20260320_174706_failed.png
+[AUTOSIM] Completed at 2026-03-20 17:47:06 (status=failed)
+
+{File:
+/home/j/INCSL/IICC26_ws/src/sjtu_drone-ros2/matlab/modules/core/simulation/autosimStartLaunch.m
+Line: 23 Column: 25
+Invalid expression. When calling a function or indexing a variable, use
+parentheses. Otherwise, check for mismatched delimiters.
+
+Error in AutoSim (line 115)
+            launchInfo = autosimStartLaunch(cfg, scenarioCfg, scenarioId);
+                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Error in run (line 112)
+evalin('caller', strcat(scriptStem, ';'));
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+} 

@@ -7,6 +7,17 @@ function autosimCleanupProcesses(cfg, launchPid)
         autosimKillTree(launchPid);
     end
 
+    cleanupScope = "global";
+    if isfield(cfg, 'process') && isfield(cfg.process, 'cleanup_scope')
+        cleanupScope = lower(string(cfg.process.cleanup_scope));
+    end
+
+    if cleanupScope == "instance"
+        autosimRefreshRos2Daemon();
+        pause(max(0.2, cfg.process.kill_settle_sec));
+        return;
+    end
+
     preSnap = autosimGetActiveProcessSnapshot();
     if strlength(strtrim(preSnap)) > 0
         fprintf('[AUTOSIM] Cleanup pre-snapshot:\n%s\n', preSnap);

@@ -1,5 +1,9 @@
-function plotState = autosimInitPlots()
+function plotState = autosimInitPlots(cfg)
     plotState = struct();
+    if nargin >= 1 && isfield(cfg, 'visualization') && isfield(cfg.visualization, 'enable_progress_plot') && ~cfg.visualization.enable_progress_plot
+        return;
+    end
+
     plotState.fig = figure('Name', 'AutoSim Decision Progress', 'NumberTitle', 'off');
     set(plotState.fig, 'CloseRequestFcn', @(src, evt) autosimHandleStopFigureClose(src, "progress_plot_closed"));
     autosimPlaceFigureRight(plotState.fig, [0.36, 0.46], [0.52, 0.51]);

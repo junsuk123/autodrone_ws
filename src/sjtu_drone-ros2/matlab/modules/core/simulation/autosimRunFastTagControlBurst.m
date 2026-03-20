@@ -1,4 +1,4 @@
-function [pidX, pidY, tagLostSearchStartT, lastTagU, lastTagV, lastTagDetectT, haveLastTag, lastTagRxT, tagRxCount] = autosimRunFastTagControlBurst(cfg, rosCtx, pubCmd, msgCmd, t0, burstStartT, burstDurationSec, xNow, yNow, pidX, pidY, tagLostSearchStartT, lastTagU, lastTagV, lastTagDetectT, haveLastTag, lastTagRxT, tagRxCount, randomLandingPlanned, randomLandingStartT, randomLandingEndT, randomBiasX, randomBiasY)
+function [pidX, pidY, tagLostSearchStartT, lastTagU, lastTagV, lastTagDetectT, haveLastTag, lastTagRxT, tagRxCount] = autosimRunFastTagControlBurst(cfg, rosCtx, pubCmd, msgCmd, t0, burstStartT, burstDurationSec, xNow, yNow, pidX, pidY, tagLostSearchStartT, lastTagU, lastTagV, lastTagDetectT, haveLastTag, lastTagRxT, tagRxCount, randomLandingPlanned, randomLandingStartT, randomLandingEndT, randomBiasX, randomBiasY, usePadGlobalFallback, padGlobalValid, padGlobalX, padGlobalY)
     if ~(isfield(cfg.control, 'tag_fast_loop_enable') && cfg.control.tag_fast_loop_enable)
         return;
     end
@@ -52,8 +52,16 @@ function [pidX, pidY, tagLostSearchStartT, lastTagU, lastTagV, lastTagDetectT, h
             vTag = nan;
         end
 
-        [cmdX, cmdY, pidX, pidY, tagLostSearchStartT] = autosimComputeTagTrackingCommand( ...
-            cfg, tkFast, fastDt, xNow, yNow, false, nan, nan, tagDetected, uTag, vTag, pidX, pidY, tagLostSearchStartT);
+        hasVisualObs = tagDetected && isfinite(uTag) && isfinite(vTag);
+        if usePadGlobalFallback && padGlobalValid && ~hasVisualObs
+            pidX = autosimPidInit();
+            pidY = autosimPidInit();
+            tagLostSearchStartT = nan;
+            [cmdX, cmdY] = autosimComputePoseHoldToTarget(cfg, xNow, yNow, padGlobalX, padGlobalY);
+        else
+            [cmdX, cmdY, pidX, pidY, tagLostSearchStartT] = autosimComputeTagTrackingCommand( ...
+                cfg, tkFast, fastDt, xNow, yNow, false, nan, nan, tagDetected, uTag, vTag, pidX, pidY, tagLostSearchStartT);
+        end
 
         if randomLandingPlanned && tkFast >= randomLandingStartT && tkFast < randomLandingEndT
             cmdX = autosimClamp(cmdX + randomBiasX, -abs(cfg.control.xy_cmd_limit), abs(cfg.control.xy_cmd_limit));

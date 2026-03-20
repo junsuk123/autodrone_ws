@@ -239,11 +239,61 @@ source /home/j/INCSL/IICC26_ws/install/setup.bash
 AutoSimMain
 ```
 
+## 병렬 학습 운영 (AutoSim 멀티 워커)
+
+멀티 Gazebo 학습은 워커별 `ROS_DOMAIN_ID`, Gazebo 포트, 출력 경로를 분리해 충돌 없이 병렬 수집하도록 구성한다.
+
+권장 워커 수는 CPU/메모리 한계를 동시에 고려해 계산한다.
+
+$$
+N_{auto} = \min\left(\max(1, C_{total}-C_{reserve}),\ \max\left(1,\left\lfloor\frac{M_{available}-M_{reserve}}{M_{per\_worker}}\right\rfloor\right)\right)
+$$
+
+실행/중지/병합:
+
+```bash
+cd /home/j/INCSL/IICC26_ws/src/sjtu_drone-ros2
+matlab/scripts/run_autosim_parallel.sh auto
+matlab/scripts/stop_autosim_parallel.sh
+python3 matlab/scripts/merge_autosim_results.py matlab/parallel_runs/<session_root>
+```
+
+상세 운영 가이드는 다음 문서를 참고한다.
+
+- `src/sjtu_drone-ros2/README.md`
+- `src/sjtu_drone-ros2/matlab/README.md`
+
 또는
 
 ```matlab
 run('/home/j/INCSL/IICC26_ws/src/sjtu_drone-ros2/matlab/AutoSim.m')
 ```
+
+## 병렬 시뮬레이션 시작점
+
+학습/데이터 수집 가속이 필요하면, 멀티 Gazebo 병렬 실행을 사용한다.
+
+```bash
+cd /home/j/INCSL/IICC26_ws/src/sjtu_drone-ros2
+chmod +x scripts/backup_before_parallel.sh scripts/run_parallel_gazebo.sh scripts/stop_parallel_gazebo.sh
+
+# 1) 백업
+./scripts/backup_before_parallel.sh /home/j/INCSL/IICC26_ws
+
+# 2) 병렬 실행(예: 4 인스턴스)
+./scripts/run_parallel_gazebo.sh 4
+
+# 3) 중지
+./scripts/stop_parallel_gazebo.sh
+```
+
+이론적 처리량은 병렬 인스턴스 수 $N$와 효율 $\eta$에 대해 아래와 같이 근사할 수 있다.
+
+$$
+T_{parallel} \approx N \cdot T_{single} \cdot \eta
+$$
+
+상세 인자/주의사항은 `src/sjtu_drone-ros2/README.md`의 병렬 시뮬레이션 섹션을 참고한다.
 
 ## 운영 원칙
 

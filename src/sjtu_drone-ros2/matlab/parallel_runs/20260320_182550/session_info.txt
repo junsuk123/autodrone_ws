@@ -1,0 +1,11 @@
+workspace=/home/j/INCSL/IICC26_ws/src
+matlab_dir=/home/j/INCSL/IICC26_ws/src/sjtu_drone-ros2/matlab
+timestamp=20260320_182550
+workers=4
+cpu_total=20
+cpu_limit=18
+mem_avail_gb=19
+mem_limit=2
+auto_workers=1
+domain_base=60
+gazebo_port_base=13045

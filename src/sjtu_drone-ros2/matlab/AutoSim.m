@@ -12,7 +12,7 @@
 % Usage:
 %   run('/home/j/INCSL/IICC26_ws/src/sjtu_drone-ros2/matlab/AutoSim.m')
 
-clear; clc;
+clear; clc; close all;
 
 % Close stale figures without invoking outdated CloseRequestFcn callbacks.
 try
@@ -51,6 +51,7 @@ autosimClearStopRequest();
 
 cfg = autosimDefaultConfig();
 [cfg, overrideInfo] = autosimApplyExternalOverride(cfg, thisDir);
+[cfg, runtimeInfo] = autosimApplyRuntimeOverrides(cfg);
 [cfg, windLimitInfo] = autosimApplyWindPhysicsLimits(cfg);
 autosimEnsureDirectories(cfg);
 lockCleanup = autosimAcquireLock(cfg); %#ok<NASGU>
@@ -58,6 +59,9 @@ lockCleanup = autosimAcquireLock(cfg); %#ok<NASGU>
 if overrideInfo.loaded
     fprintf('[AUTOSIM] External override applied: %s\n', overrideInfo.path);
 end
+fprintf('[AUTOSIM] Worker %d/%d | cleanup_scope=%s | domain=%s | gazebo_port=%s\n', ...
+    cfg.runtime.worker_id, cfg.runtime.worker_count, char(string(cfg.process.cleanup_scope)), ...
+    autosimNumToText(runtimeInfo.domain_id), autosimNumToText(runtimeInfo.gazebo_port));
 if windLimitInfo.applied
     fprintf('[AUTOSIM] Wind physics src[mass=%s,thrust=%s] m=%.3fkg Tmax=%.2fN margin=%.2fN hover=%.2fm/s landing=%.2fm/s\n', ...
         char(string(windLimitInfo.mass_source)), char(string(windLimitInfo.thrust_source)), ...
@@ -75,7 +79,7 @@ rosCtx = [];
 
 traceStore = table();
 learningHistory = table();
-plotState = autosimInitPlots();
+plotState = autosimInitPlots(cfg);
 model = autosimCreatePlaceholderModel(cfg, 'pre_init');
 
 try
@@ -217,4 +221,12 @@ autosimClearStopRequest();
 
 if ~isempty(runError)
     rethrow(runError);
+end
+
+function out = autosimNumToText(v)
+if isfinite(v)
+    out = sprintf('%d', round(v));
+else
+    out = 'n/a';
+end
 end

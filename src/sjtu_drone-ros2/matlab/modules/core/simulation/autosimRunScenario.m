@@ -151,6 +151,11 @@ function [res, traceTbl] = autosimRunScenario(cfg, scenarioCfg, scenarioId, mode
     landingPadLockY = nan;
     landingPadLockValid = false;
     landingPadStableFrames = 0;
+    padGlobalMeanX = nan;
+    padGlobalMeanY = nan;
+    padGlobalObsCount = 0;
+    padGlobalValid = false;
+    padGlobalAnnounced = false;
     landingDecisionMode = "HoldLanding";
     executedAction = "HoldLanding";
     actionSource = "policy_hold";
@@ -168,6 +173,7 @@ function [res, traceTbl] = autosimRunScenario(cfg, scenarioCfg, scenarioId, mode
 
     liveViz = struct();
     liveVizInitAttempted = false;
+    enableScenarioLiveView = isfield(cfg, 'visualization') && isfield(cfg.visualization, 'enable_scenario_live_view') && cfg.visualization.enable_scenario_live_view;
     hasTrainedModel = autosimIsModelReliable(model, cfg);
     stopRequested = false;
     stopReason = "";
@@ -392,6 +398,63 @@ function [res, traceTbl] = autosimRunScenario(cfg, scenarioCfg, scenarioId, mode
         vzNow = autosimNanLast(vz(1:k));
         zNow = autosimNanLast(z(1:k));
 
+        padGlobalEnable = isfield(cfg.control, 'pad_global_tracking_enable') && cfg.control.pad_global_tracking_enable;
+        padGlobalUseInXYHold = padGlobalEnable && isfield(cfg.control, 'pad_global_tracking_use_in_xy_hold') && cfg.control.pad_global_tracking_use_in_xy_hold;
+        padGlobalUseInLandingTrack = padGlobalEnable && isfield(cfg.control, 'pad_global_tracking_use_in_landing_track') && cfg.control.pad_global_tracking_use_in_landing_track;
+        padGlobalScaleX = autosimClampNaN(cfg.control.pose_hold_cmd_limit, 0.35);
+        padGlobalScaleY = padGlobalScaleX;
+        if isfield(cfg.control, 'pad_global_tracking_scale_x_m_per_norm') && isfinite(cfg.control.pad_global_tracking_scale_x_m_per_norm)
+            padGlobalScaleX = abs(cfg.control.pad_global_tracking_scale_x_m_per_norm);
+        end
+        if isfield(cfg.control, 'pad_global_tracking_scale_y_m_per_norm') && isfinite(cfg.control.pad_global_tracking_scale_y_m_per_norm)
+            padGlobalScaleY = abs(cfg.control.pad_global_tracking_scale_y_m_per_norm);
+        end
+        padGlobalErrMax = autosimClampNaN(cfg.agent.max_tag_error_before_land, 0.90);
+        if isfield(cfg.control, 'pad_global_tracking_obs_max_tag_error') && isfinite(cfg.control.pad_global_tracking_obs_max_tag_error)
+            padGlobalErrMax = max(0.0, cfg.control.pad_global_tracking_obs_max_tag_error);
+        end
+        padGlobalMinSamples = 5;
+        if isfield(cfg.control, 'pad_global_tracking_min_samples') && isfinite(cfg.control.pad_global_tracking_min_samples)
+            padGlobalMinSamples = max(1, round(cfg.control.pad_global_tracking_min_samples));
+        end
+
+        uObs = nan;
+        vObs = nan;
+        if predOk && isfinite(uPred) && isfinite(vPred)
+            uObs = uPred;
+            vObs = vPred;
+        elseif tagDetected && isfinite(uTag) && isfinite(vTag)
+            uObs = uTag;
+            vObs = vTag;
+        end
+        if padGlobalEnable && isfinite(xNow) && isfinite(yNow) && isfinite(uObs) && isfinite(vObs)
+            tagErrObs = sqrt((uObs - cfg.control.target_u)^2 + (vObs - cfg.control.target_v)^2);
+            if tagErrObs <= padGlobalErrMax
+                errUObs = cfg.control.target_u - uObs;
+                errVObs = cfg.control.target_v - vObs;
+                padObsX = xNow + cfg.control.xy_map_sign_x_from_v * padGlobalScaleX * errVObs;
+                padObsY = yNow + cfg.control.xy_map_sign_y_from_u * padGlobalScaleY * errUObs;
+                if isfinite(padObsX) && isfinite(padObsY)
+                    padGlobalObsCount = padGlobalObsCount + 1;
+                    if padGlobalObsCount == 1 || ~isfinite(padGlobalMeanX) || ~isfinite(padGlobalMeanY)
+                        padGlobalMeanX = padObsX;
+                        padGlobalMeanY = padObsY;
+                    else
+                        padGlobalMeanX = padGlobalMeanX + (padObsX - padGlobalMeanX) / padGlobalObsCount;
+                        padGlobalMeanY = padGlobalMeanY + (padObsY - padGlobalMeanY) / padGlobalObsCount;
+                    end
+                end
+            end
+            if ~padGlobalValid && padGlobalObsCount >= padGlobalMinSamples && isfinite(padGlobalMeanX) && isfinite(padGlobalMeanY)
+                padGlobalValid = true;
+                if ~padGlobalAnnounced
+                    fprintf('[AUTOSIM] s%03d global pad estimate ready (n=%d, x=%.2f, y=%.2f)\n', ...
+                        scenarioId, padGlobalObsCount, padGlobalMeanX, padGlobalMeanY);
+                    padGlobalAnnounced = true;
+                end
+            end
+        end
+
         isFlying = false;
         if isfinite(stateVal(k))
             isFlying = (stateVal(k) == 1);
@@ -546,8 +609,16 @@ function [res, traceTbl] = autosimRunScenario(cfg, scenarioCfg, scenarioId, mode
                         pidY = autosimPidInit();
                         tagLostSearchStartT = nan;
                     else
-                        [cmdX, cmdY, pidX, pidY, tagLostSearchStartT] = autosimComputeTagTrackingCommand( ...
-                            cfg, tk, dtCtrl, xNow, yNow, predOk, uPred, vPred, tagDetected, uTag, vTag, pidX, pidY, tagLostSearchStartT);
+                        hasVisualObs = (predOk && isfinite(uPred) && isfinite(vPred)) || (tagDetected && isfinite(uTag) && isfinite(vTag));
+                        if padGlobalUseInXYHold && padGlobalValid && ~hasVisualObs
+                            pidX = autosimPidInit();
+                            pidY = autosimPidInit();
+                            tagLostSearchStartT = nan;
+                            [cmdX, cmdY] = autosimComputePoseHoldToTarget(cfg, xNow, yNow, padGlobalMeanX, padGlobalMeanY);
+                        else
+                            [cmdX, cmdY, pidX, pidY, tagLostSearchStartT] = autosimComputeTagTrackingCommand( ...
+                                cfg, tk, dtCtrl, xNow, yNow, predOk, uPred, vPred, tagDetected, uTag, vTag, pidX, pidY, tagLostSearchStartT);
+                        end
                     end
 
                 case 'landing_track'
@@ -560,11 +631,18 @@ function [res, traceTbl] = autosimRunScenario(cfg, scenarioCfg, scenarioId, mode
                             isfield(cfg.control, 'landing_lock_xy_follow_enable') && cfg.control.landing_lock_xy_follow_enable && ...
                             landingPadLockValid;
 
+                        usePadGlobalXY = padGlobalUseInLandingTrack && padGlobalValid;
+
                         if useLandingLockXY
                             pidX = autosimPidInit();
                             pidY = autosimPidInit();
                             tagLostSearchStartT = nan;
                             [cmdX, cmdY] = autosimComputePoseHoldToTarget(cfg, xNow, yNow, landingPadLockX, landingPadLockY);
+                        elseif usePadGlobalXY
+                            pidX = autosimPidInit();
+                            pidY = autosimPidInit();
+                            tagLostSearchStartT = nan;
+                            [cmdX, cmdY] = autosimComputePoseHoldToTarget(cfg, xNow, yNow, padGlobalMeanX, padGlobalMeanY);
                         else
                             [cmdX, cmdY, pidX, pidY, tagLostSearchStartT] = autosimComputeTagTrackingCommand( ...
                                 cfg, tk, dtCtrl, xNow, yNow, predOk, uPred, vPred, tagDetected, uTag, vTag, pidX, pidY, tagLostSearchStartT);
@@ -962,8 +1040,13 @@ function [res, traceTbl] = autosimRunScenario(cfg, scenarioCfg, scenarioId, mode
             landingTriggeredNow = ~landingSent && (canLandBySemantic || canLandByModel || canLandByNoModelThreshold || ...
                 canLandByUncertainModelFallback || canLandByProbe || canLandByForcedTimeout);
             if landingTriggeredNow && ~landingPadLockValid && isfinite(xEvalNow) && isfinite(yEvalNow)
-                landingPadLockX = xEvalNow;
-                landingPadLockY = yEvalNow;
+                if padGlobalValid && padGlobalUseInLandingTrack
+                    landingPadLockX = padGlobalMeanX;
+                    landingPadLockY = padGlobalMeanY;
+                else
+                    landingPadLockX = xEvalNow;
+                    landingPadLockY = yEvalNow;
+                end
                 landingPadLockValid = true;
                 fprintf('[AUTOSIM] s%03d landing lock fallback captured at (x=%.2f, y=%.2f)\n', scenarioId, landingPadLockX, landingPadLockY);
             end
@@ -1091,43 +1174,45 @@ function [res, traceTbl] = autosimRunScenario(cfg, scenarioCfg, scenarioId, mode
                 inferTxt = "HOLD_LANDING";
             end
 
-            vizState = struct();
-            vizState.tSec = tk - analysisStartT;
-            vizState.phase = string(controlPhase);
-            vizState.inferTxt = string(inferTxt);
-            vizState.predStableProb = decisionStableProb;
-            vizState.predLabel = string(predLabel);
-            vizState.decisionTxt = string(decisionTxt(k));
-            vizState.landingFeasibility = semantic.landing_feasibility;
-            vizState.modelSaysStable = logical(modelSaysStable);
-            vizState.modelSaysUnstable = logical(modelSaysUnstable);
-            vizState.modelIsUncertain = logical(modelIsUncertain);
-            vizState.semantic = semantic;
-            vizState.semVec = semVec;
-            vizState.sensors = struct( ...
-                'windSpeed', windSpNow, ...
-                'windDirDeg', windDirNow, ...
-                'rollDeg', autosimNanLast(rollDeg(activeIdx)), ...
-                'pitchDeg', autosimNanLast(pitchDeg(activeIdx)), ...
-                'altitude', zEvalNow, ...
-                'vz', vzEvalNow, ...
-                'tagErr', autosimNanLast(tagErr(activeIdx)), ...
-                'tagU', uTag, ...
-                'tagV', vTag, ...
-                'tagDetected', logical(tagDetected), ...
-                'tagJitterPx', tagJitterPx, ...
-                'tagStabilityScore', tagStabilityScore, ...
-                'detectionContinuity', detCont);
-            if ~liveVizInitAttempted
-                try
-                    liveViz = autosimInitScenarioRealtimePlot(cfg, scenarioId, scenarioCfg);
-                catch ME
-                    liveViz = struct();
-                    warning('[AUTOSIM] Realtime ontology plot disabled: %s', ME.message);
+            if analysisDataSeen && enableScenarioLiveView
+                vizState = struct();
+                vizState.tSec = tk - analysisStartT;
+                vizState.phase = string(controlPhase);
+                vizState.inferTxt = string(inferTxt);
+                vizState.predStableProb = decisionStableProb;
+                vizState.predLabel = string(predLabel);
+                vizState.decisionTxt = string(decisionTxt(k));
+                vizState.landingFeasibility = semantic.landing_feasibility;
+                vizState.modelSaysStable = logical(modelSaysStable);
+                vizState.modelSaysUnstable = logical(modelSaysUnstable);
+                vizState.modelIsUncertain = logical(modelIsUncertain);
+                vizState.semantic = semantic;
+                vizState.semVec = semVec;
+                vizState.sensors = struct( ...
+                    'windSpeed', windSpNow, ...
+                    'windDirDeg', windDirNow, ...
+                    'rollDeg', autosimNanLast(rollDeg(activeIdx)), ...
+                    'pitchDeg', autosimNanLast(pitchDeg(activeIdx)), ...
+                    'altitude', zEvalNow, ...
+                    'vz', vzEvalNow, ...
+                    'tagErr', autosimNanLast(tagErr(activeIdx)), ...
+                    'tagU', uTag, ...
+                    'tagV', vTag, ...
+                    'tagDetected', logical(tagDetected), ...
+                    'tagJitterPx', tagJitterPx, ...
+                    'tagStabilityScore', tagStabilityScore, ...
+                    'detectionContinuity', detCont);
+                if ~liveVizInitAttempted
+                    try
+                        liveViz = autosimInitScenarioRealtimePlot(cfg, scenarioId, scenarioCfg);
+                    catch ME
+                        liveViz = struct();
+                        warning('[AUTOSIM] Realtime ontology plot disabled: %s', ME.message);
+                    end
+                    liveVizInitAttempted = true;
                 end
-                liveVizInitAttempted = true;
+                autosimUpdateScenarioRealtimePlot(liveViz, vizState);
             end
-            autosimUpdateScenarioRealtimePlot(liveViz, vizState);
         end
 
         % Keep publishing cmd_vel so the topic is always alive for debugging/monitoring.
@@ -1147,10 +1232,12 @@ function [res, traceTbl] = autosimRunScenario(cfg, scenarioCfg, scenarioId, mode
         end
 
         if (~landingSent) && isFlying && (controlPhase == "xy_hold")
+            fastLoopUsePadGlobal = padGlobalEnable && isfield(cfg.control, 'pad_global_tracking_use_in_fast_loop') && cfg.control.pad_global_tracking_use_in_fast_loop;
             [pidX, pidY, tagLostSearchStartT, lastTagU, lastTagV, lastTagDetectT, haveLastTag, lastTagRxT, tagRxCount] = ...
                 autosimRunFastTagControlBurst(cfg, rosCtx, pubCmd, msgCmd, t0, tk, max(0.0, cfg.scenario.sample_period_sec - (toc(t0) - iterStartT)), ...
                 xNow, yNow, pidX, pidY, tagLostSearchStartT, lastTagU, lastTagV, lastTagDetectT, haveLastTag, lastTagRxT, tagRxCount, ...
-                randomLandingPlanned, randomLandingStartT, randomLandingEndT, randomBiasX, randomBiasY);
+                randomLandingPlanned, randomLandingStartT, randomLandingEndT, randomBiasX, randomBiasY, ...
+                fastLoopUsePadGlobal, padGlobalValid, padGlobalMeanX, padGlobalMeanY);
         end
 
         if landingSent
@@ -1389,7 +1476,7 @@ function [res, traceTbl] = autosimRunScenario(cfg, scenarioCfg, scenarioId, mode
             predPost = nan;
         end
 
-        if analysisDataSeen
+        if analysisDataSeen && enableScenarioLiveView
             vizState = struct();
             vizState.tSec = t(end) - analysisStartT;
             vizState.phase = "post_observe";
