@@ -1,5 +1,14 @@
 # IICC26 Workspace
 
+## 📹 Demo Video
+
+<video width="800" controls>
+  <source src="./video/스크린캐스트 03-21-2026 08:49:29 PM.webm" type="video/webm">
+  Your browser does not support the video tag.
+</video>
+
+---
+
 IICC26 워크스페이스는 ROS2+Gazebo 시뮬레이션과 MATLAB `AutoSim`을 결합해, 바람 외란 환경에서 드론 착륙 의사결정(AttemptLanding vs HoldLanding)을 연구하는 통합 실험 환경이다.
 
 ## 연구 목표
