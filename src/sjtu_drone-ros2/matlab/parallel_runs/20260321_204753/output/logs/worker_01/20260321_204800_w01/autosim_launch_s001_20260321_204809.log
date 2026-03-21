@@ -3033,3 +3033,648 @@
 [gzserver-2] [INFO] [1774094070.114367979] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=3.00 wind_direction=-138.0
 [gzserver-2] [INFO] [1774094070.995838562] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=2.82 wind_direction=-135.2
 [gzserver-2] [INFO] [1774094071.208439356] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=2.89 wind_direction=-135.5
+[gzserver-2] [INFO] [1774094071.386762208] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=2.31 wind_direction=-133.6
+[gzserver-2] [INFO] [1774094071.626477161] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=2.62 wind_direction=-131.9
+[gzserver-2] [INFO] [1774094071.783291177] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=2.50 wind_direction=-135.0
+[gzserver-2] [INFO] [1774094071.984330810] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=2.31 wind_direction=-133.8
+[gzserver-2] [INFO] [1774094072.732137927] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=1.58 wind_direction=-132.2
+[gzserver-2] [INFO] [1774094073.064044568] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=1.63 wind_direction=-129.3
+[gzserver-2] [INFO] [1774094073.325978912] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=1.34 wind_direction=-121.0
+[gzserver-2] [INFO] [1774094073.510075447] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=1.75 wind_direction=-119.4
+[gzserver-2] [INFO] [1774094073.643838714] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=1.67 wind_direction=-118.6
+[gzserver-2] [INFO] [1774094073.745674260] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=1.98 wind_direction=-122.1
+[gzserver-2] [INFO] [1774094074.104419146] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=2.22 wind_direction=-118.9
+[gzserver-2] [INFO] [1774094074.483604041] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=2.57 wind_direction=-118.9
+[gzserver-2] [INFO] [1774094074.718655528] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=2.63 wind_direction=-111.8
+[gzserver-2] [INFO] [1774094074.957151429] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=2.74 wind_direction=-117.1
+[gzserver-2] [INFO] [1774094075.804575659] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=3.00 wind_direction=-115.0
+[gzserver-2] [INFO] [1774094076.371490820] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=2.76 wind_direction=-113.9
+[gzserver-2] [INFO] [1774094076.639456026] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=2.83 wind_direction=-114.9
+[gzserver-2] [INFO] [1774094078.074676319] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=1.71 wind_direction=-123.3
+[gzserver-2] [INFO] [1774094078.171794626] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=1.86 wind_direction=-120.0
+[gzserver-2] [INFO] [1774094078.288386589] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=1.60 wind_direction=-122.8
+[gzserver-2] [INFO] [1774094079.328694474] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=1.51 wind_direction=-127.1
+[gzserver-2] [INFO] [1774094079.858543475] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=2.49 wind_direction=-134.0
+[gzserver-2] [INFO] [1774094080.153141358] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=2.49 wind_direction=-134.7
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m2.70196[0m[1;36m dir=[0m[1;36m-137.37[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m3[0m[1;36m dir=[0m[1;36m-138.016[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m2.82018[0m[1;36m dir=[0m[1;36m-135.222[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m2.8874[0m[1;36m dir=[0m[1;36m-135.485[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m2.3069[0m[1;36m dir=[0m[1;36m-133.6[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m2.62452[0m[1;36m dir=[0m[1;36m-131.898[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m2.49903[0m[1;36m dir=[0m[1;36m-134.985[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m2.31099[0m[1;36m dir=[0m[1;36m-133.761[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m1.57689[0m[1;36m dir=[0m[1;36m-132.16[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m1.62563[0m[1;36m dir=[0m[1;36m-129.291[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m1.34391[0m[1;36m dir=[0m[1;36m-121.009[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m1.75057[0m[1;36m dir=[0m[1;36m-119.428[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m1.67151[0m[1;36m dir=[0m[1;36m-118.638[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m1.97513[0m[1;36m dir=[0m[1;36m-122.09[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m2.22135[0m[1;36m dir=[0m[1;36m-118.874[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m2.56757[0m[1;36m dir=[0m[1;36m-118.948[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m2.63233[0m[1;36m dir=[0m[1;36m-111.778[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m2.74301[0m[1;36m dir=[0m[1;36m-117.127[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m3[0m[1;36m dir=[0m[1;36m-115.03[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m2.75845[0m[1;36m dir=[0m[1;36m-113.93[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m2.83348[0m[1;36m dir=[0m[1;36m-114.886[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m1.70969[0m[1;36m dir=[0m[1;36m-123.341[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m1.86008[0m[1;36m dir=[0m[1;36m-119.995[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m1.59823[0m[1;36m dir=[0m[1;36m-122.791[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m1.51167[0m[1;36m dir=[0m[1;36m-127.125[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m2.48838[0m[1;36m dir=[0m[1;36m-133.959[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m2.4861[0m[1;36m dir=[0m[1;36m-134.688[0m[1;36m
+[gzserver-2] [INFO] [1774094080.970055013] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=3.00 wind_direction=-138.6
+[gzserver-2] [INFO] [1774094081.284902327] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=3.00 wind_direction=-136.3
+[gzserver-2] [INFO] [1774094081.450965170] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=3.00 wind_direction=-139.4
+[gzserver-2] [INFO] [1774094081.604070355] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=3.00 wind_direction=-138.5
+[gzserver-2] [INFO] [1774094081.764673600] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=3.00 wind_direction=-138.0
+[gzserver-2] [INFO] [1774094081.932949290] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=3.00 wind_direction=-137.6
+[gzserver-2] [INFO] [1774094082.107889679] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=2.82 wind_direction=-132.8
+[gzserver-2] [INFO] [1774094082.346302170] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=2.75 wind_direction=-140.8
+[gzserver-2] [INFO] [1774094082.567289956] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=2.59 wind_direction=-132.2
+[gzserver-2] [INFO] [1774094082.855451094] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=2.44 wind_direction=-137.5
+[gzserver-2] [INFO] [1774094082.957127249] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=2.50 wind_direction=-132.5
+[gzserver-2] [INFO] [1774094083.560618638] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=1.57 wind_direction=-124.0
+[gzserver-2] [INFO] [1774094083.851366017] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=1.92 wind_direction=-128.4
+[gzserver-2] [INFO] [1774094083.991358281] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=1.65 wind_direction=-123.2
+[gzserver-2] [INFO] [1774094084.205497246] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=1.62 wind_direction=-127.0
+[gzserver-2] [INFO] [1774094084.385832697] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=1.50 wind_direction=-124.5
+[gzserver-2] [INFO] [1774094086.115988534] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=2.84 wind_direction=-117.3
+[gzserver-2] [INFO] [1774094086.348434013] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=3.00 wind_direction=-116.0
+[gzserver-2] [INFO] [1774094086.476908928] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=3.00 wind_direction=-116.1
+[gzserver-2] [INFO] [1774094086.641917455] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=3.00 wind_direction=-117.7
+[gzserver-2] [INFO] [1774094086.840873140] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=3.00 wind_direction=-114.4
+[gzserver-2] [INFO] [1774094086.999346837] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=3.00 wind_direction=-114.5
+[gzserver-2] [INFO] [1774094087.179122785] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=3.00 wind_direction=-111.8
+[gzserver-2] [INFO] [1774094087.340787291] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=3.00 wind_direction=-113.9
+[gzserver-2] [INFO] [1774094087.618270621] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=2.86 wind_direction=-116.2
+[gzserver-2] [INFO] [1774094087.798655106] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=2.80 wind_direction=-115.2
+[gzserver-2] [INFO] [1774094087.976138169] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=2.50 wind_direction=-120.4
+[gzserver-2] [INFO] [1774094088.088165170] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=2.50 wind_direction=-116.7
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m3[0m[1;36m dir=[0m[1;36m-138.631[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m3[0m[1;36m dir=[0m[1;36m-136.299[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m3[0m[1;36m dir=[0m[1;36m-139.39[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m3[0m[1;36m dir=[0m[1;36m-138.455[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m3[0m[1;36m dir=[0m[1;36m-137.981[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m3[0m[1;36m dir=[0m[1;36m-137.58[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m2.81541[0m[1;36m dir=[0m[1;36m-132.795[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m2.74969[0m[1;36m dir=[0m[1;36m-140.805[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m2.586[0m[1;36m dir=[0m[1;36m-132.155[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m2.44249[0m[1;36m dir=[0m[1;36m-137.543[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m2.49921[0m[1;36m dir=[0m[1;36m-132.542[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m1.56547[0m[1;36m dir=[0m[1;36m-124.025[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m1.92144[0m[1;36m dir=[0m[1;36m-128.354[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m1.65361[0m[1;36m dir=[0m[1;36m-123.216[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m1.62293[0m[1;36m dir=[0m[1;36m-126.968[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m1.50288[0m[1;36m dir=[0m[1;36m-124.492[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m2.83534[0m[1;36m dir=[0m[1;36m-117.32[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m3[0m[1;36m dir=[0m[1;36m-116.011[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m3[0m[1;36m dir=[0m[1;36m-116.076[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m3[0m[1;36m dir=[0m[1;36m-117.657[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m3[0m[1;36m dir=[0m[1;36m-114.449[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m3[0m[1;36m dir=[0m[1;36m-114.474[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m3[0m[1;36m dir=[0m[1;36m-111.821[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m3[0m[1;36m dir=[0m[1;36m-113.882[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m2.85994[0m[1;36m dir=[0m[1;36m-116.185[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m2.79533[0m[1;36m dir=[0m[1;36m-115.173[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m2.49607[0m[1;36m dir=[0m[1;36m-120.38[0m[1;36m
+[gzserver-2] [INFO] [1774094088.355221987] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=2.13 wind_direction=-113.9
+[gzserver-2] [INFO] [1774094088.557369125] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=2.10 wind_direction=-123.1
+[gzserver-2] [INFO] [1774094088.748758641] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=2.34 wind_direction=-122.9
+[gzserver-2] [INFO] [1774094088.910284589] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=1.71 wind_direction=-120.9
+[gzserver-2] [INFO] [1774094089.082605557] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=1.58 wind_direction=-123.0
+[gzserver-2] [INFO] [1774094089.254038754] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=1.93 wind_direction=-120.4
+[gzserver-2] [INFO] [1774094089.466913167] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=1.44 wind_direction=-127.8
+[gzserver-2] [INFO] [1774094089.568823470] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=1.41 wind_direction=-127.6
+[gzserver-2] [INFO] [1774094089.717868538] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=1.84 wind_direction=-126.6
+[gzserver-2] [INFO] [1774094089.939780982] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=1.57 wind_direction=-126.8
+[gzserver-2] [INFO] [1774094090.228539648] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=1.90 wind_direction=-129.6
+[gzserver-2] [INFO] [1774094090.408937823] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=1.98 wind_direction=-130.4
+[gzserver-2] [INFO] [1774094090.595957540] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=2.12 wind_direction=-133.0
+[gzserver-2] [INFO] [1774094090.725572685] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=2.19 wind_direction=-134.4
+[gzserver-2] [INFO] [1774094090.897491837] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=2.19 wind_direction=-134.1
+[gzserver-2] [INFO] [1774094091.734171160] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=2.85 wind_direction=-138.0
+[gzserver-2] [INFO] [1774094091.923979150] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=3.00 wind_direction=-137.5
+[gzserver-2] [INFO] [1774094092.049262030] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=3.00 wind_direction=-135.8
+[gzserver-2] [INFO] [1774094092.228304413] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=3.00 wind_direction=-135.6
+[gzserver-2] [INFO] [1774094092.332532603] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=3.00 wind_direction=-141.4
+[gzserver-2] [INFO] [1774094092.446108960] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=3.00 wind_direction=-131.2
+[gzserver-2] [INFO] [1774094092.643606250] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=3.00 wind_direction=-138.0
+[gzserver-2] [INFO] [1774094092.906709890] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=3.00 wind_direction=-140.3
+[gzserver-2] [INFO] [1774094093.142768871] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=2.99 wind_direction=-139.8
+[gzserver-2] [INFO] [1774094093.311849867] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=2.90 wind_direction=-139.4
+[gzserver-2] [INFO] [1774094093.526372229] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=2.75 wind_direction=-135.8
+[gzserver-2] [INFO] [1774094093.657220049] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=2.38 wind_direction=-133.3
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m2.49905[0m[1;36m dir=[0m[1;36m-116.657[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m2.1345[0m[1;36m dir=[0m[1;36m-113.885[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m2.1032[0m[1;36m dir=[0m[1;36m-123.05[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m2.33509[0m[1;36m dir=[0m[1;36m-122.874[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m1.70886[0m[1;36m dir=[0m[1;36m-120.906[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m1.58436[0m[1;36m dir=[0m[1;36m-123.041[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m1.92693[0m[1;36m dir=[0m[1;36m-120.351[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m1.43697[0m[1;36m dir=[0m[1;36m-127.835[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m1.40533[0m[1;36m dir=[0m[1;36m-127.612[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m1.84496[0m[1;36m dir=[0m[1;36m-126.631[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m1.57225[0m[1;36m dir=[0m[1;36m-126.821[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m1.89636[0m[1;36m dir=[0m[1;36m-129.577[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m1.9755[0m[1;36m dir=[0m[1;36m-130.449[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m2.12342[0m[1;36m dir=[0m[1;36m-133.016[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m2.19335[0m[1;36m dir=[0m[1;36m-134.355[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m2.18512[0m[1;36m dir=[0m[1;36m-134.057[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m2.84879[0m[1;36m dir=[0m[1;36m-138.044[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m3[0m[1;36m dir=[0m[1;36m-137.548[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m3[0m[1;36m dir=[0m[1;36m-135.759[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m3[0m[1;36m dir=[0m[1;36m-135.557[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m3[0m[1;36m dir=[0m[1;36m-141.396[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m3[0m[1;36m dir=[0m[1;36m-131.172[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m3[0m[1;36m dir=[0m[1;36m-138.013[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m3[0m[1;36m dir=[0m[1;36m-140.338[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m2.9926[0m[1;36m dir=[0m[1;36m-139.833[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m2.90259[0m[1;36m dir=[0m[1;36m-139.392[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m2.74792[0m[1;36m dir=[0m[1;36m-135.84[0m[1;36m
+[gzserver-2] [INFO] [1774094093.798259791] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=2.55 wind_direction=-137.4
+[gzserver-2] [INFO] [1774094094.047422535] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=2.39 wind_direction=-133.4
+[gzserver-2] [INFO] [1774094094.239866390] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=1.95 wind_direction=-133.7
+[gzserver-2] [INFO] [1774094094.466693566] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=1.88 wind_direction=-124.8
+[gzserver-2] [INFO] [1774094094.628992794] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=2.13 wind_direction=-129.3
+[gzserver-2] [INFO] [1774094094.747511399] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=1.54 wind_direction=-132.0
+[gzserver-2] [INFO] [1774094094.961432304] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=1.75 wind_direction=-124.2
+[gzserver-2] [INFO] [1774094095.116506159] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=1.28 wind_direction=-128.7
+[gzserver-2] [INFO] [1774094095.291202768] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=1.51 wind_direction=-125.6
+[gzserver-2] [INFO] [1774094095.722156700] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=1.98 wind_direction=-121.6
+[gzserver-2] [INFO] [1774094096.086566412] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=2.06 wind_direction=-116.8
+[gzserver-2] [INFO] [1774094096.183843891] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=2.10 wind_direction=-120.6
+[gzserver-2] [INFO] [1774094096.377988600] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=2.31 wind_direction=-117.5
+[gzserver-2] [INFO] [1774094096.521381068] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=2.47 wind_direction=-116.4
+[gzserver-2] [INFO] [1774094096.706512555] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=2.55 wind_direction=-117.9
+[gzserver-2] [INFO] [1774094096.956027189] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=2.86 wind_direction=-116.8
+[gzserver-2] [INFO] [1774094097.113103966] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=3.00 wind_direction=-114.0
+[gzserver-2] [INFO] [1774094097.371510313] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=3.00 wind_direction=-115.9
+[gzserver-2] [INFO] [1774094097.554104362] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=3.00 wind_direction=-109.1
+[gzserver-2] [INFO] [1774094097.706365158] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=3.00 wind_direction=-113.2
+[gzserver-2] [INFO] [1774094097.846887988] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=3.00 wind_direction=-119.3
+[gzserver-2] [INFO] [1774094097.981653316] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=3.00 wind_direction=-113.9
+[gzserver-2] [INFO] [1774094098.148297668] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=3.00 wind_direction=-115.2
+[gzserver-2] [INFO] [1774094098.338460711] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=3.00 wind_direction=-112.3
+[gzserver-2] [INFO] [1774094098.465979391] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=2.89 wind_direction=-111.4
+[gzserver-2] [INFO] [1774094098.813003271] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=3.00 wind_direction=-112.9
+[gzserver-2] [INFO] [1774094099.071312118] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=2.78 wind_direction=-115.7
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m2.37691[0m[1;36m dir=[0m[1;36m-133.274[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m2.5505[0m[1;36m dir=[0m[1;36m-137.397[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m2.3893[0m[1;36m dir=[0m[1;36m-133.425[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m1.95231[0m[1;36m dir=[0m[1;36m-133.725[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m1.87691[0m[1;36m dir=[0m[1;36m-124.8[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m2.12757[0m[1;36m dir=[0m[1;36m-129.338[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m1.54164[0m[1;36m dir=[0m[1;36m-132[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m1.74833[0m[1;36m dir=[0m[1;36m-124.184[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m1.27501[0m[1;36m dir=[0m[1;36m-128.706[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m1.51024[0m[1;36m dir=[0m[1;36m-125.578[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m1.97729[0m[1;36m dir=[0m[1;36m-121.649[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m2.06165[0m[1;36m dir=[0m[1;36m-116.776[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m2.09888[0m[1;36m dir=[0m[1;36m-120.574[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m2.31153[0m[1;36m dir=[0m[1;36m-117.464[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m2.47278[0m[1;36m dir=[0m[1;36m-116.423[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m2.54988[0m[1;36m dir=[0m[1;36m-117.905[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m2.86008[0m[1;36m dir=[0m[1;36m-116.822[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m3[0m[1;36m dir=[0m[1;36m-114.036[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m3[0m[1;36m dir=[0m[1;36m-115.851[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m3[0m[1;36m dir=[0m[1;36m-109.079[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m3[0m[1;36m dir=[0m[1;36m-113.241[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m3[0m[1;36m dir=[0m[1;36m-119.318[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m3[0m[1;36m dir=[0m[1;36m-113.923[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m3[0m[1;36m dir=[0m[1;36m-115.209[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m3[0m[1;36m dir=[0m[1;36m-112.308[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m2.89383[0m[1;36m dir=[0m[1;36m-111.41[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m3[0m[1;36m dir=[0m[1;36m-112.943[0m[1;36m
+[gzserver-2] [INFO] [1774094099.213533295] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=2.46 wind_direction=-118.6
+[gzserver-2] [INFO] [1774094099.348757610] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=2.48 wind_direction=-116.3
+[gzserver-2] [INFO] [1774094099.462901678] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=2.51 wind_direction=-117.0
+[gzserver-2] [INFO] [1774094099.591290781] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=2.31 wind_direction=-121.2
+[gzserver-2] [INFO] [1774094099.717046571] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=2.17 wind_direction=-117.7
+[gzserver-2] [INFO] [1774094099.936110306] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=2.02 wind_direction=-124.0
+[gzserver-2] [INFO] [1774094100.109057857] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=1.64 wind_direction=-125.1
+[gzserver-2] [INFO] [1774094100.233466736] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=1.75 wind_direction=-120.0
+[gzserver-2] [INFO] [1774094100.465735951] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=1.59 wind_direction=-125.7
+[gzserver-2] [INFO] [1774094100.692437366] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=1.86 wind_direction=-126.2
+[gzserver-2] [INFO] [1774094101.056794541] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=1.88 wind_direction=-129.3
+[gzserver-2] [INFO] [1774094101.336996045] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=1.68 wind_direction=-129.0
+[gzserver-2] [INFO] [1774094101.522482163] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=1.89 wind_direction=-129.5
+[gzserver-2] [INFO] [1774094101.709105485] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=1.96 wind_direction=-130.0
+[gzserver-2] [INFO] [1774094101.868142740] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=2.31 wind_direction=-135.4
+[gzserver-2] [INFO] [1774094102.025267411] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=2.29 wind_direction=-134.3
+[gzserver-2] [INFO] [1774094102.149288046] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=2.44 wind_direction=-133.9
+[gzserver-2] [INFO] [1774094102.388347035] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=2.83 wind_direction=-130.2
+[gzserver-2] [INFO] [1774094102.535747321] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=2.70 wind_direction=-135.4
+[gzserver-2] [INFO] [1774094102.652650557] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=2.81 wind_direction=-137.4
+[gzserver-2] [INFO] [1774094103.325274479] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=3.00 wind_direction=-140.2
+[gzserver-2] [INFO] [1774094103.465183042] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=3.00 wind_direction=-144.3
+[gzserver-2] [INFO] [1774094103.787261179] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=3.00 wind_direction=-137.6
+[gzserver-2] [INFO] [1774094103.949512549] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=3.00 wind_direction=-135.2
+[gzserver-2] [INFO] [1774094104.067509534] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=3.00 wind_direction=-136.5
+[gzserver-2] [INFO] [1774094104.346228222] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=2.92 wind_direction=-135.1
+[gzserver-2] [INFO] [1774094105.383241251] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=1.86 wind_direction=-130.0
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m2.7775[0m[1;36m dir=[0m[1;36m-115.714[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m2.45662[0m[1;36m dir=[0m[1;36m-118.581[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m2.48152[0m[1;36m dir=[0m[1;36m-116.296[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m2.50643[0m[1;36m dir=[0m[1;36m-117.048[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m2.30714[0m[1;36m dir=[0m[1;36m-121.161[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m2.17209[0m[1;36m dir=[0m[1;36m-117.736[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m2.01818[0m[1;36m dir=[0m[1;36m-124[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m1.64211[0m[1;36m dir=[0m[1;36m-125.124[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m1.75128[0m[1;36m dir=[0m[1;36m-120.01[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m1.58776[0m[1;36m dir=[0m[1;36m-125.679[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m1.864[0m[1;36m dir=[0m[1;36m-126.174[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m1.87923[0m[1;36m dir=[0m[1;36m-129.335[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m1.68391[0m[1;36m dir=[0m[1;36m-128.972[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m1.89045[0m[1;36m dir=[0m[1;36m-129.473[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m1.96496[0m[1;36m dir=[0m[1;36m-129.976[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m2.30795[0m[1;36m dir=[0m[1;36m-135.417[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m2.29342[0m[1;36m dir=[0m[1;36m-134.277[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m2.44193[0m[1;36m dir=[0m[1;36m-133.943[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m2.82958[0m[1;36m dir=[0m[1;36m-130.239[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m2.69923[0m[1;36m dir=[0m[1;36m-135.385[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m2.81107[0m[1;36m dir=[0m[1;36m-137.449[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m3[0m[1;36m dir=[0m[1;36m-140.191[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m3[0m[1;36m dir=[0m[1;36m-144.346[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m3[0m[1;36m dir=[0m[1;36m-137.578[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m3[0m[1;36m dir=[0m[1;36m-135.238[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m3[0m[1;36m dir=[0m[1;36m-136.505[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m2.92157[0m[1;36m dir=[0m[1;36m-135.13[0m[1;36m
+[gzserver-2] [INFO] [1774094105.659666888] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=1.72 wind_direction=-129.1
+[gzserver-2] [INFO] [1774094105.804530855] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=1.85 wind_direction=-128.1
+[gzserver-2] [INFO] [1774094106.072087306] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=1.86 wind_direction=-126.3
+[gzserver-2] [INFO] [1774094106.333791598] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=1.66 wind_direction=-122.7
+[gzserver-2] [INFO] [1774094106.459178035] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=1.35 wind_direction=-126.7
+[gzserver-2] [INFO] [1774094106.629657102] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=1.66 wind_direction=-123.4
+[gzserver-2] [INFO] [1774094106.844875916] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=1.48 wind_direction=-122.5
+[gzserver-2] [INFO] [1774094107.029287482] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=1.71 wind_direction=-121.6
+[gzserver-2] [INFO] [1774094107.176292089] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=1.77 wind_direction=-121.3
+[gzserver-2] [INFO] [1774094107.390374640] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=2.13 wind_direction=-116.6
+[gzserver-2] [INFO] [1774094107.541586571] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=2.32 wind_direction=-115.9
+[gzserver-2] [INFO] [1774094107.709061717] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=2.38 wind_direction=-120.4
+[gzserver-2] [INFO] [1774094107.898836885] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=2.54 wind_direction=-115.3
+[gzserver-2] [INFO] [1774094108.040251448] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=2.45 wind_direction=-109.0
+[gzserver-2] [INFO] [1774094108.159225425] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=2.81 wind_direction=-113.1
+[gzserver-2] [INFO] [1774094108.323577682] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=2.77 wind_direction=-111.3
+[gzserver-2] [INFO] [1774094108.523007128] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=3.00 wind_direction=-111.9
+[gzserver-2] [INFO] [1774094108.789978955] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=3.00 wind_direction=-113.7
+[gzserver-2] [INFO] [1774094109.019069224] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=3.00 wind_direction=-113.2
+[gzserver-2] [INFO] [1774094109.203467399] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=3.00 wind_direction=-115.1
+[gzserver-2] [INFO] [1774094109.338725658] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=3.00 wind_direction=-110.6
+[gzserver-2] [INFO] [1774094109.567710492] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=3.00 wind_direction=-116.7
+[gzserver-2] [INFO] [1774094109.770477956] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=3.00 wind_direction=-113.0
+[gzserver-2] [INFO] [1774094109.965786006] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=2.80 wind_direction=-119.8
+[gzserver-2] [INFO] [1774094110.188713366] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=2.87 wind_direction=-122.9
+[gzserver-2] [INFO] [1774094110.384176632] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=2.42 wind_direction=-117.3
+[gzserver-2] [INFO] [1774094110.543368909] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=2.25 wind_direction=-120.2
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m1.8645[0m[1;36m dir=[0m[1;36m-129.986[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m1.71878[0m[1;36m dir=[0m[1;36m-129.106[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m1.846[0m[1;36m dir=[0m[1;36m-128.075[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m1.85776[0m[1;36m dir=[0m[1;36m-126.252[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m1.65885[0m[1;36m dir=[0m[1;36m-122.652[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m1.35022[0m[1;36m dir=[0m[1;36m-126.692[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m1.66096[0m[1;36m dir=[0m[1;36m-123.433[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m1.48482[0m[1;36m dir=[0m[1;36m-122.528[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m1.71061[0m[1;36m dir=[0m[1;36m-121.57[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m1.77077[0m[1;36m dir=[0m[1;36m-121.312[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m2.13088[0m[1;36m dir=[0m[1;36m-116.562[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m2.32249[0m[1;36m dir=[0m[1;36m-115.88[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m2.38274[0m[1;36m dir=[0m[1;36m-120.444[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m2.53993[0m[1;36m dir=[0m[1;36m-115.26[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m2.45227[0m[1;36m dir=[0m[1;36m-109.008[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m2.80901[0m[1;36m dir=[0m[1;36m-113.109[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m2.76517[0m[1;36m dir=[0m[1;36m-111.342[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m3[0m[1;36m dir=[0m[1;36m-111.911[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m3[0m[1;36m dir=[0m[1;36m-113.699[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m3[0m[1;36m dir=[0m[1;36m-113.249[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m3[0m[1;36m dir=[0m[1;36m-115.092[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m3[0m[1;36m dir=[0m[1;36m-110.62[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m3[0m[1;36m dir=[0m[1;36m-116.656[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m3[0m[1;36m dir=[0m[1;36m-112.973[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m2.79964[0m[1;36m dir=[0m[1;36m-119.79[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m2.86594[0m[1;36m dir=[0m[1;36m-122.899[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m2.41944[0m[1;36m dir=[0m[1;36m-117.319[0m[1;36m
+[gzserver-2] [INFO] [1774094111.456171734] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=1.56 wind_direction=-120.6
+[gzserver-2] [INFO] [1774094111.613559323] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=1.33 wind_direction=-119.7
+[gzserver-2] [INFO] [1774094111.794060150] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=1.58 wind_direction=-123.5
+[gzserver-2] [INFO] [1774094112.081147147] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=1.68 wind_direction=-127.0
+[gzserver-2] [INFO] [1774094112.263577346] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=1.49 wind_direction=-130.5
+[gzserver-2] [INFO] [1774094112.375183642] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=1.77 wind_direction=-126.4
+[gzserver-2] [INFO] [1774094112.485879497] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=1.69 wind_direction=-132.2
+[gzserver-2] [INFO] [1774094112.941202490] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=2.08 wind_direction=-133.0
+[gzserver-2] [INFO] [1774094113.042871119] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=1.96 wind_direction=-131.9
+[gzserver-2] [INFO] [1774094113.160059831] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=2.19 wind_direction=-138.0
+[gzserver-2] [INFO] [1774094113.321731093] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=2.53 wind_direction=-137.4
+[gzserver-2] [INFO] [1774094113.433038781] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=2.56 wind_direction=-131.7
+[gzserver-2] [INFO] [1774094113.659072351] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=2.65 wind_direction=-136.5
+[gzserver-2] [INFO] [1774094113.804120562] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=2.61 wind_direction=-136.3
+[gzserver-2] [INFO] [1774094113.963539506] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=2.97 wind_direction=-139.5
+[gzserver-2] [INFO] [1774094114.141951370] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=2.86 wind_direction=-140.4
+[gzserver-2] [INFO] [1774094114.291480447] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=3.00 wind_direction=-134.8
+[gzserver-2] [INFO] [1774094114.438040092] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=3.00 wind_direction=-136.6
+[gzserver-2] [INFO] [1774094114.630662976] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=3.00 wind_direction=-137.8
+[gzserver-2] [INFO] [1774094114.831609377] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=3.00 wind_direction=-134.2
+[gzserver-2] [INFO] [1774094115.057058951] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=3.00 wind_direction=-144.0
+[gzserver-2] [INFO] [1774094115.396086194] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=3.00 wind_direction=-136.3
+[gzserver-2] [INFO] [1774094115.645892678] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=2.70 wind_direction=-133.0
+[gzserver-2] [INFO] [1774094115.816901871] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=2.86 wind_direction=-136.5
+[gzserver-2] [INFO] [1774094115.979424088] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=2.46 wind_direction=-134.6
+[gzserver-2] [INFO] [1774094116.127401011] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=2.39 wind_direction=-136.0
+[gzserver-2] [INFO] [1774094116.280658268] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=2.15 wind_direction=-134.1
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m2.25399[0m[1;36m dir=[0m[1;36m-120.17[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m1.56122[0m[1;36m dir=[0m[1;36m-120.573[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m1.3282[0m[1;36m dir=[0m[1;36m-119.727[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m1.57902[0m[1;36m dir=[0m[1;36m-123.469[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m1.68335[0m[1;36m dir=[0m[1;36m-127.031[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m1.48807[0m[1;36m dir=[0m[1;36m-130.468[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m1.77406[0m[1;36m dir=[0m[1;36m-126.369[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m1.68743[0m[1;36m dir=[0m[1;36m-132.246[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m2.08273[0m[1;36m dir=[0m[1;36m-133.005[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m1.9561[0m[1;36m dir=[0m[1;36m-131.852[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m2.19423[0m[1;36m dir=[0m[1;36m-137.999[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m2.52727[0m[1;36m dir=[0m[1;36m-137.386[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m2.55873[0m[1;36m dir=[0m[1;36m-131.657[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m2.64505[0m[1;36m dir=[0m[1;36m-136.493[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m2.61303[0m[1;36m dir=[0m[1;36m-136.281[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m2.96531[0m[1;36m dir=[0m[1;36m-139.498[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m2.86034[0m[1;36m dir=[0m[1;36m-140.355[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m3[0m[1;36m dir=[0m[1;36m-134.837[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m3[0m[1;36m dir=[0m[1;36m-136.584[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m3[0m[1;36m dir=[0m[1;36m-137.806[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m3[0m[1;36m dir=[0m[1;36m-134.175[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m3[0m[1;36m dir=[0m[1;36m-143.98[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m3[0m[1;36m dir=[0m[1;36m-136.348[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m2.69941[0m[1;36m dir=[0m[1;36m-132.984[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m2.85843[0m[1;36m dir=[0m[1;36m-136.498[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m2.45888[0m[1;36m dir=[0m[1;36m-134.554[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m2.39018[0m[1;36m dir=[0m[1;36m-136.03[0m[1;36m
+[gzserver-2] [INFO] [1774094116.400849897] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=2.15 wind_direction=-132.1
+[gzserver-2] [INFO] [1774094116.519037234] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=2.04 wind_direction=-139.1
+[gzserver-2] [INFO] [1774094116.708918380] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=1.97 wind_direction=-127.9
+[gzserver-2] [INFO] [1774094116.921864172] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=1.70 wind_direction=-132.3
+[gzserver-2] [INFO] [1774094117.057798249] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=1.88 wind_direction=-128.6
+[gzserver-2] [INFO] [1774094117.172039338] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=1.88 wind_direction=-130.8
+[gzserver-2] [INFO] [1774094117.401241835] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=1.49 wind_direction=-128.4
+[gzserver-2] [INFO] [1774094117.609550913] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=1.59 wind_direction=-122.9
+[gzserver-2] [INFO] [1774094117.832800873] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=1.42 wind_direction=-128.6
+[gzserver-2] [INFO] [1774094118.053993822] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=2.00 wind_direction=-127.8
+[gzserver-2] [INFO] [1774094118.221776875] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=1.88 wind_direction=-124.0
+[gzserver-2] [INFO] [1774094118.366975404] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=1.93 wind_direction=-123.3
+[gzserver-2] [INFO] [1774094118.507377733] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=2.13 wind_direction=-118.9
+[gzserver-2] [INFO] [1774094118.769259658] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=2.31 wind_direction=-117.4
+[gzserver-2] [INFO] [1774094118.948049340] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=2.53 wind_direction=-116.4
+[gzserver-2] [INFO] [1774094119.058648088] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=2.55 wind_direction=-119.5
+[gzserver-2] [INFO] [1774094119.206129110] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=2.94 wind_direction=-115.7
+[gzserver-2] [INFO] [1774094119.349329411] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=2.80 wind_direction=-117.8
+[gzserver-2] [INFO] [1774094119.465830660] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=2.91 wind_direction=-111.1
+[gzserver-2] [INFO] [1774094119.589292525] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=3.00 wind_direction=-115.5
+[gzserver-2] [INFO] [1774094119.816104184] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=3.00 wind_direction=-117.4
+[gzserver-2] [INFO] [1774094119.912158671] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=2.97 wind_direction=-113.9
+[gzserver-2] [INFO] [1774094120.087011864] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=2.87 wind_direction=-118.3
+[gzserver-2] [INFO] [1774094120.257291169] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=3.00 wind_direction=-113.0
+[gzserver-2] [INFO] [1774094120.519943105] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=3.00 wind_direction=-108.3
+[gzserver-2] [INFO] [1774094120.803116857] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=3.00 wind_direction=-114.3
+[gzserver-2] [INFO] [1774094121.026722938] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=3.00 wind_direction=-112.8
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m2.15494[0m[1;36m dir=[0m[1;36m-134.104[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m2.14846[0m[1;36m dir=[0m[1;36m-132.122[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m2.04289[0m[1;36m dir=[0m[1;36m-139.125[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m1.96581[0m[1;36m dir=[0m[1;36m-127.939[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m1.69873[0m[1;36m dir=[0m[1;36m-132.302[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m1.87818[0m[1;36m dir=[0m[1;36m-128.623[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m1.88124[0m[1;36m dir=[0m[1;36m-130.775[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m1.48761[0m[1;36m dir=[0m[1;36m-128.415[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m1.59403[0m[1;36m dir=[0m[1;36m-122.919[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m1.42023[0m[1;36m dir=[0m[1;36m-128.598[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m1.99828[0m[1;36m dir=[0m[1;36m-127.813[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m1.87745[0m[1;36m dir=[0m[1;36m-124.048[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m1.92555[0m[1;36m dir=[0m[1;36m-123.291[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m2.13275[0m[1;36m dir=[0m[1;36m-118.916[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m2.30747[0m[1;36m dir=[0m[1;36m-117.365[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m2.53216[0m[1;36m dir=[0m[1;36m-116.363[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m2.54586[0m[1;36m dir=[0m[1;36m-119.462[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m2.94392[0m[1;36m dir=[0m[1;36m-115.721[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m2.79672[0m[1;36m dir=[0m[1;36m-117.785[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m2.91068[0m[1;36m dir=[0m[1;36m-111.128[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m3[0m[1;36m dir=[0m[1;36m-115.503[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m3[0m[1;36m dir=[0m[1;36m-117.367[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m2.9706[0m[1;36m dir=[0m[1;36m-113.948[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m2.8693[0m[1;36m dir=[0m[1;36m-118.262[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m3[0m[1;36m dir=[0m[1;36m-112.97[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m3[0m[1;36m dir=[0m[1;36m-108.296[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m3[0m[1;36m dir=[0m[1;36m-114.329[0m[1;36m
+[gzserver-2] [INFO] [1774094121.296495382] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=2.59 wind_direction=-118.3
+[gzserver-2] [INFO] [1774094121.445984635] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=2.57 wind_direction=-114.3
+[gzserver-2] [INFO] [1774094122.512916898] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=1.56 wind_direction=-118.1
+[gzserver-2] [INFO] [1774094122.764013840] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=1.69 wind_direction=-125.2
+[gzserver-2] [INFO] [1774094123.053905644] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=1.74 wind_direction=-126.9
+[gzserver-2] [INFO] [1774094123.170118007] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=1.71 wind_direction=-121.5
+[gzserver-2] [INFO] [1774094123.344406968] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=1.61 wind_direction=-132.0
+[gzserver-2] [INFO] [1774094123.497050068] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=1.46 wind_direction=-128.3
+[gzserver-2] [INFO] [1774094123.667668715] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=1.76 wind_direction=-125.2
+[gzserver-2] [INFO] [1774094123.927777720] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=2.06 wind_direction=-131.5
+[gzserver-2] [INFO] [1774094124.153194129] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=2.43 wind_direction=-135.4
+[gzserver-2] [INFO] [1774094124.352471314] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=2.37 wind_direction=-134.4
+[gzserver-2] [INFO] [1774094124.540371058] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=2.63 wind_direction=-134.9
+[gzserver-2] [INFO] [1774094124.719182098] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=2.78 wind_direction=-134.8
+[gzserver-2] [INFO] [1774094124.946338558] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=2.89 wind_direction=-138.4
+[gzserver-2] [INFO] [1774094125.118118863] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=3.00 wind_direction=-131.4
+[gzserver-2] [INFO] [1774094125.263105733] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=2.79 wind_direction=-142.1
+[gzserver-2] [INFO] [1774094125.392243506] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=3.00 wind_direction=-136.9
+[gzserver-2] [INFO] [1774094125.598268080] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=3.00 wind_direction=-145.3
+[gzserver-2] [INFO] [1774094125.791559168] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=3.00 wind_direction=-138.4
+[gzserver-2] [INFO] [1774094125.945070537] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=3.00 wind_direction=-130.7
+[gzserver-2] [INFO] [1774094126.107447225] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=2.93 wind_direction=-138.6
+[gzserver-2] [INFO] [1774094126.349538119] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=2.94 wind_direction=-134.5
+[gzserver-2] [INFO] [1774094126.493879421] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=2.84 wind_direction=-137.3
+[gzserver-2] [INFO] [1774094126.696017733] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=2.85 wind_direction=-140.4
+[gzserver-2] [INFO] [1774094126.871045684] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=2.56 wind_direction=-136.5
+[gzserver-2] [INFO] [1774094126.985997970] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=2.65 wind_direction=-131.3
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m3[0m[1;36m dir=[0m[1;36m-112.779[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m2.58891[0m[1;36m dir=[0m[1;36m-118.286[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m2.57383[0m[1;36m dir=[0m[1;36m-114.293[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m1.56001[0m[1;36m dir=[0m[1;36m-118.112[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m1.69441[0m[1;36m dir=[0m[1;36m-125.247[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m1.7381[0m[1;36m dir=[0m[1;36m-126.857[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m1.71151[0m[1;36m dir=[0m[1;36m-121.54[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m1.61183[0m[1;36m dir=[0m[1;36m-131.997[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m1.45661[0m[1;36m dir=[0m[1;36m-128.313[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m1.76135[0m[1;36m dir=[0m[1;36m-125.217[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m2.05997[0m[1;36m dir=[0m[1;36m-131.49[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m2.42597[0m[1;36m dir=[0m[1;36m-135.408[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m2.37422[0m[1;36m dir=[0m[1;36m-134.357[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m2.63407[0m[1;36m dir=[0m[1;36m-134.902[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m2.77857[0m[1;36m dir=[0m[1;36m-134.815[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m2.88618[0m[1;36m dir=[0m[1;36m-138.423[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m3[0m[1;36m dir=[0m[1;36m-131.406[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m2.78721[0m[1;36m dir=[0m[1;36m-142.079[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m3[0m[1;36m dir=[0m[1;36m-136.917[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m3[0m[1;36m dir=[0m[1;36m-145.295[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m3[0m[1;36m dir=[0m[1;36m-138.422[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m3[0m[1;36m dir=[0m[1;36m-130.698[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m2.93096[0m[1;36m dir=[0m[1;36m-138.582[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m2.9351[0m[1;36m dir=[0m[1;36m-134.483[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m2.84404[0m[1;36m dir=[0m[1;36m-137.324[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m2.85221[0m[1;36m dir=[0m[1;36m-140.398[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m2.56467[0m[1;36m dir=[0m[1;36m-136.505[0m[1;36m
+[gzserver-2] [INFO] [1774094127.123775737] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=2.84 wind_direction=-131.5
+[gzserver-2] [INFO] [1774094127.278633615] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=2.32 wind_direction=-136.6
+[gzserver-2] [INFO] [1774094127.824373605] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=1.98 wind_direction=-127.4
+[gzserver-2] [INFO] [1774094128.069161243] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=1.55 wind_direction=-132.5
+[gzserver-2] [INFO] [1774094128.232252929] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=1.68 wind_direction=-132.9
+[gzserver-2] [INFO] [1774094128.413069213] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=1.73 wind_direction=-126.5
+[gzserver-2] [INFO] [1774094128.673091440] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=1.34 wind_direction=-126.6
+[gzserver-2] [INFO] [1774094128.810803622] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=1.57 wind_direction=-121.1
+[gzserver-2] [INFO] [1774094128.920870268] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=1.67 wind_direction=-121.8
+[gzserver-2] [INFO] [1774094129.019103609] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=1.37 wind_direction=-123.7
+[gzserver-2] [INFO] [1774094129.149873936] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=1.45 wind_direction=-123.1
+[gzserver-2] [INFO] [1774094129.289747034] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=1.84 wind_direction=-120.5
+[gzserver-2] [INFO] [1774094129.413133303] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=2.05 wind_direction=-120.4
+[gzserver-2] [INFO] [1774094129.575045372] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=1.92 wind_direction=-122.6
+[gzserver-2] [INFO] [1774094129.738259367] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=2.44 wind_direction=-117.5
+[gzserver-2] [INFO] [1774094129.843890235] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=2.35 wind_direction=-118.2
+[gzserver-2] [INFO] [1774094130.000035409] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=2.45 wind_direction=-113.1
+[gzserver-2] [INFO] [1774094130.677595788] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=2.89 wind_direction=-114.2
+[gzserver-2] [INFO] [1774094130.901136958] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=3.00 wind_direction=-110.2
+[gzserver-2] [INFO] [1774094131.000422060] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=3.00 wind_direction=-119.6
+[gzserver-2] [INFO] [1774094131.180706533] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=3.00 wind_direction=-111.0
+[gzserver-2] [INFO] [1774094131.291231794] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=3.00 wind_direction=-113.0
+[gzserver-2] [INFO] [1774094131.528306473] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=2.93 wind_direction=-114.7
+[gzserver-2] [INFO] [1774094131.626868269] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=3.00 wind_direction=-114.3
+[gzserver-2] [INFO] [1774094131.919506460] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=3.00 wind_direction=-114.5
+[gzserver-2] [INFO] [1774094132.049147888] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=2.96 wind_direction=-113.7
+[gzserver-2] [INFO] [1774094132.374037880] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=2.68 wind_direction=-115.6
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m2.64749[0m[1;36m dir=[0m[1;36m-131.293[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m2.84112[0m[1;36m dir=[0m[1;36m-131.549[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m2.32438[0m[1;36m dir=[0m[1;36m-136.559[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m1.97844[0m[1;36m dir=[0m[1;36m-127.398[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m1.55117[0m[1;36m dir=[0m[1;36m-132.466[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m1.68151[0m[1;36m dir=[0m[1;36m-132.875[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m1.73094[0m[1;36m dir=[0m[1;36m-126.458[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m1.34008[0m[1;36m dir=[0m[1;36m-126.643[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m1.56874[0m[1;36m dir=[0m[1;36m-121.146[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m1.67112[0m[1;36m dir=[0m[1;36m-121.758[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m1.37034[0m[1;36m dir=[0m[1;36m-123.681[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m1.44878[0m[1;36m dir=[0m[1;36m-123.072[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m1.84118[0m[1;36m dir=[0m[1;36m-120.517[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m2.04606[0m[1;36m dir=[0m[1;36m-120.377[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m1.91972[0m[1;36m dir=[0m[1;36m-122.637[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m2.44239[0m[1;36m dir=[0m[1;36m-117.517[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m2.34597[0m[1;36m dir=[0m[1;36m-118.189[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m2.4542[0m[1;36m dir=[0m[1;36m-113.082[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m2.885[0m[1;36m dir=[0m[1;36m-114.221[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m3[0m[1;36m dir=[0m[1;36m-110.238[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m3[0m[1;36m dir=[0m[1;36m-119.598[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m3[0m[1;36m dir=[0m[1;36m-110.993[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m3[0m[1;36m dir=[0m[1;36m-113.008[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m2.92611[0m[1;36m dir=[0m[1;36m-114.692[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m3[0m[1;36m dir=[0m[1;36m-114.295[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m2.99812[0m[1;36m dir=[0m[1;36m-114.493[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m2.95774[0m[1;36m dir=[0m[1;36m-113.7[0m[1;36m
+[gzserver-2] [INFO] [1774094133.487282187] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=1.60 wind_direction=-121.9
+[gzserver-2] [INFO] [1774094133.843715482] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=1.72 wind_direction=-122.2
+[gzserver-2] [INFO] [1774094134.063382056] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=1.62 wind_direction=-125.6
+[gzserver-2] [INFO] [1774094134.349883959] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=1.56 wind_direction=-124.7
+[gzserver-2] [INFO] [1774094134.501390620] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=1.81 wind_direction=-125.9
+[gzserver-2] [INFO] [1774094134.736242102] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=1.74 wind_direction=-125.2
+[gzserver-2] [INFO] [1774094134.897468763] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=1.99 wind_direction=-131.8
+[gzserver-2] [INFO] [1774094135.057922317] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=1.97 wind_direction=-134.0
+[gzserver-2] [INFO] [1774094135.286224637] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=2.11 wind_direction=-133.2
+[gzserver-2] [INFO] [1774094135.440315679] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=2.59 wind_direction=-132.4
+[gzserver-2] [INFO] [1774094135.664299044] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=2.55 wind_direction=-136.4
+[gzserver-2] [INFO] [1774094135.810088841] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=2.60 wind_direction=-132.4
+[gzserver-2] [INFO] [1774094136.103123488] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=2.94 wind_direction=-137.4
+[gzserver-2] [INFO] [1774094136.294480543] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=3.00 wind_direction=-140.4
+[gzserver-2] [INFO] [1774094136.480137779] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=3.00 wind_direction=-138.7
+[gzserver-2] [INFO] [1774094136.630763302] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=3.00 wind_direction=-140.9
+[gzserver-2] [INFO] [1774094136.811307688] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=3.00 wind_direction=-140.7
+[gzserver-2] [INFO] [1774094138.084798912] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=2.79 wind_direction=-131.4
+[gzserver-2] [INFO] [1774094138.317082400] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=2.29 wind_direction=-135.0
+[gzserver-2] [INFO] [1774094138.433578199] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=2.46 wind_direction=-133.2
+[gzserver-2] [INFO] [1774094138.574269993] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=2.09 wind_direction=-132.4
+[gzserver-2] [INFO] [1774094138.702281199] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=2.10 wind_direction=-135.3
+[gzserver-2] [INFO] [1774094138.803426618] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=1.93 wind_direction=-133.9
+[gzserver-2] [INFO] [1774094138.928904542] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=1.81 wind_direction=-133.1
+[gzserver-2] [INFO] [1774094139.050596892] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=1.34 wind_direction=-130.2
+[gzserver-2] [INFO] [1774094139.156750419] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=1.68 wind_direction=-127.1
+[gzserver-2] [INFO] [1774094139.298262266] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=1.69 wind_direction=-125.3
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m2.67833[0m[1;36m dir=[0m[1;36m-115.595[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m1.59864[0m[1;36m dir=[0m[1;36m-121.854[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m1.71818[0m[1;36m dir=[0m[1;36m-122.163[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m1.62255[0m[1;36m dir=[0m[1;36m-125.638[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m1.55545[0m[1;36m dir=[0m[1;36m-124.695[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m1.81296[0m[1;36m dir=[0m[1;36m-125.924[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m1.74361[0m[1;36m dir=[0m[1;36m-125.176[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m1.98775[0m[1;36m dir=[0m[1;36m-131.77[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m1.96719[0m[1;36m dir=[0m[1;36m-134.044[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m2.11389[0m[1;36m dir=[0m[1;36m-133.204[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m2.58573[0m[1;36m dir=[0m[1;36m-132.412[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m2.55478[0m[1;36m dir=[0m[1;36m-136.362[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m2.59989[0m[1;36m dir=[0m[1;36m-132.37[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m2.93881[0m[1;36m dir=[0m[1;36m-137.375[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m3[0m[1;36m dir=[0m[1;36m-140.423[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m3[0m[1;36m dir=[0m[1;36m-138.684[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m3[0m[1;36m dir=[0m[1;36m-140.891[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m3[0m[1;36m dir=[0m[1;36m-140.69[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m2.78897[0m[1;36m dir=[0m[1;36m-131.423[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m2.28932[0m[1;36m dir=[0m[1;36m-134.969[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m2.46029[0m[1;36m dir=[0m[1;36m-133.231[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m2.08721[0m[1;36m dir=[0m[1;36m-132.406[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m2.10297[0m[1;36m dir=[0m[1;36m-135.321[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m1.93209[0m[1;36m dir=[0m[1;36m-133.887[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m1.80827[0m[1;36m dir=[0m[1;36m-133.078[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m1.33576[0m[1;36m dir=[0m[1;36m-130.223[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m1.67637[0m[1;36m dir=[0m[1;36m-127.14[0m[1;36m
+[gzserver-2] [INFO] [1774094139.450916227] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=1.57 wind_direction=-124.7
+[gzserver-2] [INFO] [1774094139.615465978] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=1.92 wind_direction=-126.5
+[gzserver-2] [INFO] [1774094139.761105905] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=1.32 wind_direction=-126.6
+[gzserver-2] [INFO] [1774094139.917220583] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=1.56 wind_direction=-124.0
+[gzserver-2] [INFO] [1774094140.071621634] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=1.35 wind_direction=-120.0
+[gzserver-2] [INFO] [1774094140.297989868] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=1.91 wind_direction=-122.5
+[gzserver-2] [INFO] [1774094140.516558214] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=1.92 wind_direction=-119.5
+[gzserver-2] [INFO] [1774094140.735365180] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=2.23 wind_direction=-121.0
+[gzserver-2] [INFO] [1774094140.909420294] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=2.34 wind_direction=-119.0
+[gzserver-2] [INFO] [1774094141.063136629] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=2.39 wind_direction=-113.1
+[gzserver-2] [INFO] [1774094141.189067335] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=2.56 wind_direction=-117.3
+[gzserver-2] [INFO] [1774094141.675097474] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=3.00 wind_direction=-116.7
+[gzserver-2] [INFO] [1774094142.212959633] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=3.00 wind_direction=-112.1
+[gzserver-2] [INFO] [1774094142.477997694] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=2.93 wind_direction=-117.3
+[gzserver-2] [INFO] [1774094142.642881743] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=3.00 wind_direction=-111.6
+[gzserver-2] [INFO] [1774094142.788541030] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=3.00 wind_direction=-113.0
+[gzserver-2] [INFO] [1774094142.990023982] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=3.00 wind_direction=-111.7
+[gzserver-2] [INFO] [1774094143.331975545] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=2.71 wind_direction=-116.8
+[gzserver-2] [INFO] [1774094143.466416247] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=2.81 wind_direction=-115.4
+[gzserver-2] [INFO] [1774094143.607306011] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=2.58 wind_direction=-115.5
+[gzserver-2] [INFO] [1774094143.774586758] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=2.64 wind_direction=-116.4
+[gzserver-2] [INFO] [1774094143.964213064] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=2.37 wind_direction=-119.3
+[gzserver-2] [INFO] [1774094144.128739930] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=2.06 wind_direction=-122.0
+[gzserver-2] [INFO] [1774094144.305430367] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=2.04 wind_direction=-123.5
+[gzserver-2] [INFO] [1774094144.506444940] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=1.83 wind_direction=-117.3
+[gzserver-2] [INFO] [1774094144.825150614] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=1.59 wind_direction=-124.6
+[gzserver-2] [INFO] [1774094145.061997018] [gazebo_wind_plugin_node]: WindPlugin: set wind_speed=1.51 wind_direction=-122.5
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m1.69189[0m[1;36m dir=[0m[1;36m-125.324[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m1.56548[0m[1;36m dir=[0m[1;36m-124.691[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m1.91511[0m[1;36m dir=[0m[1;36m-126.485[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m1.32281[0m[1;36m dir=[0m[1;36m-126.627[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m1.55848[0m[1;36m dir=[0m[1;36m-124.02[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m1.3547[0m[1;36m dir=[0m[1;36m-120.047[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m1.90632[0m[1;36m dir=[0m[1;36m-122.534[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m1.91915[0m[1;36m dir=[0m[1;36m-119.457[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m2.22899[0m[1;36m dir=[0m[1;36m-121.045[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m2.34376[0m[1;36m dir=[0m[1;36m-119.047[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m2.38603[0m[1;36m dir=[0m[1;36m-113.14[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m2.56185[0m[1;36m dir=[0m[1;36m-117.287[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m3[0m[1;36m dir=[0m[1;36m-116.743[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m3[0m[1;36m dir=[0m[1;36m-112.06[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m2.92788[0m[1;36m dir=[0m[1;36m-117.287[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m3[0m[1;36m dir=[0m[1;36m-111.634[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m3[0m[1;36m dir=[0m[1;36m-112.981[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m3[0m[1;36m dir=[0m[1;36m-111.694[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m2.70931[0m[1;36m dir=[0m[1;36m-116.849[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m2.81305[0m[1;36m dir=[0m[1;36m-115.351[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m2.58224[0m[1;36m dir=[0m[1;36m-115.453[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m2.63587[0m[1;36m dir=[0m[1;36m-116.398[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m2.37492[0m[1;36m dir=[0m[1;36m-119.295[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m2.06072[0m[1;36m dir=[0m[1;36m-122[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m2.03712[0m[1;36m dir=[0m[1;36m-123.507[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m1.83234[0m[1;36m dir=[0m[1;36m-117.334[0m[1;36m
+[gzserver-2] [0m[1;36m[Dbg] [wind_plugin.cpp:110] [0m[1;36mWindPlugin: received command -> speed=[0m[1;36m1.58835[0m[1;36m dir=[0m[1;36m-124.607[0m[1;36m
