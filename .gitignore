@@ -7,3 +7,53 @@ matlab_msg_ws/matlab_msg_gen/glnxa64/log/
 *.so
 *.mex*
 *.mat
+
+# ============================================
+# Simulation Generated Files & Artifacts
+# ============================================
+
+# colcon build system artifacts
+build/
+install/
+log/
+
+# MATLAB AutoSim parallel simulation results
+src/sjtu_drone-ros2/matlab/parallel_runs/
+src/sjtu_drone-ros2/matlab/.parallel_sim/
+.parallel_sim/
+
+# MATLAB figure and plot outputs
+*.fig
+*.pdf
+*.png
+*.jpg
+*.eps
+
+# MATLAB execution artifacts
+*.asv
+.DS_Store
+
+# Log files
+*.log
+logs/
+
+# Temporary files
+*.tmp
+*.temp
+*~
+.~*
+
+# ROS2 local simulation logs
+.ros/
+.rosmaster/
+
+# System-specific files
+*.swp
+*.swo
+*.o
+*.d
+
+# Editor temporary files
+.vscode/*.log
+.idea/
+*.iml
