@@ -1,1 +1,0 @@
-/home/j/INCSL/IICC26_ws/build/sjtu_drone_interfaces/rosidl_typesupport_introspection_cpp/sjtu_drone_interfaces/srv/detail/set_wind__rosidl_typesupport_introspection_cpp.hpp

@@ -1,1 +1,0 @@
-ament_cmake_symlink_install_targets("TARGET_FILES" "/home/j/INCSL/IICC26_ws/src/sjtu_drone-ros2/sjtu_drone_description/plugins/libwind_plugin.so" "TARGETS" "wind_plugin" "ARCHIVE_DESTINATION" "lib" "LIBRARY_DESTINATION" "lib" "RUNTIME_DESTINATION" "bin")

@@ -1,1 +1,0 @@
-/home/j/INCSL/IICC26_ws/build/sjtu_drone_interfaces/ament_cmake_core/sjtu_drone_interfacesConfig-version.cmake

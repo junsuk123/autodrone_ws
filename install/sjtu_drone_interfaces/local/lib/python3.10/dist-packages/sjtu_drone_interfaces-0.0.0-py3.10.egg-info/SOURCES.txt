@@ -1,1 +1,0 @@
-/home/j/INCSL/IICC26_ws/build/sjtu_drone_interfaces/ament_cmake_python/sjtu_drone_interfaces/sjtu_drone_interfaces.egg-info/SOURCES.txt

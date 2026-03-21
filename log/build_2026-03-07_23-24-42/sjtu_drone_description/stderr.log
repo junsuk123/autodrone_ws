@@ -1,5 +1,0 @@
-[31mCMake Error at CMakeLists.txt:147 (install):
-  install does not recognize sub-command rosidl_generate_interfaces
-
-[0m
-gmake: *** [Makefile:362: cmake_check_build_system] 오류 1

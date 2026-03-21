@@ -1,2 +1,0 @@
-Invoking command in '/home/j/INCSL/IICC26_ws/build/sjtu_drone_description': CMAKE_PREFIX_PATH=/opt/ros/humble /usr/bin/cmake --build /home/j/INCSL/IICC26_ws/build/sjtu_drone_description -- -j20 -l20
-Invoked command in '/home/j/INCSL/IICC26_ws/build/sjtu_drone_description' returned '2': CMAKE_PREFIX_PATH=/opt/ros/humble /usr/bin/cmake --build /home/j/INCSL/IICC26_ws/build/sjtu_drone_description -- -j20 -l20

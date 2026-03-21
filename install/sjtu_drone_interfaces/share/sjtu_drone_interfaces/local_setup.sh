@@ -1,1 +1,0 @@
-/home/j/INCSL/IICC26_ws/build/sjtu_drone_interfaces/ament_cmake_environment_hooks/local_setup.sh

@@ -1,1 +1,0 @@
-/home/j/INCSL/IICC26_ws/build/sjtu_drone_interfaces/rosidl_generator_cpp/sjtu_drone_interfaces/srv/detail/set_wind__builder.hpp

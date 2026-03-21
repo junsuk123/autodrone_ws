@@ -1,8 +1,0 @@
-setup.py
-sjtu_drone_interfaces/__init__.py
-sjtu_drone_interfaces.egg-info/PKG-INFO
-sjtu_drone_interfaces.egg-info/SOURCES.txt
-sjtu_drone_interfaces.egg-info/dependency_links.txt
-sjtu_drone_interfaces.egg-info/top_level.txt
-sjtu_drone_interfaces/srv/__init__.py
-sjtu_drone_interfaces/srv/_set_wind.py

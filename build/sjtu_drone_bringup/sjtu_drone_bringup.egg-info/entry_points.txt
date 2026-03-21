@@ -1,3 +1,0 @@
-[console_scripts]
-apriltag_state_bridge = sjtu_drone_bringup.apriltag_state_bridge:main
-spawn_drone = sjtu_drone_bringup.spawn_drone:main

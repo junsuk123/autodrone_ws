@@ -1,5 +1,0 @@
-failed to create symbolic link '/home/j/INCSL/IICC26_ws/build/sjtu_drone_interfaces/ament_cmake_python/sjtu_drone_interfaces/sjtu_drone_interfaces' because existing path cannot be removed: Is a directory
-gmake[2]: *** [CMakeFiles/ament_cmake_python_symlink_sjtu_drone_interfaces.dir/build.make:70: CMakeFiles/ament_cmake_python_symlink_sjtu_drone_interfaces] 오류 1
-gmake[1]: *** [CMakeFiles/Makefile2:421: CMakeFiles/ament_cmake_python_symlink_sjtu_drone_interfaces.dir/all] 오류 2
-gmake[1]: *** 끝나지 않은 작업을 기다리고 있습니다....
-gmake: *** [Makefile:146: all] 오류 2

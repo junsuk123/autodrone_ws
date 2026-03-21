@@ -1,1 +1,0 @@
-/home/j/INCSL/IICC26_ws/build/sjtu_drone_interfaces/rosidl_generator_py/sjtu_drone_interfaces/__init__.py
