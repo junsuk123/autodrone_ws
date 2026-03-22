@@ -52,73 +52,74 @@ function monitor_autosim_parallel(sessionRoot, pollSec)
     workerMeta = autosimMonitorReadWorkerMeta(pidTablePath);
     allWorkersExitedLogged = false;
     while isgraphics(fig)
-        if isempty(workerMeta)
-            workerMeta = autosimMonitorReadWorkerMeta(pidTablePath);
-        end
-
-        workerDirs = dir(fullfile(sessionRoot, 'output', 'data', 'worker_*'));
-        workerNames = strings(0, 1);
-        counts = [];
-        unsafeRates = [];
-        totalUnsafe = 0;
-        totalValid = 0;
-
-        for i = 1:numel(workerDirs)
-            wdir = fullfile(workerDirs(i).folder, workerDirs(i).name);
-            runDirs = dir(fullfile(wdir, '*'));
-            runDirs = runDirs([runDirs.isdir]);
-            runDirs = runDirs(~ismember({runDirs.name}, {'.', '..'}));
-            if isempty(runDirs)
-                continue;
+        try
+            if isempty(workerMeta)
+                workerMeta = autosimMonitorReadWorkerMeta(pidTablePath);
             end
 
-            [~, idxLatest] = max([runDirs.datenum]);
-            latestRun = fullfile(runDirs(idxLatest).folder, runDirs(idxLatest).name);
-            csvPath = fullfile(latestRun, 'autosim_dataset_latest.csv');
-            if ~isfile(csvPath)
-                continue;
+            workerDirs = dir(fullfile(sessionRoot, 'output', 'data', 'worker_*'));
+            workerNames = strings(0, 1);
+            counts = [];
+            unsafeRates = [];
+            totalUnsafe = 0;
+            totalValid = 0;
+
+            for i = 1:numel(workerDirs)
+                wdir = fullfile(workerDirs(i).folder, workerDirs(i).name);
+                runDirs = dir(fullfile(wdir, '*'));
+                runDirs = runDirs([runDirs.isdir]);
+                runDirs = runDirs(~ismember({runDirs.name}, {'.', '..'}));
+                if isempty(runDirs)
+                    continue;
+                end
+
+                [~, idxLatest] = max([runDirs.datenum]);
+                latestRun = fullfile(runDirs(idxLatest).folder, runDirs(idxLatest).name);
+                csvPath = fullfile(latestRun, 'autosim_dataset_latest.csv');
+                if ~isfile(csvPath)
+                    continue;
+                end
+
+                try
+                    T = readtable(csvPath);
+                catch
+                    continue;
+                end
+
+                nRows = height(T);
+                nUnsafe = 0;
+                nValid = 0;
+                if ismember('gt_safe_to_land', T.Properties.VariableNames)
+                    gt = string(T.gt_safe_to_land);
+                    validMask = (gt == "stable") | (gt == "unsafe") | (gt == "unstable");
+                    unsafeMask = (gt == "unsafe") | (gt == "unstable");
+                    nValid = sum(validMask);
+                    nUnsafe = sum(unsafeMask & validMask);
+                elseif ismember('label', T.Properties.VariableNames)
+                    gt = string(T.label);
+                    validMask = (gt == "stable") | (gt == "unstable");
+                    unsafeMask = (gt == "unstable");
+                    nValid = sum(validMask);
+                    nUnsafe = sum(unsafeMask & validMask);
+                end
+
+                wName = string(workerDirs(i).name);
+                workerNames(end+1, 1) = wName; %#ok<AGROW>
+                counts(end+1, 1) = nRows; %#ok<AGROW>
+                if nValid > 0
+                    unsafeRates(end+1, 1) = nUnsafe / nValid; %#ok<AGROW>
+                else
+                    unsafeRates(end+1, 1) = nan; %#ok<AGROW>
+                end
+
+                totalUnsafe = totalUnsafe + nUnsafe;
+                totalValid = totalValid + nValid;
             end
 
-            try
-                T = readtable(csvPath);
-            catch
-                continue;
-            end
+            simStats = autosimMonitorReadWorkerStatsFromLogs(workerMeta);
 
-            nRows = height(T);
-            nUnsafe = 0;
-            nValid = 0;
-            if ismember('gt_safe_to_land', T.Properties.VariableNames)
-                gt = string(T.gt_safe_to_land);
-                validMask = (gt == "stable") | (gt == "unsafe") | (gt == "unstable");
-                unsafeMask = (gt == "unsafe") | (gt == "unstable");
-                nValid = sum(validMask);
-                nUnsafe = sum(unsafeMask & validMask);
-            elseif ismember('label', T.Properties.VariableNames)
-                gt = string(T.label);
-                validMask = (gt == "stable") | (gt == "unstable");
-                unsafeMask = (gt == "unstable");
-                nValid = sum(validMask);
-                nUnsafe = sum(unsafeMask & validMask);
-            end
-
-            wName = string(workerDirs(i).name);
-            workerNames(end+1, 1) = wName; %#ok<AGROW>
-            counts(end+1, 1) = nRows; %#ok<AGROW>
-            if nValid > 0
-                unsafeRates(end+1, 1) = nUnsafe / nValid; %#ok<AGROW>
-            else
-                unsafeRates(end+1, 1) = nan; %#ok<AGROW>
-            end
-
-            totalUnsafe = totalUnsafe + nUnsafe;
-            totalValid = totalValid + nValid;
-        end
-
-        simStats = autosimMonitorReadWorkerStatsFromLogs(workerMeta);
-
-        cla(ax1);
-        if ~isempty(simStats.workerIds)
+            cla(ax1);
+            if ~isempty(simStats.workerIds)
             yyaxis(ax1, 'left');
             b1 = bar(ax1, simStats.scenarioNow, 0.55, 'FaceColor', [0.14 0.44 0.72]); %#ok<NASGU>
             ylabel(ax1, 'scenario count');
@@ -137,15 +138,15 @@ function monitor_autosim_parallel(sessionRoot, pollSec)
             xticks(ax1, 1:numel(workerNames));
             xticklabels(ax1, workerNames);
             legend(ax1, {'scenario count', 'unsafe rate'}, 'Location', 'best');
-        end
-        grid(ax1, 'on');
+            end
+            grid(ax1, 'on');
 
-        if totalValid > 0
-            addpoints(aggLine, toc(t0), totalUnsafe / totalValid);
-        end
+            if totalValid > 0
+                addpoints(aggLine, toc(t0), totalUnsafe / totalValid);
+            end
 
-        cla(ax3);
-        if ~isempty(simStats.workerIds)
+            cla(ax3);
+            if ~isempty(simStats.workerIds)
             mixData = [simStats.policyExploit(:), simStats.policyBoundary(:), simStats.policyHardNeg(:)];
             hMix = bar(ax3, mixData, 'stacked');
             ylim(ax3, [0 1]);
@@ -156,11 +157,11 @@ function monitor_autosim_parallel(sessionRoot, pollSec)
             if nLegend > 0
                 legend(ax3, hMix(1:nLegend), mixLabels(1:nLegend), 'Location', 'best');
             end
-        end
-        grid(ax3, 'on');
+            end
+            grid(ax3, 'on');
 
-        cla(ax4);
-        if ~isempty(simStats.workerIds)
+            cla(ax4);
+            if ~isempty(simStats.workerIds)
             yyaxis(ax4, 'left');
             bar(ax4, simStats.learnN, 0.55, 'FaceColor', [0.20 0.60 0.20]);
             ylabel(ax4, 'n samples');
@@ -173,12 +174,12 @@ function monitor_autosim_parallel(sessionRoot, pollSec)
             xticks(ax4, 1:numel(simStats.workerIds));
             xticklabels(ax4, arrayfun(@(x) sprintf('w%02d', x), simStats.workerIds, 'UniformOutput', false));
             legend(ax4, {'learning n', 'stable ratio'}, 'Location', 'best');
-        end
-        grid(ax4, 'on');
+            end
+            grid(ax4, 'on');
 
-        multiStats = autosimMonitorReadMultiDroneStats(sessionRoot);
-        cla(ax5);
-        if ~isempty(multiStats.namespaces)
+            multiStats = autosimMonitorReadMultiDroneStats(sessionRoot);
+            cla(ax5);
+            if ~isempty(multiStats.namespaces)
             yyaxis(ax5, 'left');
             bar(ax5, multiStats.tagDetectRate, 0.55, 'FaceColor', [0.20 0.58 0.86]);
             ylabel(ax5, 'tag detect rate');
@@ -192,15 +193,15 @@ function monitor_autosim_parallel(sessionRoot, pollSec)
             xticklabels(ax5, multiStats.namespaces);
             xtickangle(ax5, 20);
             legend(ax5, {'tag detect rate', 'state'}, 'Location', 'best');
-        else
-            text(ax5, 0.5, 0.5, 'No multi-drone telemetry yet', ...
-                'Units', 'normalized', 'HorizontalAlignment', 'center');
-            ylim(ax5, [0 1]);
-        end
-        grid(ax5, 'on');
+            else
+                text(ax5, 0.5, 0.5, 'No multi-drone telemetry yet', ...
+                    'Units', 'normalized', 'HorizontalAlignment', 'center');
+                ylim(ax5, [0 1]);
+            end
+            grid(ax5, 'on');
 
-        cla(ax6);
-        if ~isempty(simStats.workerIds)
+            cla(ax6);
+            if ~isempty(simStats.workerIds)
             scenarioNow = simStats.scenarioNow(:);
             scenarioTotal = simStats.scenarioTotal(:);
             scenarioTotal(scenarioTotal < 0) = 0;
@@ -226,36 +227,43 @@ function monitor_autosim_parallel(sessionRoot, pollSec)
                 yTxt = min(0.97, progressRatio(i) + 0.04);
                 text(ax6, i, yTxt, labelTxt, 'HorizontalAlignment', 'center', 'FontSize', 8);
             end
-        else
-            text(ax6, 0.5, 0.5, 'No scenario progress data yet', ...
-                'Units', 'normalized', 'HorizontalAlignment', 'center');
-            ylim(ax6, [0 1]);
-        end
-        grid(ax6, 'on');
-
-        try
-            drawnow limitrate nocallbacks;
-        catch ME
-            if autosimMonitorIsUserTermination(ME)
-                fprintf('[AUTOSIM MONITOR] Stopped by user. Closing monitor.\n');
-                break;
+            else
+                text(ax6, 0.5, 0.5, 'No scenario progress data yet', ...
+                    'Units', 'normalized', 'HorizontalAlignment', 'center');
+                ylim(ax6, [0 1]);
             end
-            rethrow(ME);
-        end
+            grid(ax6, 'on');
 
-        if isfile(pidTablePath)
-            [allExited, ~, totalWorkers] = autosimMonitorCheckWorkerExitStatus(pidTablePath);
-            if allExited && totalWorkers > 0
-                if ~allWorkersExitedLogged
-                    fprintf('[AUTOSIM MONITOR] All workers finished. Closing monitor.\n');
-                    allWorkersExitedLogged = true;
+            try
+                drawnow limitrate nocallbacks;
+            catch ME
+                if autosimMonitorIsUserTermination(ME)
+                    fprintf('[AUTOSIM MONITOR] Stopped by user. Closing monitor.\n');
+                    break;
                 end
-                break;
+                rethrow(ME);
             end
-        end
 
-        try
-            pause(max(0.2, pollSec));
+            if isfile(pidTablePath)
+                [allExited, ~, totalWorkers] = autosimMonitorCheckWorkerExitStatus(pidTablePath);
+                if allExited && totalWorkers > 0
+                    if ~allWorkersExitedLogged
+                        fprintf('[AUTOSIM MONITOR] All workers finished. Closing monitor.\n');
+                        allWorkersExitedLogged = true;
+                    end
+                    break;
+                end
+            end
+
+            try
+                pause(max(0.2, pollSec));
+            catch ME
+                if autosimMonitorIsUserTermination(ME)
+                    fprintf('[AUTOSIM MONITOR] Stopped by user. Closing monitor.\n');
+                    break;
+                end
+                rethrow(ME);
+            end
         catch ME
             if autosimMonitorIsUserTermination(ME)
                 fprintf('[AUTOSIM MONITOR] Stopped by user. Closing monitor.\n');
@@ -326,7 +334,7 @@ function stats = autosimMonitorReadWorkerStatsFromLogs(workerMeta)
         txt = autosimMonitorReadLogTail(logPath, 250000);
 
         [scenarioNow, scenarioTotal] = autosimMonitorParseScenarioProgress(txt);
-        exceptionCount = autosimMonitorRegexCount(txt, '\\[AUTOSIM\\]\\s+Scenario\\s+\\d+\\s+exception:');
+        exceptionCount = autosimMonitorRegexCount(txt, '\[AUTOSIM\]\s+Scenario\s+\d+\s+exception:');
         if scenarioNow > 0
             exceptionRate = min(1.0, exceptionCount / scenarioNow);
         else
@@ -392,7 +400,7 @@ function [nowN, totalN] = autosimMonitorParseScenarioProgress(txt)
     if strlength(txt) == 0
         return;
     end
-    tok = regexp(char(txt), '\\[AUTOSIM\\]\\s+Scenario\\s+(\\d+)\\/(\\d+)', 'tokens');
+    tok = regexp(char(txt), '\[AUTOSIM\]\s+Scenario\s+(\d+)/(\d+)', 'tokens');
     if isempty(tok)
         return;
     end
@@ -419,7 +427,7 @@ function [pExploit, pBoundary, pHard] = autosimMonitorParsePolicyMix(txt, recent
     if strlength(txt) == 0
         return;
     end
-    tok = regexp(char(txt), '\\[AUTOSIM\\]\\s+Adaptive policy=([a-zA-Z_]+)', 'tokens');
+    tok = regexp(char(txt), '\[AUTOSIM\]\s+Adaptive policy=([a-zA-Z_]+)', 'tokens');
     if isempty(tok)
         return;
     end
@@ -444,7 +452,7 @@ function [n, stable, unstable] = autosimMonitorParseLearningProgress(txt)
     if strlength(txt) == 0
         return;
     end
-    tok = regexp(char(txt), 'n=(\\d+),\\s*stable=(\\d+),\\s*unstable=(\\d+)', 'tokens');
+    tok = regexp(char(txt), 'n=(\d+),\s*stable=(\d+),\s*unstable=(\d+)', 'tokens');
     if isempty(tok)
         return;
     end
@@ -510,7 +518,7 @@ function stats = autosimMonitorReadMultiDroneStats(sessionRoot)
     end
 
     nsMap = containers.Map('KeyType', 'char', 'ValueType', 'any');
-    pat = '\\[MULTI_MON\\]\\s+ns=([^\\s]+)\\s+state=([-+]?\\d+)\\s+state_hz=([0-9.]+)\\s+tag_detect_rate=([0-9.]+)\\s+tag_hz=([0-9.]+)';
+    pat = '\[MULTI_MON\]\s+ns=([^\s]+)\s+state=([-+]?\d+)\s+state_hz=([0-9.]+)\s+tag_detect_rate=([0-9.]+)\s+tag_hz=([0-9.]+)';
 
     for i = 1:numel(latestByPath)
         txt = autosimMonitorReadLogTail(latestByPath(i), 250000);

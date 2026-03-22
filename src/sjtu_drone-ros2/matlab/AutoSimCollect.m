@@ -25,11 +25,31 @@ setenv('AUTOSIM_DISABLE_INCREMENTAL_TRAIN', 'true');
 if logical(collectionCfg.independent_per_drone) && round(collectionCfg.drone_count) > 1
     % Independent mode: scale by workers, one drone per Gazebo worker.
     setenv('AUTOSIM_MAIN_TRAIN_MERGED_AT_END', 'false');
-    autosimMainOrchestrate(thisDir, 1);
+    try
+        autosimMainOrchestrate(thisDir, 1);
+    catch ME
+        if autosimCollectIsUserTermination(ME)
+            fprintf('[AutoSimCollect] Stopped by user during parallel monitor.\n');
+            return;
+        end
+        rethrow(ME);
+    end
 else
     run(fullfile(thisDir, 'AutoSim.m'));
 end
 fprintf('[AutoSimCollect] Collection complete.\n');
+end
+
+function tf = autosimCollectIsUserTermination(ME)
+tf = false;
+if nargin < 1 || isempty(ME)
+    return;
+end
+id = string(ME.identifier);
+msg = lower(string(ME.message));
+tf = contains(id, "OperationTerminatedByUser", 'IgnoreCase', true) || ...
+     contains(msg, "terminated by user") || ...
+     contains(msg, "operation terminated");
 end
 
 function cfg = autosimCollectWithDefaults(cfg)
