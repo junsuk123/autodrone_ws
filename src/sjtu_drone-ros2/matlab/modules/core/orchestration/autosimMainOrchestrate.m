@@ -98,7 +98,11 @@ if cfg.enableParallelMonitor
     try
         monitor_autosim_parallel(char(sessionRoot), cfg.monitorPollSec);
     catch ME
-        warning('[AUTOSIM MAIN] Monitor ended: %s', ME.message);
+        if autosimMainIsUserTermination(ME)
+            fprintf('[AUTOSIM MAIN] Monitor stopped by user. Continuing shutdown.\n');
+        else
+            warning('[AUTOSIM MAIN] Monitor ended: %s', ME.message);
+        end
     end
 end
 
@@ -116,6 +120,18 @@ if cfg.trainMergedAtEnd
 end
 
 fprintf('[AUTOSIM MAIN] Exiting. Parallel workers will be stopped now.\n');
+end
+
+function tf = autosimMainIsUserTermination(ME)
+tf = false;
+if nargin < 1 || isempty(ME)
+    return;
+end
+id = string(ME.identifier);
+msg = lower(string(ME.message));
+tf = contains(id, "OperationTerminatedByUser", 'IgnoreCase', true) || ...
+     contains(msg, "terminated by user") || ...
+     contains(msg, "operation terminated");
 end
 
 function matlabDir = autosimMainResolveMatlabDir(seedDir)

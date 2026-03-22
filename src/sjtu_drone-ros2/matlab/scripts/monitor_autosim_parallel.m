@@ -42,13 +42,10 @@ function monitor_autosim_parallel(sessionRoot, pollSec)
     grid(ax5, 'on');
 
     ax6 = nexttile(tl, 6);
-    axis(ax6, 'off');
-    text(ax6, 0.01, 0.90, 'Multi-drone monitor is active when [MULTI_MON] logs are available.', ...
-        'Units', 'normalized', 'HorizontalAlignment', 'left', 'VerticalAlignment', 'top', 'FontSize', 9);
-    text(ax6, 0.01, 0.78, 'Legend:', ...
-        'Units', 'normalized', 'HorizontalAlignment', 'left', 'VerticalAlignment', 'top', 'FontSize', 9, 'FontWeight', 'bold');
-    text(ax6, 0.01, 0.67, 'bar = tag detect rate, line = latest /state value', ...
-        'Units', 'normalized', 'HorizontalAlignment', 'left', 'VerticalAlignment', 'top', 'FontSize', 9);
+    title(ax6, 'Per-worker Scenario Completion');
+    ylabel(ax6, 'progress ratio');
+    ylim(ax6, [0 1]);
+    grid(ax6, 'on');
 
     t0 = tic;
     pidTablePath = fullfile(sessionRoot, 'workers.tsv');
@@ -202,7 +199,49 @@ function monitor_autosim_parallel(sessionRoot, pollSec)
         end
         grid(ax5, 'on');
 
-        drawnow limitrate nocallbacks;
+        cla(ax6);
+        if ~isempty(simStats.workerIds)
+            scenarioNow = simStats.scenarioNow(:);
+            scenarioTotal = simStats.scenarioTotal(:);
+            scenarioTotal(scenarioTotal < 0) = 0;
+
+            progressRatio = zeros(size(scenarioNow));
+            hasTotal = scenarioTotal > 0;
+            progressRatio(hasTotal) = scenarioNow(hasTotal) ./ scenarioTotal(hasTotal);
+            progressRatio = min(1, max(0, progressRatio));
+
+            bar(ax6, progressRatio, 0.55, 'FaceColor', [0.25 0.67 0.42]);
+            ylim(ax6, [0 1]);
+
+            xticks(ax6, 1:numel(simStats.workerIds));
+            xticklabels(ax6, arrayfun(@(x) sprintf('w%02d', x), simStats.workerIds, 'UniformOutput', false));
+            ylabel(ax6, 'progress ratio');
+
+            for i = 1:numel(simStats.workerIds)
+                if scenarioTotal(i) > 0
+                    labelTxt = sprintf('%d/%d', scenarioNow(i), scenarioTotal(i));
+                else
+                    labelTxt = sprintf('%d/?', scenarioNow(i));
+                end
+                yTxt = min(0.97, progressRatio(i) + 0.04);
+                text(ax6, i, yTxt, labelTxt, 'HorizontalAlignment', 'center', 'FontSize', 8);
+            end
+        else
+            text(ax6, 0.5, 0.5, 'No scenario progress data yet', ...
+                'Units', 'normalized', 'HorizontalAlignment', 'center');
+            ylim(ax6, [0 1]);
+        end
+        grid(ax6, 'on');
+
+        try
+            drawnow limitrate nocallbacks;
+        catch ME
+            if autosimMonitorIsUserTermination(ME)
+                fprintf('[AUTOSIM MONITOR] Stopped by user. Closing monitor.\n');
+                break;
+            end
+            rethrow(ME);
+        end
 
         if isfile(pidTablePath)
             [allExited, ~, totalWorkers] = autosimMonitorCheckWorkerExitStatus(pidTablePath);
@@ -215,12 +254,32 @@ function monitor_autosim_parallel(sessionRoot, pollSec)
             end
         end
 
-        pause(max(0.2, pollSec));
+        try
+            pause(max(0.2, pollSec));
+        catch ME
+            if autosimMonitorIsUserTermination(ME)
+                fprintf('[AUTOSIM MONITOR] Stopped by user. Closing monitor.\n');
+                break;
+            end
+            rethrow(ME);
+        end
     end
 
     if isgraphics(fig)
         close(fig);
     end
+end
+
+function tf = autosimMonitorIsUserTermination(ME)
+    tf = false;
+    if nargin < 1 || isempty(ME)
+        return;
+    end
+    id = string(ME.identifier);
+    msg = lower(string(ME.message));
+    tf = contains(id, "OperationTerminatedByUser", 'IgnoreCase', true) || ...
+         contains(msg, "terminated by user") || ...
+         contains(msg, "operation terminated");
 end
 
 function workerMeta = autosimMonitorReadWorkerMeta(pidTablePath)

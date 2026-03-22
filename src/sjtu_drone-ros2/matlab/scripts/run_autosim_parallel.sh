@@ -314,6 +314,7 @@ done
 echo "[AUTOSIM] PID table: $PID_TABLE"
 echo "[AUTOSIM] Stop command: $SCRIPT_DIR/stop_autosim_parallel.sh $SESSION_ROOT"
 echo "[AUTOSIM] Unified worker logs: $SCRIPT_DIR/tail_autosim_parallel_logs.sh $SESSION_ROOT"
+echo "[AUTOSIM] Worker progress: $SCRIPT_DIR/show_autosim_worker_progress.sh $SESSION_ROOT -w 2"
 echo "[AUTOSIM] Domain bridge (optional): OBSERVE_DOMAIN=90 $SCRIPT_DIR/run_autosim_domain_bridge.sh $SESSION_ROOT"
 
 if [[ "$AUTOSIM_ENABLE_DOMAIN_BRIDGE" == "1" || "$AUTOSIM_ENABLE_DOMAIN_BRIDGE" == "true" || "$AUTOSIM_ENABLE_DOMAIN_BRIDGE" == "yes" ]]; then
