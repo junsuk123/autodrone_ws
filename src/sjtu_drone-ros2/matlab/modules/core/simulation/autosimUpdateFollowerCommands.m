@@ -1,5 +1,5 @@
 function [pidXFollowers, pidYFollowers, tagLostFollowers, lastTagUFollowers, lastTagVFollowers, lastTagDetectFollowers, haveLastTagFollowers, tagRxCountFollowers, stateFollowers, followerDiag] = ...
-    autosimUpdateFollowerCommands(cfg, rosCtx, tk, dtCtrl, recvTimeoutSec, ...
+    autosimUpdateFollowerCommands(cfg, rosCtx, tk, dtCtrl, recvTimeoutSec, cmdPrimaryX, cmdPrimaryY, ...
     pidXFollowers, pidYFollowers, tagLostFollowers, lastTagUFollowers, lastTagVFollowers, ...
     lastTagDetectFollowers, haveLastTagFollowers, tagRxCountFollowers, stateFollowers)
 % autosimUpdateFollowerCommands
@@ -56,9 +56,11 @@ for i = 1:nFollowers
     poseMsg = autosimTryReceive(rosCtx.subPoseFollowers{i}, recvTimeoutSec);
     xNow = nan;
     yNow = nan;
+    zNow = nan;
     if ~isempty(poseMsg) && isfield(poseMsg, 'position')
         xNow = double(poseMsg.position.x);
         yNow = double(poseMsg.position.y);
+        zNow = double(poseMsg.position.z);
         poseReadyMask(i) = true;
     end
 
@@ -68,7 +70,15 @@ for i = 1:nFollowers
         stateReadyMask(i) = true;
     end
 
-    isFlyingFollower = isfinite(stateFollowers(i)) && any(abs(stateFollowers(i) - flyingStates) < 1e-9);
+    isFlyingFollower = false;
+    if isfinite(stateFollowers(i))
+        isFlyingFollower = any(abs(stateFollowers(i) - flyingStates) < 1e-9);
+        if ~isFlyingFollower && isfinite(zNow)
+            isFlyingFollower = zNow >= cfg.control.flying_altitude_threshold;
+        end
+    elseif isfinite(zNow)
+        isFlyingFollower = zNow >= cfg.control.flying_altitude_threshold;
+    end
     flyingMask(i) = isFlyingFollower;
 
     [hasFreshTag, tagDetected, uTag, vTag, ~, tagRxCountNow] = autosimReadTagInput( ...
@@ -109,6 +119,14 @@ for i = 1:nFollowers
         [cmdXf, cmdYf, pidXFollowers(i), pidYFollowers(i), tagLostFollowers(i)] = autosimComputeTagTrackingCommand( ...
             cfg, tk, dtCtrl, xNow, yNow, false, nan, nan, tagDetected, uTag, vTag, ...
             pidXFollowers(i), pidYFollowers(i), tagLostFollowers(i), homeX, homeY);
+
+        % If follower has no tag observation, optionally mirror primary XY command.
+        if isfield(cfg, 'control') && isfield(cfg.control, 'follower_cmd_fallback_to_primary') && cfg.control.follower_cmd_fallback_to_primary
+            if ~tagDetected && isfinite(cmdPrimaryX) && isfinite(cmdPrimaryY)
+                cmdXf = cmdPrimaryX;
+                cmdYf = cmdPrimaryY;
+            end
+        end
     else
         cmdXf = 0.0;
         cmdYf = 0.0;

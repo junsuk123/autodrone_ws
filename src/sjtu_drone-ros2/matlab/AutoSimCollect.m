@@ -22,7 +22,13 @@ end
 fprintf('[AutoSimCollect] Start collection (scenarios=%d, drones=%d)\n', ...
     round(collectionCfg.scenario_count), round(collectionCfg.drone_count));
 setenv('AUTOSIM_DISABLE_INCREMENTAL_TRAIN', 'true');
-run(fullfile(thisDir, 'AutoSim.m'));
+if logical(collectionCfg.independent_per_drone) && round(collectionCfg.drone_count) > 1
+    % Independent mode: scale by workers, one drone per Gazebo worker.
+    setenv('AUTOSIM_MAIN_TRAIN_MERGED_AT_END', 'false');
+    autosimMainOrchestrate(thisDir, 1);
+else
+    run(fullfile(thisDir, 'AutoSim.m'));
+end
 fprintf('[AutoSimCollect] Collection complete.\n');
 end
 
@@ -34,7 +40,7 @@ if ~isfield(cfg, 'drone_count')
     cfg.drone_count = 1;
 end
 if ~isfield(cfg, 'independent_per_drone')
-    cfg.independent_per_drone = false;
+    cfg.independent_per_drone = true;
 end
 if ~isfield(cfg, 'merge_last_runs')
     cfg.merge_last_runs = 5;
@@ -74,11 +80,27 @@ if isfield(cfg, 'scenario_count') && isfinite(cfg.scenario_count) && cfg.scenari
 end
 
 if isfield(cfg, 'drone_count') && isfinite(cfg.drone_count) && cfg.drone_count >= 1
-    droneCountTxt = num2str(round(cfg.drone_count));
+    droneCount = max(1, round(cfg.drone_count));
+    droneCountTxt = num2str(droneCount);
     setenv('AUTOSIM_SINGLE_MULTI_DRONE_COUNT', droneCountTxt);
-    setenv('AUTOSIM_MAIN_MULTI_DRONE_COUNT', droneCountTxt);
-    setenv('AUTOSIM_MULTI_DRONE_COUNT', droneCountTxt);
-    setenv('AUTOSIM_MAIN_WORKERS', '1');
+
+    independentMode = false;
+    if isfield(cfg, 'independent_per_drone')
+        independentMode = logical(cfg.independent_per_drone);
+    end
+
+    if independentMode && droneCount > 1
+        % One Gazebo per worker, one drone per Gazebo.
+        setenv('AUTOSIM_MAIN_WORKERS', droneCountTxt);
+        setenv('AUTOSIM_MAIN_MULTI_DRONE_COUNT', '1');
+        setenv('AUTOSIM_MULTI_DRONE_COUNT', '1');
+        setenv('AUTOSIM_MAIN_PRIMARY_DRONE_INDEX', '1');
+        setenv('AUTOSIM_PRIMARY_DRONE_INDEX', '1');
+    else
+        setenv('AUTOSIM_MAIN_WORKERS', '1');
+        setenv('AUTOSIM_MAIN_MULTI_DRONE_COUNT', droneCountTxt);
+        setenv('AUTOSIM_MULTI_DRONE_COUNT', droneCountTxt);
+    end
 end
 
 if isfield(cfg, 'merge_last_runs') && isfinite(cfg.merge_last_runs) && cfg.merge_last_runs >= 1
@@ -154,12 +176,17 @@ try
     cfg = autosimDefaultConfig();
     [cfg, ~] = autosimApplyRuntimeOverrides(cfg);
     requestedCount = max(1, round(double(collectionCfg.drone_count)));
+    independentMode = isfield(collectionCfg, 'independent_per_drone') && logical(collectionCfg.independent_per_drone) && requestedCount > 1;
+    expectedRuntimeCount = requestedCount;
+    if independentMode
+        expectedRuntimeCount = 1;
+    end
     effectiveCount = max(1, round(double(cfg.runtime.multi_drone_count)));
-    fprintf('[AutoSimCollect] Effective runtime drones=%d (requested=%d), ns=%s\n', ...
-        effectiveCount, requestedCount, char(string(cfg.runtime.drone_namespace)));
-    if effectiveCount ~= requestedCount
-        warning('[AutoSimCollect] Runtime override mismatch: requested drones=%d, effective drones=%d', ...
-            requestedCount, effectiveCount);
+    fprintf('[AutoSimCollect] Effective runtime drones=%d (requested=%d, expected_per_worker=%d), ns=%s\n', ...
+        effectiveCount, requestedCount, expectedRuntimeCount, char(string(cfg.runtime.drone_namespace)));
+    if effectiveCount ~= expectedRuntimeCount
+        warning('[AutoSimCollect] Runtime override mismatch: expected_per_worker=%d, effective=%d (requested_total=%d)', ...
+            expectedRuntimeCount, effectiveCount, requestedCount);
     end
 catch ME
     warning('[AutoSimCollect] Runtime verification skipped: %s', ME.message);

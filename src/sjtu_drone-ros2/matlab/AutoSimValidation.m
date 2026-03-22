@@ -9,7 +9,10 @@
 %   splitSeed (numeric): deterministic split seed.
 %   autoPlot (logical): run AutoSimPaperPlots after validation.
 
-clear; clc; close all force;
+if ~exist('autosim_keep_workspace', 'var') || ~logical(autosim_keep_workspace)
+    clear;
+end
+clc; close all force;
 
 rootDir = fileparts(mfilename('fullpath'));
 modDir = fullfile(rootDir, 'modules');

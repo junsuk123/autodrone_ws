@@ -152,7 +152,7 @@ exportgraphics(fig1, fullfile(outputDir, 'paper_fig1_method_comparison.png'), 'R
 
 n = height(datasetTbl);
 sid = getScenarioId(datasetTbl);
-if isempty(sid)
+if isempty(sid) || numel(sid) ~= n || any(~isfinite(sid))
     sid = (1:n)';
 end
 trendP = cumulativeTrend(gtSafe, predProposed);
@@ -266,7 +266,16 @@ hWind = plot(ax6, sidv, smoothAdaptive(windRiskTotal), '-', ...
 yline(ax6, 1.0, ':', 'Color', [0.50 0.50 0.50], 'LineWidth', 0.8, 'HandleVisibility', 'off');
 
 ylim(ax6, [0 riskYMax]);
-xlim(ax6, [sidv(1) - 0.5, sidv(end) + 0.5]);
+xMin = min(sidv, [], 'omitnan');
+xMax = max(sidv, [], 'omitnan');
+if ~isfinite(xMin) || ~isfinite(xMax)
+    xMin = 1;
+    xMax = max(1, numel(sidv));
+end
+if xMax <= xMin
+    xMax = xMin + 1;
+end
+xlim(ax6, [xMin - 0.5, xMax + 0.5]);
 xlabel(ax6, 'Scenario', 'FontSize', FONT_LABEL);
 ylabel(ax6, 'Wind risk (normalized)', 'FontSize', FONT_LABEL);
 title(ax6, 'Ontology+AI Decision  |  {\color[rgb]{0.27,0.52,0.79}■ AttemptLanding}  {\color[rgb]{0.85,0.28,0.22}■ HoldLanding}  —  Wind risk', ...

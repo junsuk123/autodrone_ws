@@ -234,6 +234,11 @@ bridgeEnv = strtrim(lower(getenv('AUTOSIM_MAIN_ENABLE_DOMAIN_BRIDGE')));
 if ~isempty(bridgeEnv)
     cfg.enableDomainBridge = any(strcmp(bridgeEnv, {'1', 'true', 'yes', 'y', 'on'}));
 end
+
+trainMergedEnv = strtrim(lower(getenv('AUTOSIM_MAIN_TRAIN_MERGED_AT_END')));
+if ~isempty(trainMergedEnv)
+    cfg.trainMergedAtEnd = any(strcmp(trainMergedEnv, {'1', 'true', 'yes', 'y', 'on'}));
+end
 end
 
 function txt = autosimMainBoolText(tf)

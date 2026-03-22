@@ -9,8 +9,8 @@ mainCfg = struct();
 % Data collection settings (editable in main).
 mainCfg.collection = struct();
 mainCfg.collection.scenario_count = 10;
-mainCfg.collection.drone_count = 3;
-mainCfg.collection.independent_per_drone = false;
+mainCfg.collection.drone_count = 4;
+mainCfg.collection.independent_per_drone = true;
 mainCfg.collection.merge_last_runs = 5;
 mainCfg.collection.launch_use_gui = false;
 mainCfg.collection.launch_use_rviz = true;
@@ -56,6 +56,7 @@ end
 
 if mainCfg.run_validation
     fprintf('[AutoSimMain] Stage 3/4: validation start (FinalDataset all, split=7:3)\n');
+    autosim_keep_workspace = true; %#ok<NASGU>
     autoPlot = false; %#ok<NASGU>
     run(fullfile(thisDir, 'AutoSimValidation.m'));
 end

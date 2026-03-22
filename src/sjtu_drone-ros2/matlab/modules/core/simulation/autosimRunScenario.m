@@ -579,6 +579,10 @@ function [res, traceTbl] = autosimRunScenario(cfg, scenarioCfg, scenarioId, mode
         isFlying = false;
         if isfinite(stateVal(k))
             isFlying = any(abs(stateVal(k) - flyingStates) < 1e-9);
+            % Guard against state-code mismatch by allowing altitude-based flying fallback.
+            if ~isFlying && isfinite(z(k))
+                isFlying = z(k) >= cfg.control.flying_altitude_threshold;
+            end
         elseif isfinite(z(k))
             isFlying = z(k) >= cfg.control.flying_altitude_threshold;
         end
@@ -749,6 +753,30 @@ function [res, traceTbl] = autosimRunScenario(cfg, scenarioCfg, scenarioId, mode
                             pidPoseY = autosimPidInit();
                             [cmdX, cmdY, pidX, pidY, tagLostSearchStartT] = autosimComputeTagTrackingCommand( ...
                                 cfg, tk, dtCtrl, xNow, yNow, predOk, uPred, vPred, tagDetected, uTag, vTag, pidX, pidY, tagLostSearchStartT, primaryHomeX, primaryHomeY);
+                        end
+
+                        % Keep altitude close to scenario hover target to avoid prolonged climb drift.
+                        if isfield(cfg.control, 'hover_z_hold_enable') && cfg.control.hover_z_hold_enable && ...
+                                isfield(scenarioCfg, 'hover_height_m') && isfinite(scenarioCfg.hover_height_m) && ...
+                                isfinite(z(k))
+                            zErr = double(scenarioCfg.hover_height_m) - z(k);
+                            zDeadband = 0.08;
+                            if isfield(cfg.control, 'hover_z_hold_deadband_m') && isfinite(cfg.control.hover_z_hold_deadband_m)
+                                zDeadband = max(0.0, double(cfg.control.hover_z_hold_deadband_m));
+                            end
+                            if abs(zErr) <= zDeadband
+                                cmdZ = 0.0;
+                            else
+                                zKp = 0.9;
+                                if isfield(cfg.control, 'hover_z_hold_kp') && isfinite(cfg.control.hover_z_hold_kp)
+                                    zKp = max(0.0, double(cfg.control.hover_z_hold_kp));
+                                end
+                                zCmdLim = 0.25;
+                                if isfield(cfg.control, 'hover_z_hold_cmd_limit_mps') && isfinite(cfg.control.hover_z_hold_cmd_limit_mps)
+                                    zCmdLim = max(0.05, double(cfg.control.hover_z_hold_cmd_limit_mps));
+                                end
+                                cmdZ = autosimClamp(zKp * zErr, -zCmdLim, zCmdLim);
+                            end
                         end
                     end
 
@@ -938,9 +966,26 @@ function [res, traceTbl] = autosimRunScenario(cfg, scenarioCfg, scenarioId, mode
                 end
             end
 
-            feat = autosimBuildOnlineFeatureVector(z(activeIdx), vz(activeIdx), speedAbs(activeIdx), rollDeg(activeIdx), pitchDeg(activeIdx), ...
-                tagErr(activeIdx), windSpeed(activeIdx), contact(activeIdx), imuAngVel(activeIdx), imuLinAcc(activeIdx), ...
-                contactForce(activeIdx), armForceFL(activeIdx), armForceFR(activeIdx), armForceRL(activeIdx), armForceRR(activeIdx), semVec, cfg, ...
+            featIdx = activeIdx;
+            onlineFeatWindowSec = 0.0;
+            if isfield(cfg, 'agent') && isfield(cfg.agent, 'online_feature_window_sec') && isfinite(cfg.agent.online_feature_window_sec)
+                onlineFeatWindowSec = max(0.0, double(cfg.agent.online_feature_window_sec));
+            end
+            if onlineFeatWindowSec > 0 && ~isempty(featIdx)
+                tNowForFeat = t(k);
+                if ~isfinite(tNowForFeat)
+                    tNowForFeat = tk;
+                end
+                tMinForFeat = tNowForFeat - onlineFeatWindowSec;
+                recentMask = t(featIdx) >= tMinForFeat;
+                if any(recentMask)
+                    featIdx = featIdx(recentMask);
+                end
+            end
+
+            feat = autosimBuildOnlineFeatureVector(z(featIdx), vz(featIdx), speedAbs(featIdx), rollDeg(featIdx), pitchDeg(featIdx), ...
+                tagErr(featIdx), windSpeed(featIdx), contact(featIdx), imuAngVel(featIdx), imuLinAcc(featIdx), ...
+                contactForce(featIdx), armForceFL(featIdx), armForceFR(featIdx), armForceRL(featIdx), armForceRR(featIdx), semVec, cfg, ...
                 windObs.wind_velocity, windObs.wind_acceleration);
             featureSchema = cfg.model.feature_names;
             if isfield(model, 'feature_names') && ~isempty(model.feature_names)
@@ -1380,7 +1425,7 @@ function [res, traceTbl] = autosimRunScenario(cfg, scenarioCfg, scenarioId, mode
 
         if followerCount > 0
             [pidXFollowers, pidYFollowers, tagLostFollowers, lastTagUFollowers, lastTagVFollowers, lastTagDetectFollowers, haveLastTagFollowers, tagRxCountFollowers, stateFollowers, followerDiag] = ...
-                autosimUpdateFollowerCommands(cfg, rosCtx, tk, dtCtrl, recvTimeoutSec, ...
+                autosimUpdateFollowerCommands(cfg, rosCtx, tk, dtCtrl, recvTimeoutSec, cmdX, cmdY, ...
                 pidXFollowers, pidYFollowers, tagLostFollowers, lastTagUFollowers, lastTagVFollowers, ...
                 lastTagDetectFollowers, haveLastTagFollowers, tagRxCountFollowers, stateFollowers);
 
