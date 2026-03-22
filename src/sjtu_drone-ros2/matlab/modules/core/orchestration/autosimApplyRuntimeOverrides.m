@@ -91,18 +91,23 @@ function [cfg, info] = autosimApplyRuntimeOverrides(cfg)
         cfg.persistence.trace_csv = fullfile(cfg.paths.data_dir, 'autosim_trace_latest.csv');
     end
 
-    % In multi-worker runs, GUI/RViz defaults are headless unless explicitly overridden.
+    % In multi-worker runs, keep Gazebo GUI headless by default, but keep RViz enabled.
     defaultUseGui = true;
     defaultUseRviz = true;
     if workerCount > 1
         defaultUseGui = false;
-        defaultUseRviz = false;
+        defaultUseRviz = true;
     end
     if ~isfield(cfg, 'launch') || ~isstruct(cfg.launch)
         cfg.launch = struct();
     end
     cfg.launch.use_gui = autosimEnvBool('AUTOSIM_USE_GUI', defaultUseGui);
     cfg.launch.use_rviz = autosimEnvBool('AUTOSIM_USE_RVIZ', defaultUseRviz);
+    defaultUseTeleop = false;
+    if isfield(cfg.launch, 'use_teleop')
+        defaultUseTeleop = logical(cfg.launch.use_teleop);
+    end
+    cfg.launch.use_teleop = autosimEnvBool('AUTOSIM_USE_TELEOP', defaultUseTeleop);
 
     envItems = strings(0, 1);
     if isfinite(domainId)
