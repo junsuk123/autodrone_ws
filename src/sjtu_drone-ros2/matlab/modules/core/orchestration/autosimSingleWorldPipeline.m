@@ -188,6 +188,8 @@ if isempty(T)
     return;
 end
 
+T = autosimEnsureOntologyFeatureColumns(T, cfg);
+
 if ismember('gt_safe_to_land', T.Properties.VariableNames)
     yAll = autosimNormalizeActionLabel(T.gt_safe_to_land);
 elseif ismember('label', T.Properties.VariableNames)

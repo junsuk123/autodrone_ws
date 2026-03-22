@@ -30,6 +30,10 @@ function tbl = autosimSummaryTable(results)
 
     cols = intersect(wanted, tbl.Properties.VariableNames, 'stable');
     tbl = tbl(:, cols);
+
+    % Backfill ontology-entity feature columns for model input consistency.
+    cfg = autosimDefaultConfig();
+    tbl = autosimEnsureOntologyFeatureColumns(tbl, cfg);
 end
 
 

@@ -79,6 +79,11 @@ function [cfg, info] = autosimApplyRuntimeOverrides(cfg)
         cfg.paths.run_id = sprintf('%s_w%02d', char(cfg.paths.run_id), workerId);
     end
 
+    schemaTag = autosimSchemaTag(cfg);
+    if strlength(schemaTag) > 0
+        cfg.paths.model_dir = fullfile(cfg.paths.model_dir, char(schemaTag));
+    end
+
     cfg.paths.data_dir = fullfile(cfg.paths.data_root, cfg.paths.run_id);
     cfg.paths.plot_dir = fullfile(cfg.paths.plot_root, cfg.paths.run_id);
     cfg.paths.log_dir = fullfile(cfg.paths.log_root, cfg.paths.run_id);
@@ -197,4 +202,26 @@ function tf = autosimEnvBool(name, defaultVal)
         return;
     end
     tf = any(strcmp(txt, {'1', 'true', 'yes', 'y', 'on'}));
+end
+
+function tag = autosimSchemaTag(cfg)
+    tag = "";
+    if ~isfield(cfg, 'model') || ~isstruct(cfg.model)
+        return;
+    end
+    if ~isfield(cfg.model, 'schema_version')
+        return;
+    end
+
+    raw = lower(strtrim(string(cfg.model.schema_version)));
+    if strlength(raw) == 0
+        return;
+    end
+    cleaned = regexprep(raw, '[^a-z0-9_\-]', '_');
+    cleaned = regexprep(cleaned, '_+', '_');
+    cleaned = regexprep(cleaned, '^_+|_+$', '');
+    if strlength(cleaned) == 0
+        cleaned = "default";
+    end
+    tag = "schema_" + cleaned;
 end

@@ -62,6 +62,16 @@ if nargin >= 17 && ~isempty(semVec) && nargin >= 18 && isfield(cfg, 'ontology') 
     feat.visual_enc = sem_get(semVec, semNames, "visual_enc", 0.0);
     feat.context_enc = sem_get(semVec, semNames, "context_enc", 0.0);
 end
+
+if nargin >= 17 && ~isempty(cfg)
+    ontoFeat = autosimBuildOntologyInputFromFeatureStruct(feat, cfg);
+    feat.onto_wind_condition = ontoFeat.onto_wind_condition;
+    feat.onto_gust = ontoFeat.onto_gust;
+    feat.onto_temporal_pattern = ontoFeat.onto_temporal_pattern;
+    feat.onto_drone_state = ontoFeat.onto_drone_state;
+    feat.onto_tag_observation = ontoFeat.onto_tag_observation;
+    feat.onto_landing_context = ontoFeat.onto_landing_context;
+end
 end
 
 function [predLabel, predScore] = predict_model(model, featStruct, featureNames)

@@ -152,6 +152,7 @@ if isfield(cfg.learning, "save_every_scenario") && ~cfg.learning.save_every_scen
 end
 
 trainTbl = summaryTbl(valid, :);
+trainTbl = autosimEnsureOntologyFeatureColumns(trainTbl, cfg);
 y = build_action_target_labels(trainTbl);
 
 nStable = sum(y == "AttemptLanding");

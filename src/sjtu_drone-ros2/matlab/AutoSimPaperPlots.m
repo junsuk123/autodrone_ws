@@ -30,9 +30,10 @@ end
 rootDir = fileparts(mfilename('fullpath'));
 dataRoot = fullfile(rootDir, 'data');
 plotRoot = fullfile(rootDir, 'plots');
+dataRoots = autosimPaperDiscoverDataRoots(rootDir, dataRoot);
 
 if strlength(string(runDir)) == 0
-    runDir = findLatestRunDir(dataRoot);
+    runDir = findLatestRunDir(dataRoots);
 end
 runDir = char(string(runDir));
 
@@ -377,17 +378,81 @@ assignin('base', 'paperPlotResult', paperPlotResult);
 fprintf('[AutoSimPaperPlots] done. outputDir=%s\n', outputDir);
 
 
-function runDir = findLatestRunDir(dataRoot)
-    d = dir(dataRoot);
-    isSub = [d.isdir] & ~startsWith({d.name}, '.');
-    names = string({d(isSub).name});
-    mask = strlength(names) == 15 & contains(names, '_');
-    names = names(mask);
-    if isempty(names)
-        error('AutoSimPaperPlots:NoRunDir', 'No run directory found under %s', dataRoot);
+function runDir = findLatestRunDir(dataRoots)
+    files = autosimPaperCollectFiles(dataRoots, {'autosim_dataset_latest.csv', 'autosim_dataset_*_completed.csv', 'autosim_dataset_*_interrupted.csv'});
+    if isempty(files)
+        error('AutoSimPaperPlots:NoRunDir', 'No dataset CSV found under discovered data roots.');
     end
-    names = sort(names);
-    runDir = fullfile(dataRoot, char(names(end)));
+    [~, idx] = max([files.datenum]);
+    runDir = files(idx).folder;
+end
+
+
+function roots = autosimPaperDiscoverDataRoots(rootDir, dataRoot)
+    roots = string(dataRoot);
+    parallelOutputData = autosimPaperFindLatestParallelOutput(rootDir);
+    if strlength(parallelOutputData) > 0
+        roots(end+1, 1) = parallelOutputData; %#ok<AGROW>
+    end
+    roots = unique(roots, 'stable');
+end
+
+
+function out = autosimPaperFindLatestParallelOutput(rootDir)
+    out = "";
+    parallelRoot = fullfile(rootDir, 'parallel_runs');
+    if ~isfolder(parallelRoot)
+        return;
+    end
+
+    runDirs = dir(parallelRoot);
+    runDirs = runDirs([runDirs.isdir]);
+    runDirs = runDirs(~ismember({runDirs.name}, {'.', '..'}));
+    if isempty(runDirs)
+        return;
+    end
+
+    [~, ord] = sort([runDirs.datenum], 'descend');
+    for i = 1:numel(ord)
+        candidate = fullfile(runDirs(ord(i)).folder, runDirs(ord(i)).name, 'output', 'data');
+        if isfolder(candidate)
+            out = string(candidate);
+            return;
+        end
+    end
+end
+
+
+function files = autosimPaperCollectFiles(roots, patterns)
+    files = struct('folder', {}, 'name', {}, 'datenum', {});
+    for i = 1:numel(roots)
+        root = char(roots(i));
+        if ~isfolder(root)
+            continue;
+        end
+        for j = 1:numel(patterns)
+            d = dir(fullfile(root, '**', patterns{j}));
+            if isempty(d)
+                continue;
+            end
+            if isempty(files)
+                files = d;
+            else
+                files = [files; d]; %#ok<AGROW>
+            end
+        end
+    end
+
+    if isempty(files)
+        return;
+    end
+
+    fullPaths = strings(numel(files), 1);
+    for k = 1:numel(files)
+        fullPaths(k) = string(fullfile(files(k).folder, files(k).name));
+    end
+    [~, ia] = unique(fullPaths, 'stable');
+    files = files(ia);
 end
 
 
