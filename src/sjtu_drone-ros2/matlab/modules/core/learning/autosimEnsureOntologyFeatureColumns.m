@@ -42,6 +42,9 @@ stdZ = autosimTblCol(T, 'stability_std_z', zeros(n, 1));
 stdVz = autosimTblCol(T, 'stability_std_vz', zeros(n, 1));
 
 windRiskEnc = autosimTblCol(T, 'wind_risk_enc', nan(n, 1));
+windRiskRaw = autosimTblCol(T, 'mean_wind_risk_raw', autosimTblCol(T, 'wind_risk_raw', nan(n, 1)));
+windBodyRisk = autosimTblCol(T, 'mean_wind_body_risk', autosimTblCol(T, 'wind_body_risk', nan(n, 1)));
+windGustRisk = autosimTblCol(T, 'mean_wind_gust_risk', autosimTblCol(T, 'wind_gust_risk', nan(n, 1)));
 alignEnc = autosimTblCol(T, 'alignment_enc', nan(n, 1));
 visualEnc = autosimTblCol(T, 'visual_enc', nan(n, 1));
 
@@ -60,6 +63,12 @@ nTagSpread = autosimClip01(abs(tagMax - tagMean) / max(1e-6, tagErrRef));
 nStability = autosimClip01(0.5 * (stdZ / max(1e-6, stdZRef)) + 0.5 * (stdVz / max(1e-6, stdVzRef)));
 
 windRiskFallback = autosimClip01(0.65 * nWind + 0.35 * nWindAcc);
+if any(isfinite(windBodyRisk) | isfinite(windGustRisk))
+    windRiskFallback = autosimFillNaN(windBodyRisk, windRiskFallback);
+    gustBase = autosimFillNaN(windGustRisk, nWindAcc);
+    windRiskFallback = autosimClip01(0.65 * windRiskFallback + 0.35 * gustBase);
+end
+windRiskFallback = autosimFillNaN(windRiskRaw, windRiskFallback);
 windRisk = autosimFillNaN(windRiskEnc, windRiskFallback);
 align = autosimFillNaN(alignEnc, autosimClip01(1.0 - nTag));
 visual = autosimFillNaN(visualEnc, autosimClip01(1.0 - (0.70 * nTag + 0.30 * nTagSpread)));

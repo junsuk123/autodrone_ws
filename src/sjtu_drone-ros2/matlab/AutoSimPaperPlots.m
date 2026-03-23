@@ -962,6 +962,30 @@ end
 
 function [riskTotal, windNorm, gustNorm] = buildWindRiskSeries(tbl, thresholds)
     n = height(tbl);
+
+    riskRawNew = pickNumeric(tbl, {'mean_wind_risk_raw','wind_risk_raw'}, nan(n,1));
+    bodyRiskNew = pickNumeric(tbl, {'mean_wind_body_risk','wind_body_risk'}, nan(n,1));
+    gustRiskNew = pickNumeric(tbl, {'mean_wind_gust_risk','wind_gust_risk'}, nan(n,1));
+
+    hasNewRisk = any(isfinite(riskRawNew)) || any(isfinite(bodyRiskNew)) || any(isfinite(gustRiskNew));
+    if hasNewRisk
+        risk01 = fillSeriesNan(riskRawNew);
+        body01 = fillSeriesNan(bodyRiskNew);
+        gust01 = fillSeriesNan(gustRiskNew);
+
+        if ~any(isfinite(bodyRiskNew))
+            body01 = risk01;
+        end
+        if ~any(isfinite(gustRiskNew))
+            gust01 = risk01;
+        end
+
+        riskTotal = min(2.0, max(0.0, 2.0 * risk01));
+        windNorm = min(2.0, max(0.0, 2.0 * body01));
+        gustNorm = min(2.0, max(0.0, 2.0 * gust01));
+        return;
+    end
+
     windRaw = pickNumeric(tbl, ...
         {'mean_wind_speed','wind_speed_cmd','max_wind_speed','wind_speed','wind_mps'}, ...
         nan(n,1));

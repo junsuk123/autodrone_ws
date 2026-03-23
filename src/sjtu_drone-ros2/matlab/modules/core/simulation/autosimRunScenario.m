@@ -106,6 +106,13 @@ function [res, traceTbl] = autosimRunScenario(cfg, scenarioCfg, scenarioId, mode
     semanticVisual = strings(sampleN,1);
     semanticSafe = false(sampleN,1);
     landingFeasibility = nan(sampleN,1);
+    windBodyForceX = nan(sampleN,1);
+    windBodyForceY = nan(sampleN,1);
+    windBodyForce = nan(sampleN,1);
+    windBodyRisk = nan(sampleN,1);
+    windGustRisk = nan(sampleN,1);
+    windRiskRaw = nan(sampleN,1);
+    thrustMargin = nan(sampleN,1);
     semFeat = nan(sampleN, numel(cfg.ontology.semantic_feature_names));
     cmdXLog = nan(sampleN,1);
     cmdYLog = nan(sampleN,1);
@@ -313,11 +320,15 @@ function [res, traceTbl] = autosimRunScenario(cfg, scenarioCfg, scenarioId, mode
             semanticDroneState = [semanticDroneState; strings(growN,1)]; %#ok<AGROW>
             semanticAlign = [semanticAlign; strings(growN,1)]; %#ok<AGROW>
             semanticVisual = [semanticVisual; strings(growN,1)]; %#ok<AGROW>
-            semanticContext = [semanticContext; strings(growN,1)]; %#ok<AGROW>
-            semanticRelation = [semanticRelation; strings(growN,1)]; %#ok<AGROW>
-            semanticIntegration = [semanticIntegration; strings(growN,1)]; %#ok<AGROW>
             semanticSafe = [semanticSafe; false(growN,1)]; %#ok<AGROW>
             landingFeasibility = [landingFeasibility; nan(growN,1)]; %#ok<AGROW>
+            windBodyForceX = [windBodyForceX; nan(growN,1)]; %#ok<AGROW>
+            windBodyForceY = [windBodyForceY; nan(growN,1)]; %#ok<AGROW>
+            windBodyForce = [windBodyForce; nan(growN,1)]; %#ok<AGROW>
+            windBodyRisk = [windBodyRisk; nan(growN,1)]; %#ok<AGROW>
+            windGustRisk = [windGustRisk; nan(growN,1)]; %#ok<AGROW>
+            windRiskRaw = [windRiskRaw; nan(growN,1)]; %#ok<AGROW>
+            thrustMargin = [thrustMargin; nan(growN,1)]; %#ok<AGROW>
             semFeat = [semFeat; nan(growN, numel(cfg.ontology.semantic_feature_names))]; %#ok<AGROW>
             cmdXLog = [cmdXLog; nan(growN,1)]; %#ok<AGROW>
             cmdYLog = [cmdYLog; nan(growN,1)]; %#ok<AGROW>
@@ -924,6 +935,27 @@ function [res, traceTbl] = autosimRunScenario(cfg, scenarioCfg, scenarioId, mode
             semanticVisual(k) = string(semantic.visual_state);
             semanticSafe(k) = logical(semantic.isSafeForLanding);
             landingFeasibility(k) = semantic.landing_feasibility;
+            if isfield(semantic, 'wind_body_force_x')
+                windBodyForceX(k) = double(semantic.wind_body_force_x);
+            end
+            if isfield(semantic, 'wind_body_force_y')
+                windBodyForceY(k) = double(semantic.wind_body_force_y);
+            end
+            if isfield(semantic, 'wind_body_force')
+                windBodyForce(k) = double(semantic.wind_body_force);
+            end
+            if isfield(semantic, 'wind_body_risk')
+                windBodyRisk(k) = double(semantic.wind_body_risk);
+            end
+            if isfield(semantic, 'wind_gust_risk')
+                windGustRisk(k) = double(semantic.wind_gust_risk);
+            end
+            if isfield(semantic, 'wind_risk_raw')
+                windRiskRaw(k) = double(semantic.wind_risk_raw);
+            end
+            if isfield(semantic, 'thrust_margin')
+                thrustMargin(k) = double(semantic.thrust_margin);
+            end
             semFeat(k, :) = semVec;
             analysisDataSeen = true;
 
@@ -1506,11 +1538,15 @@ function [res, traceTbl] = autosimRunScenario(cfg, scenarioCfg, scenarioId, mode
     semanticDroneState = semanticDroneState(1:kLast);
     semanticAlign = semanticAlign(1:kLast);
     semanticVisual = semanticVisual(1:kLast);
-    semanticContext = semanticContext(1:kLast);
-    semanticRelation = semanticRelation(1:kLast);
-    semanticIntegration = semanticIntegration(1:kLast);
     semanticSafe = semanticSafe(1:kLast);
     landingFeasibility = landingFeasibility(1:kLast);
+    windBodyForceX = windBodyForceX(1:kLast);
+    windBodyForceY = windBodyForceY(1:kLast);
+    windBodyForce = windBodyForce(1:kLast);
+    windBodyRisk = windBodyRisk(1:kLast);
+    windGustRisk = windGustRisk(1:kLast);
+    windRiskRaw = windRiskRaw(1:kLast);
+    thrustMargin = thrustMargin(1:kLast);
     semFeat = semFeat(1:kLast, :);
     cmdXLog = cmdXLog(1:kLast);
     cmdYLog = cmdYLog(1:kLast);
@@ -1560,11 +1596,15 @@ function [res, traceTbl] = autosimRunScenario(cfg, scenarioCfg, scenarioId, mode
     semanticDroneState = semanticDroneState(keepIdx);
     semanticAlign = semanticAlign(keepIdx);
     semanticVisual = semanticVisual(keepIdx);
-    semanticContext = semanticContext(keepIdx);
-    semanticRelation = semanticRelation(keepIdx);
-    semanticIntegration = semanticIntegration(keepIdx);
     semanticSafe = semanticSafe(keepIdx);
     landingFeasibility = landingFeasibility(keepIdx);
+    windBodyForceX = windBodyForceX(keepIdx);
+    windBodyForceY = windBodyForceY(keepIdx);
+    windBodyForce = windBodyForce(keepIdx);
+    windBodyRisk = windBodyRisk(keepIdx);
+    windGustRisk = windGustRisk(keepIdx);
+    windRiskRaw = windRiskRaw(keepIdx);
+    thrustMargin = thrustMargin(keepIdx);
     semFeat = semFeat(keepIdx, :);
     cmdXLog = cmdXLog(keepIdx);
     cmdYLog = cmdYLog(keepIdx);
@@ -1807,6 +1847,18 @@ function [res, traceTbl] = autosimRunScenario(cfg, scenarioCfg, scenarioId, mode
     res.semantic_drone_state = autosimLastNonEmptyString(semanticDroneState, "unknown");
     res.semantic_visual_state = autosimLastNonEmptyString(semanticVisual, "unknown");
     res.landing_feasibility = autosimLastFinite(landingFeasibility, nan);
+    res.wind_body_force_x = autosimNanMean(windBodyForceX);
+    res.wind_body_force_y = autosimNanMean(windBodyForceY);
+    res.wind_body_force = autosimNanMean(windBodyForce);
+    res.mean_wind_body_risk = autosimNanMean(windBodyRisk);
+    res.mean_wind_gust_risk = autosimNanMean(windGustRisk);
+    res.mean_wind_risk_raw = autosimNanMean(windRiskRaw);
+    thrFinite = thrustMargin(isfinite(thrustMargin));
+    if isempty(thrFinite)
+        res.min_thrust_margin_n = nan;
+    else
+        res.min_thrust_margin_n = min(thrFinite);
+    end
     if isfield(scenarioCfg, 'policy_mode')
         res.scenario_policy = string(scenarioCfg.policy_mode);
     end
@@ -1855,6 +1907,13 @@ function [res, traceTbl] = autosimRunScenario(cfg, scenarioCfg, scenarioId, mode
     traceTbl.semantic_visual = autosimPadLenString(semanticVisual, n);
     traceTbl.semantic_safe = autosimPadLen(double(semanticSafe), n);
     traceTbl.landing_feasibility = autosimPadLen(landingFeasibility, n);
+    traceTbl.wind_body_force_x = autosimPadLen(windBodyForceX, n);
+    traceTbl.wind_body_force_y = autosimPadLen(windBodyForceY, n);
+    traceTbl.wind_body_force = autosimPadLen(windBodyForce, n);
+    traceTbl.wind_body_risk = autosimPadLen(windBodyRisk, n);
+    traceTbl.wind_gust_risk = autosimPadLen(windGustRisk, n);
+    traceTbl.wind_risk_raw = autosimPadLen(windRiskRaw, n);
+    traceTbl.thrust_margin = autosimPadLen(thrustMargin, n);
     traceTbl.cmd_x = autosimPadLen(cmdXLog, n);
     traceTbl.cmd_y = autosimPadLen(cmdYLog, n);
     traceTbl.cmd_z = autosimPadLen(cmdZLog, n);

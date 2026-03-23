@@ -1,0 +1,27 @@
+run_dir: /home/j/INCSL/IICC26_ws/src/sjtu_drone-ros2/matlab/data/validation_holdout_20260323_145354
+dataset: /home/j/INCSL/IICC26_ws/src/sjtu_drone-ros2/matlab/data/validation_holdout_20260323_145354/autosim_dataset_latest.csv
+trace: 
+performance: 
+decision_metrics: 
+
+[Ontology+AI policy]
+n_valid: 340
+accuracy: 0.8176
+precision: 0.9283
+safe_recall: 0.8512
+unsafe_reject: 0.6275
+balanced_accuracy: 0.7393
+f1: 0.8881
+unsafe_landing_rate: 0.3725
+TP=246 FP=19 FN=43 TN=32
+
+[Threshold baseline]
+n_valid: 340
+accuracy: 0.7853
+precision: 0.9320
+safe_recall: 0.8062
+unsafe_reject: 0.6667
+balanced_accuracy: 0.7364
+f1: 0.8646
+unsafe_landing_rate: 0.3333
+TP=233 FP=17 FN=56 TN=34

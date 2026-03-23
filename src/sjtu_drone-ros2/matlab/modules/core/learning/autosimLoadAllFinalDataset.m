@@ -35,9 +35,84 @@ for i = 1:numel(files)
     if isempty(T)
         T = Ti;
     else
-        shared = intersect(T.Properties.VariableNames, Ti.Properties.VariableNames, 'stable');
-        T = [T(:, shared); Ti(:, shared)]; %#ok<AGROW>
+        [T, Ti] = autosimAlignDatasetTables(T, Ti);
+        T = [T; Ti]; %#ok<AGROW>
     end
     sourceFiles(end+1, 1) = string(p); %#ok<AGROW>
+end
+end
+
+function [A, B] = autosimAlignDatasetTables(A, B)
+varsA = string(A.Properties.VariableNames);
+varsB = string(B.Properties.VariableNames);
+varsAll = [varsA, varsB(~ismember(varsB, varsA))];
+
+for i = 1:numel(varsAll)
+    vn = char(varsAll(i));
+    hasA = ismember(vn, A.Properties.VariableNames);
+    hasB = ismember(vn, B.Properties.VariableNames);
+    if hasA && hasB
+        [A.(vn), B.(vn)] = autosimCoerceColumnPair(A.(vn), B.(vn));
+    elseif hasA
+        B.(vn) = autosimMissingLike(A.(vn), height(B));
+    else
+        A.(vn) = autosimMissingLike(B.(vn), height(A));
+    end
+end
+
+A = A(:, cellstr(varsAll));
+B = B(:, cellstr(varsAll));
+end
+
+function [a, b] = autosimCoerceColumnPair(a, b)
+numA = isnumeric(a) || islogical(a);
+numB = isnumeric(b) || islogical(b);
+
+if numA && numB
+    a = double(a);
+    b = double(b);
+    return;
+end
+
+if numA || numB
+    a = autosimToDouble(a);
+    b = autosimToDouble(b);
+    return;
+end
+
+if isstring(a) || isstring(b) || ischar(a) || ischar(b) || iscellstr(a) || iscellstr(b) || iscell(a) || iscell(b)
+    a = string(a);
+    b = string(b);
+    return;
+end
+
+a = string(a);
+b = string(b);
+end
+
+function out = autosimMissingLike(sampleCol, n)
+if isnumeric(sampleCol) || islogical(sampleCol)
+    out = nan(n, 1);
+elseif isstring(sampleCol) || ischar(sampleCol) || iscellstr(sampleCol) || iscell(sampleCol)
+    out = strings(n, 1);
+else
+    out = strings(n, 1);
+end
+end
+
+function x = autosimToDouble(v)
+if isnumeric(v) || islogical(v)
+    x = double(v);
+    return;
+end
+
+try
+    x = str2double(string(v));
+catch
+    x = nan(size(v, 1), 1);
+end
+
+if isrow(x)
+    x = x(:);
 end
 end
