@@ -58,6 +58,20 @@ $$
 c_v = \min\left(1,\max\left(0,1-\frac{e_{tag}}{e_{thr}}\right)\right)
 $$
 
+자세 안정도는 roll/pitch 크기에 대한 지수 감쇠로 정의한다.
+
+$$
+s_a = \exp\left(-\beta_r\frac{|roll|}{roll_{thr}}-\beta_p\frac{|pitch|}{pitch_{thr}}\right)
+$$
+
+문맥 안전 점수는 임무 단계 일치도와 관계 일관성을 포함한 위험 항의 보완값으로 둔다.
+
+$$
+m_{ctx}=\mathrm{clamp}\left(1-\left(\lambda_1 r_w+\lambda_2(1-c_v)+\lambda_3\,\mathrm{control\_load}+\lambda_4\,\mathrm{visual\_dropout}+\lambda_5\,\mathrm{relation\_conflict}\right),0,1\right)
+$$
+
+여기서 `relation_conflict`는 의미 관계 충돌 정도(예: supportive=0, conditional=0.5, conflicting=1)이며, $\lambda_i$는 가중치다.
+
 최종 의미 점수는 가중 결합 형태다.
 
 $$
