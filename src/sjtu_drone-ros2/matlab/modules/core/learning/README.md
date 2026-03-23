@@ -48,24 +48,29 @@ $$
 
 Learning 모듈은 의사결정 파이프라인 내에서 **특징 인코딩(Sigmoid)과 확률 분류(GaussianNB)** 두 단계를 보완적으로 사용한다.
 
-### 아키텍처
+### 아키텍처 플로우
 
-$$
-\text{센서 신호} \xrightarrow[\text{ontology}]{\text{Sigmoid}} \text{특징 벡터} \xrightarrow[\text{learning}]{\text{GaussianNB}} \text{착륙 판정}
-$$
+센서 신호 → Sigmoid 정규화 → 특징 벡터 → GaussianNB → 착륙 판정
 
 ### 역할 구분
 
-| 단계 | 기법 | 담당 모듈 | 입력 | 출력 | 목적 |
-|------|------|---------|------|------|------|
-| **1단계** | Sigmoid | `autosim_ontology_engine.m` | Raw 센서 (풍속, 오차, 자세) | $[\text{wind\_risk\_enc}, \text{align\_enc}, \text{visual\_enc}]$ | 비선형 정규화 + 물리 해석 |
-| **2단계** | GaussianNB | `autosimPredictGaussianNB.m` | 인코딩된 특징 (13차원) | $P(\text{AttemptLanding}\|X)$ | 확률 기반 분류 + 신뢰도 |
+**1단계: Sigmoid 인코딩**
+- 담당 모듈: `autosim_ontology_engine.m`
+- 입력: Raw 센서 (풍속, 오차, 자세)
+- 출력: [wind_risk_enc, align_enc, visual_enc]
+- 목적: 비선형 정규화 + 물리 해석
+
+**2단계: GaussianNB 분류**
+- 담당 모듈: `autosimPredictGaussianNB.m`
+- 입력: 인코딩된 특징 (13차원)
+- 출력: P(AttemptLanding | X)
+- 목적: 확률 기반 분류 + 신뢰도
 
 ### 왜 두 기법을 함께 사용하나?
 
 **Sigmoid의 역할 (특징 변환):**
 - 각 센서 그룹을 독립적으로 [0,1] 범위로 정규화  
-- 선형 결합 후 시그모이드: $\text{enc}_i = \sigma(w_i^T x + b_i) \in [0,1]$
+- 비선형 활성화로 복잡한 특징 공간 매핑
 - **장점:** 경량(O(1)), 물리 의미 명확, 온톨로지 규칙과 자연스러운 통합
 
 **GaussianNB의 역할 (확률 분류):**
@@ -79,7 +84,7 @@ $$
 |-----------|------------|-------------------|
 | 특징 정규화 | ✓ | ✓ |
 | 클래스 경계 학습 | ✗ | ✓ |
-| 신뢰도 수량화 | 고정 화율 | 동적 후확률 |
+| 신뢰도 수량화 | 고정 화율 | 동적 확률 |
 | 데이터 필요량 | 중간 | 적음 |
 | 해석성 | 낮음 | 높음 |
 | 불균형 처리 | 수동 | 자동 |
