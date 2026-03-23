@@ -57,7 +57,7 @@ Learning 모듈은 의사결정 파이프라인 내에서 **특징 인코딩(Sig
 **1단계: Sigmoid 인코딩**
 - 담당 모듈: `autosim_ontology_engine.m`
 - 입력: Raw 센서 (풍속, 오차, 자세)
-- 출력: [wind_risk_enc, align_enc, visual_enc]
+- 출력: $$ [wind_risk_enc, align_enc, visual_enc] $$
 - 목적: 비선형 정규화 + 물리 해석
 
 **2단계: GaussianNB 분류**
