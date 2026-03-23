@@ -49,33 +49,33 @@ $$
 
 AutoSim의 의사결정 파이프라인은 **Sigmoid 인코딩**과 **Gaussian Naive Bayes (GaussianNB) 분류**를 보완적으로 사용한다.
 
-| 기법 | 용도 | 목적 | 함수 |
-|------|------|------|------|
-| **Sigmoid** | 특징 인코딩 | Raw 센서 → 확률 범위(0~1) | `autosimLinearSigmoid()` |
-| **GaussianNB** | 의사결정 분류 | 인코딩된 특징 → AttemptLanding/HoldLanding | `autosimTrainGaussianNB()` |
+**역할:**
+- **Sigmoid**: 센서 신호를 특징 인코딩 (Raw → 확률 범위)
+- **GaussianNB**: 인코딩된 특징으로 착륙 판정 분류
 
-**아키텍처 플로우:**
+**플로우:**
 
-$$
-\text{Raw Sensors} \xrightarrow{\text{Sigmoid}} [\text{wind\_risk\_enc}, \text{alignment\_enc}, \text{visual\_enc}, \ldots] \xrightarrow{\text{GaussianNB}} \text{Decision}
-$$
+센서 신호 → Sigmoid 정규화 → `[wind_risk_enc, alignment_enc, visual_enc, ...]` → GaussianNB → `AttemptLanding / HoldLanding`
 
 **Sigmoid 역할 (특징 변환):**
-- 각 센서 그룹(풍속, 정렬 오차, 자세)을 독립적으로 0~1 범위로 정규화
-- 선형 결합 후 시그모이드 활성화: $\sigma(w_i \cdot x_i + b_i) \in [0,1]$
-- 비용이 극도로 가볍고 온톨로지 규칙 기반 조건과 자연스럽게 결합
+- 각 센서 그룹을 0~1 범위로 정규화
+- 선형 결합 후 비선형 활성화로 복잡한 특징 공간 매핑
+- 경량 연산으로 온톨로지 엔진에서 실시간 계산 가능
 
 **GaussianNB 역할 (확률 분류):**
-- 변환된 특징 공간에서 **착륙 가능/불가능 클래스를 확률 분포로 학습**
-- 사후확률 계산: $P(\text{AttemptLanding}|X) = \frac{P(X|\text{AttemptLanding})P(\text{AttemptLanding})}{P(X)}$
-- 해석 가능한 신뢰도 점수 제공 (단순 임계값이 아닌 동적 사후확률)
+- Sigmoid로 변환된 특징 공간에서 클래스 조건부 분포 학습
+- 사후확률로 신뢰도 수량화
+- 해석 가능한 의사결정 제공
 
-**왜 GaussianNB를 선택했나:**
-- **확률 해석력**: 각 클래스별 $\mu, \sigma^2$로 조건부 밀도 모델링
-- **데이터 효율성**: 분포 기반이라 적은 샘플로도 학습 가능
-- **실시간 추론**: O(n) 로그 확률 연산만 필요
-- **노이즈 저항**: Naive 독립 가정이 오히려 overfitting 방지
-- **온톨로지 융합**: Bayes 결합으로 규칙 기반 가드 조건과 통합 가능
+**왜 두 기법을 함께 사용하나:**
+
+| 항목 | Sigmoid 단독 | Sigmoid+GaussianNB |
+|------|------------|-------------------|
+| 특징 정규화 | ✓ | ✓ |
+| 클래스 경계 학습 | ✗ | ✓ |
+| 신뢰도 수량화 | 고정값 | 동적 확률 |
+| 데이터 효율성 | 중간 | 높음 |
+| 해석성 | 낮음 | 높음 |
 
 **구체적 예시:**
 ```
