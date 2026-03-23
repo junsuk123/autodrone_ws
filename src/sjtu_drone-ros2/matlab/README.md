@@ -4,28 +4,30 @@
 
 ## 최근 업데이트 (2026-03-23)
 
-### 1) 온톨로지 바람 위험도 벡터 보존
+### 1) 온톨로지 바람 위험도 항력화
 
-바람 위험도 계산에서 풍속/풍가속도를 크기만 사용하지 않고 성분을 함께 반영하도록 갱신했다.
+바람 위험도 계산을 풍속/풍가속도 스칼라 결합식에서 항력 기반 하중 평가로 갱신했다.
 
 $$
 \mathbf{v}_w=[v_x,v_y]^\top,\quad
-\mathbf{a}_w=[a_x,a_y]^\top
+\mathbf{a}_w=[a_x,a_y]^\top,
+v=\max\left(\|\mathbf{v}_w\|_2,\max(|v_x|,|v_y|)\right)
 $$
 
 $$
-r_v=\max\left(\|\mathbf{v}_w\|_2,\max(|v_x|,|v_y|)\right)
+F_d=\frac{1}{2}\rho C_d A v^2
 $$
 
 $$
-r_a=\max\left(\|\mathbf{a}_w\|_2,\max(|a_x|,|a_y|)\right)
+r_d=\frac{F_d}{F_{cap}}
 $$
 
 $$
-r_{wind}=\max\left(r_v,\ r_v+k_a r_a\right)
+v_{eq}=v_{unsafe}\cdot\sqrt{r_d},\quad
+r_{wind}=\max(v,v_{eq})
 $$
 
-또한 semantic 출력과 ontology feature 변환 단계에서도 `wind_velocity_x/y`, `wind_acceleration_x/y`를 유지한다.
+또한 풍가속도는 gust gain으로 하중을 증폭하고, semantic 출력과 ontology feature 변환 단계에서도 `wind_velocity_x/y`, `wind_acceleration_x/y`를 유지한다.
 
 ### 2) 데이터 수집 타임아웃 강화
 
@@ -174,7 +176,7 @@ graph TD
     end
 
     subgraph Processing["⚙️ 온톨로지 처리"]
-        Wind2Sem["Wind Risk Encoder<br/>input: wind_speed, velocity, accel<br/>output: wind_risk_enc"]
+        Wind2Sem["Wind Risk Encoder<br/>input: wind vector + physics params<br/>drag load ratio -> wind_risk_enc"]
         IMU2Sem["Alignment Encoder<br/>input: roll, pitch, vz<br/>output: alignment_enc"]
         Vision2Sem["Visual Encoder<br/>input: tag_u, tag_v, jitter, stability<br/>output: visual_enc"]
         Context["Context Encoder<br/>input: temporal patterns<br/>output: context_enc"]
@@ -314,16 +316,19 @@ graph TD
 
 ### 3) 수식 기반 관계 정의
 
-풍속과 풍가속도를 함께 반영한 정규화 위험도를 다음과 같이 둔다.
+풍하중(항력) 기반 정규화 위험도를 다음과 같이 둔다.
 
 $$
-r_w = \min\left(1,\max\left(0,\alpha_v \frac{v}{v_{thr}} + \alpha_a \frac{|a_w|}{a_{thr}}\right)\right)
+F_d = \frac{1}{2}\rho C_d A v^2
 $$
 
-- $v$: 풍속
-- $a_w$: 풍속 시계열 미분으로 얻는 풍가속도
-- $v_{thr}, a_{thr}$: 허용 임계값
-- $\alpha_v, \alpha_a$: 가중치, $\alpha_v + \alpha_a = 1$
+$$
+r_d = \frac{F_d}{F_{cap}},\quad
+r_w = \min\left(1,\sqrt{r_d}\right)
+$$
+
+- $F_{cap}$: 추력 여유에서 유도된 횡풍 항력 허용치
+- 풍가속도는 gust gain으로 $F_d$에 보수적으로 반영
 
 시각 정렬 신뢰도는 태그 중심 오차를 기준으로 다음과 같이 정의한다.
 

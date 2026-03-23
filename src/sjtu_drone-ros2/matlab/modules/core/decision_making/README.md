@@ -8,7 +8,7 @@
 
 $$
 	ext{onto\_wind\_condition} \propto
-w_1\,\|\mathbf{v}_w\|_2 + w_2\max(|v_x|,|v_y|) + w_3\,\text{wind\_risk\_enc}
+w_1\,\text{wind\_risk\_enc} + w_2\,\|\mathbf{v}_w\|_2 + w_3\max(|v_x|,|v_y|)
 $$
 
 $$
@@ -16,7 +16,7 @@ $$
 u_1\,\|\mathbf{a}_w\|_2 + u_2\max(|a_x|,|a_y|) + u_3\,\Delta v_{gust}
 $$
 
-즉, 크기 정보와 방향 성분 정보를 함께 사용해 feature 차원 손실을 줄인다.
+여기서 `wind_risk_enc`은 온톨로지에서 항력 하중비를 기반으로 계산된 위험도 인코딩이다.
 
 ## 기능 설명
 

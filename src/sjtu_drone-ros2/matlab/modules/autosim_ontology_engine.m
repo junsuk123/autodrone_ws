@@ -49,7 +49,7 @@ onto.wind_velocity_vec = asv(windObs, 'wind_velocity', [onto.wind_speed; 0.0]);
 onto.wind_velocity = vector_mag(onto.wind_velocity_vec);
 onto.wind_acceleration_vec = asv(windObs, 'wind_acceleration', [0.0; 0.0]);
 onto.wind_acceleration = vector_mag(onto.wind_acceleration_vec);
-onto.wind_risk = compute_wind_risk(onto.wind_velocity, onto.wind_acceleration, cfg.ontology.wind_caution_speed, cfg.ontology.wind_unsafe_speed);
+onto.wind_risk = compute_wind_risk(onto.wind_velocity_vec, onto.wind_acceleration_vec, cfg);
 windVelComp = ensure_vec2(onto.wind_velocity_vec, [onto.wind_velocity; 0.0]);
 windAccComp = ensure_vec2(onto.wind_acceleration_vec, [onto.wind_acceleration; 0.0]);
 onto.wind_velocity_x = windVelComp(1);
@@ -95,7 +95,7 @@ windVelocity = hypot(windVelocityVec(1), windVelocityVec(2));
 windAcc = hypot(windAccVec(1), windAccVec(2));
 windCaution = cfg.ontology.wind_caution_speed;
 windUnsafe = cfg.ontology.wind_unsafe_speed;
-windRisk = compute_wind_risk(windVelocityVec, windAccVec, windCaution, windUnsafe);
+windRisk = compute_wind_risk(windVelocityVec, windAccVec, cfg);
 
 % Assign wind risk display name and encoding
 if windRisk >= windUnsafe
@@ -317,29 +317,65 @@ p = polyfit(t, recentSamples, 1);
 windAcc = p(1);  % Slope in m/s per second = m/s^2
 end
 
-function windRisk = compute_wind_risk(windVelocity, windAcceleration, windCaution, windUnsafe)
-% Compute WindRisk as a function of current wind velocity and wind acceleration
-% 
-% WindRisk = max(velocity-based component, acceleration-adjusted component)
-% This ensures high risk when:
-%  1) Current speed is already high, OR
-%  2) Speed is rapidly increasing even if current value is moderate
-%
-% windVelocity: current wind speed (m/s)
-% windAcceleration: rate of change of wind speed (m/s^2)
-% windCaution: velocity threshold for caution (m/s)
-% windUnsafe: velocity threshold for unsafe (m/s)
+function windRisk = compute_wind_risk(windVelocity, windAcceleration, cfg)
     [velMag, velComp] = vector_mag_and_component_max(windVelocity);
     [accMag, accComp] = vector_mag_and_component_max(windAcceleration);
+    windUnsafe = max(1e-3, asv(cfg.ontology, 'wind_unsafe_speed', 1.0));
 
-    velocityRisk = max(velMag, velComp);
-    accelEffective = max(accMag, accComp);
-    accelAdjustment = 0.0;
-    if accelEffective > 0
-        accelAdjustment = min(0.3 * windUnsafe, 0.2 * accelEffective);
+    model = get_wind_load_model(cfg);
+    dynPressure = 0.5 * model.rho * model.cd * model.area;
+
+    dragMag = dynPressure * (velMag ^ 2);
+    dragComp = dynPressure * (velComp ^ 2);
+
+    accelPeak = max(accMag, accComp);
+    gustGain = 1.0 + min(0.5, 0.08 * max(0.0, accelPeak));
+
+    dragEff = max(dragMag, dragComp) * gustGain;
+    dragRatio = dragEff / max(1e-6, model.drag_capacity_n);
+    dragEquivalentSpeed = windUnsafe * sqrt(max(0.0, dragRatio));
+
+    windRisk = max([velMag, velComp, dragEquivalentSpeed]);
+end
+
+function model = get_wind_load_model(cfg)
+    model = struct();
+    model.rho = 1.225;
+    model.cd = 1.10;
+    model.area = 0.075;
+    model.drag_capacity_n = 6.0;
+
+    if ~isstruct(cfg) || ~isfield(cfg, 'wind') || ~isstruct(cfg.wind) || ~isfield(cfg.wind, 'physics') || ~isstruct(cfg.wind.physics)
+        return;
     end
 
-    windRisk = max(velocityRisk, velocityRisk + accelAdjustment);
+    p = cfg.wind.physics;
+    model.rho = max(1e-6, windPhysicsField(p, 'air_density_kgpm3', model.rho));
+    model.cd = max(1e-6, windPhysicsField(p, 'drag_coefficient', model.cd));
+    model.area = max(1e-6, windPhysicsField(p, 'frontal_area_m2', model.area));
+
+    margin = windPhysicsField(p, 'thrust_margin_n', nan);
+    if ~(isfinite(margin) && (margin > 0))
+        massKg = windPhysicsField(p, 'mass_kg', 1.4);
+        grav = windPhysicsField(p, 'gravity_mps2', 9.81);
+        maxThrust = windPhysicsField(p, 'max_total_thrust_n', 24.0);
+        minMargin = max(0.0, windPhysicsField(p, 'min_thrust_margin_n', 0.5));
+        margin = max(maxThrust - massKg * grav, minMargin);
+    end
+    margin = max(1e-6, margin);
+
+    model.drag_capacity_n = margin;
+end
+
+function v = windPhysicsField(p, name, fallback)
+    if isstruct(p) && isfield(p, name)
+        vv = double(p.(name));
+        if isfinite(vv)
+            v = vv;
+            return;
+        end
+    end
+    v = fallback;
 end
 
 function m = vector_mag(v)

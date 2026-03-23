@@ -13,26 +13,31 @@ IICC26 워크스페이스는 ROS2+Gazebo 시뮬레이션과 MATLAB `AutoSim`을 
 
 ## 최근 업데이트 (2026-03-23)
 
-이번 업데이트의 핵심은 바람 위험도의 방향 성분 보존과 수집 타임아웃 상한 고정이다.
+이번 업데이트의 핵심은 바람 위험도를 항력 물리량 기반으로 계산하도록 정렬하고, 수집 타임아웃 상한을 고정한 것이다.
 
-- 온톨로지 바람 위험도 계산에서 풍속/풍가속도의 벡터 성분을 유지한다.
-- 스칼라 크기만이 아니라 성분 최대치도 함께 반영해 방향성 영향이 누락되지 않도록 했다.
+- 온톨로지 바람 위험도는 풍속 벡터로부터 항력을 계산해 하중 비율로 평가한다.
+- 바람 가속도는 gust gain으로 반영해 급격한 외란에서 위험도를 보수적으로 증폭한다.
 - 드론 1대 기준 데이터 수집은 시나리오당 최대 120초를 넘지 않도록 하드 타임아웃을 적용했다.
 
-벡터 기반 위험도 요약식:
+항력 기반 위험도 요약식:
 
 $$
 \mathbf{v}_w = [v_x, v_y]^\top,\quad
-\mathbf{a}_w = [a_x, a_y]^\top
+\mathbf{a}_w = [a_x, a_y]^\top,
+v = \max\left(\|\mathbf{v}_w\|_2, \max(|v_x|, |v_y|)\right)
 $$
 
 $$
-r_v = \max\left(\|\mathbf{v}_w\|_2,\ \max(|v_x|, |v_y|)\right),\quad
-r_a = \max\left(\|\mathbf{a}_w\|_2,\ \max(|a_x|, |a_y|)\right)
+F_d = \frac{1}{2}\rho C_d A v^2
 $$
 
 $$
-r_{wind} = \max\left(r_v,\ r_v + k_a\,r_a\right)
+r_d = \frac{F_d}{F_{cap}},\quad
+v_{eq} = v_{unsafe}\cdot\sqrt{r_d}
+$$
+
+$$
+r_{wind} = \max\left(v,\ v_{eq}\right)
 $$
 
 수집 시간 상한식:
@@ -79,7 +84,7 @@ $$
 s_{fusion} = w_m \cdot p_{model}(safe) + (1-w_m) \cdot s_{semantic}
 $$
 
-- `s_semantic`: 온톨로지 규칙(풍속/가속도 위험, 시각 신뢰도, 관계 일관성) 기반 안전도
+- `s_semantic`: 온톨로지 규칙(풍하중 위험, 시각 신뢰도, 관계 일관성) 기반 안전도
 - `p_model(safe)`: 학습 모델의 안전 착륙 확률
 - `w_m`: 의미론 충돌/주의 상태에서 자동 축소되는 적응 가중치
 
@@ -134,7 +139,7 @@ graph TD
 
     subgraph OntoProc["ONTOLOGY ENCODING STAGE"]
         direction LR
-        O1["Wind Risk Computation<br/>---<br/>r_w = min(1, max(0, alpha_v*v/v_thr + alpha_a*a_w/a_thr))<br/>output: wind_risk_enc"]
+        O1["Wind Risk Computation<br/>---<br/>F_d=0.5*rho*C_d*A*v^2<br/>r_w from drag load ratio<br/>output: wind_risk_enc"]
         O2["Alignment Confidence<br/>---<br/>c_v = min(1, max(0, 1 - e_tag/e_thr))<br/>output: alignment_enc"]
         O3["Attitude Stability<br/>---<br/>s_a = exp(-beta_r*|phi|/phi_thr - beta_p*|theta|/theta_thr)<br/>output: visual_enc"]
         O4["Temporal Context<br/>---<br/>m_ctx: consistency across decision window<br/>output: context_enc"]
@@ -207,7 +212,7 @@ graph TD
 
 각 센서 도메인을 의미론적 점수로 변환합니다.
 
-- **풍속 위험도 $r_w$**: 풍속과 풍가속도로부터 계산된 정규화된 위험도 (0~1)
+- **풍하중 위험도 $r_w$**: 항력 하중 비율로부터 계산된 정규화 위험도 (0~1)
 - **정렬 신뢰도 $c_v$**: 태그 투영 오차로부터 비전 정렬 품질 평가
 - **자세 안정도 $s_a$**: Roll/Pitch 각도의 지수 감쇠 모델로 자세 안정성 평가
 - **시간 일관성 $m_{ctx}$**: 결정 윈도우 내 상태 변화 패턴 추적

@@ -4,19 +4,20 @@
 
 ## 최근 업데이트 (2026-03-23)
 
-바람 위험도 계산이 성분 보존형으로 확장되었다.
+바람 위험도 계산이 항력 하중 기반으로 확장되었다.
 
 $$
-\mathbf{v}_w=[v_x,v_y]^\top,\ \mathbf{a}_w=[a_x,a_y]^\top
-$$
-
-$$
-r_v=\max(\|\mathbf{v}_w\|_2,\max(|v_x|,|v_y|)),\quad
-r_a=\max(\|\mathbf{a}_w\|_2,\max(|a_x|,|a_y|))
+\mathbf{v}_w=[v_x,v_y]^\top,\ \mathbf{a}_w=[a_x,a_y]^\top,
+v=\max\left(\|\mathbf{v}_w\|_2,\max(|v_x|,|v_y|)\right)
 $$
 
 $$
-r_{wind}=\max(r_v,\ r_v+k_a r_a)
+F_d=\frac{1}{2}\rho C_d A v^2
+$$
+
+$$
+r_d=\frac{F_d}{F_{cap}},\quad
+r_{wind}=\min\left(1,\sqrt{r_d}\right)
 $$
 
 semantic 출력에도 `wind_velocity_x/y`, `wind_acceleration_x/y`를 유지해 차원 누락을 방지한다.
@@ -29,14 +30,18 @@ semantic 출력에도 `wind_velocity_x/y`, `wind_acceleration_x/y`를 유지해 
 
 ## 이론 포인트
 
-- 위험도 결합: 풍속/가속도/변동성/방향 변화량
+- 위험도 결합: 항력 하중비 + 변동성/방향 변화량
 - 시각 안정도: 태그 검출 연속성 + 중심 오차 + jitter
 - 최종 의미 점수는 decision feature의 `*_enc`로 전달
 
-풍속/가속도 기반 위험도 예시는 다음과 같다.
+항력 기반 위험도 예시는 다음과 같다.
 
 $$
-r_w = \min\left(1,\max\left(0,\alpha_v\frac{v}{v_{thr}}+\alpha_a\frac{|a_w|}{a_{thr}}\right)\right)
+F_d = \frac{1}{2}\rho C_d A v^2
+$$
+
+$$
+r_w = \min\left(1,\sqrt{\frac{F_d}{F_{cap}}}\right)
 $$
 
 시각 정렬 신뢰도는 중심 오차 정규화로 계산한다.
