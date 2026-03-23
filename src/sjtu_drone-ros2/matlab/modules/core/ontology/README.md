@@ -85,15 +85,15 @@ $$
 각 의미 특징을 독립적으로 sigmoid 활성화한다.
 
 $$
-\Enc_{WindRisk}= \sigma(w_w^T[\|\mathbf{v}_w\|, \|\mathbf{a}_w\|, \ldots] + b_w) \in [0,1]
+\text{Enc}_{WindRisk}= \sigma(w_w^T[\|\mathbf{v}_w\|, \|\mathbf{a}_w\|, \ldots] + b_w) \in [0,1]
 $$
 
 $$
-\Enc_{Alignment} = \sigma(w_a^T[e_{tag}, \text{trend}, \ldots] + b_a) \in [0,1]
+\text{Enc}_{Alignment} = \sigma(w_a^T[e_{tag}, \text{trend}, \ldots] + b_a) \in [0,1]
 $$
 
 $$
-\Enc_{Visual} = \sigma(w_v^T[\text{stability}, \text{jitter}, \ldots] + b_v) \in [0,1]
+\text{Enc}_{Visual} = \sigma(w_v^T[\text{stability}, \text{jitter}, \ldots] + b_v) \in [0,1]
 $$
 
 여기서 $\sigma(z) = \frac{1}{1 + e^{-z}}$이다.
