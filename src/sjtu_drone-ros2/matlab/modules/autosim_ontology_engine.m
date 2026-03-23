@@ -157,28 +157,11 @@ else
     semantic.alignment_enc = 0.1;
 end
 
-contextScore = 0.35 * (1.0 - semantic.wind_risk_enc) + 0.30 * semantic.alignment_enc + 0.35 * semantic.visual_enc;
-semantic.context_enc = clamp(contextScore, 0.0, 1.0);
-if semantic.context_enc >= 0.7
-    semantic.landing_context = "clear";
-elseif semantic.context_enc >= 0.45
-    semantic.landing_context = "caution";
-else
-    semantic.landing_context = "unsafe";
-end
-
-semantic.semantic_relation = "consistent";
-if semantic.wind_risk == "high" && semantic.alignment_enc > 0.7
-    semantic.semantic_relation = "conflicting";
-end
-
-semantic.landing_feasibility = clamp(0.55 * semantic.context_enc + 0.25 * semantic.alignment_enc + 0.20 * semantic.visual_enc, 0.0, 1.0);
+semantic.landing_feasibility = clamp(0.45 * (1.0 - semantic.wind_risk_enc) + 0.30 * semantic.alignment_enc + 0.25 * semantic.visual_enc, 0.0, 1.0);
 semantic.isSafeForLanding = semantic.landing_feasibility >= 0.55;
 if semantic.isSafeForLanding
-    semantic.semantic_integration = "AttemptLanding";
     semantic.final_decision = "AttemptLanding";
 else
-    semantic.semantic_integration = "HoldLanding";
     semantic.final_decision = "HoldLanding";
 end
 semantic.action = semantic.final_decision;
@@ -217,8 +200,6 @@ for i = 1:numel(names)
             vec(i) = asv(semantic, 'alignment_enc', 0.0);
         case "visual_enc"
             vec(i) = asv(semantic, 'visual_enc', 0.0);
-        case "context_enc"
-            vec(i) = asv(semantic, 'context_enc', 0.0);
         otherwise
             vec(i) = 0.0;
     end

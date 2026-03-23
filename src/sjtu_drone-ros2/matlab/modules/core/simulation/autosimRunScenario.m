@@ -104,9 +104,6 @@ function [res, traceTbl] = autosimRunScenario(cfg, scenarioCfg, scenarioId, mode
     semanticDroneState = strings(sampleN,1);
     semanticAlign = strings(sampleN,1);
     semanticVisual = strings(sampleN,1);
-    semanticContext = strings(sampleN,1);
-    semanticRelation = strings(sampleN,1);
-    semanticIntegration = strings(sampleN,1);
     semanticSafe = false(sampleN,1);
     landingFeasibility = nan(sampleN,1);
     semFeat = nan(sampleN, numel(cfg.ontology.semantic_feature_names));
@@ -925,9 +922,6 @@ function [res, traceTbl] = autosimRunScenario(cfg, scenarioCfg, scenarioId, mode
             semanticDroneState(k) = string(semantic.drone_state);
             semanticAlign(k) = string(semantic.alignment_state);
             semanticVisual(k) = string(semantic.visual_state);
-            semanticContext(k) = string(semantic.landing_context);
-            semanticRelation(k) = string(semantic.semantic_relation);
-            semanticIntegration(k) = string(semantic.semantic_integration);
             semanticSafe(k) = logical(semantic.isSafeForLanding);
             landingFeasibility(k) = semantic.landing_feasibility;
             semFeat(k, :) = semVec;
@@ -1027,13 +1021,10 @@ function [res, traceTbl] = autosimRunScenario(cfg, scenarioCfg, scenarioId, mode
                 fusionWeight = autosimClampNaN(cfg.agent.model_semantic_fusion_weight, 0.65);
                 if isfield(cfg.agent, 'adaptive_fusion_by_ontology') && cfg.agent.adaptive_fusion_by_ontology
                     semBoost = 0.0;
-                    if isfield(semantic, 'semantic_relation') && string(semantic.semantic_relation) == "conflicting"
+                    if (~logical(semantic.isSafeForLanding))
                         semBoost = max(semBoost, autosimClampNaN(cfg.agent.fusion_semantic_boost_on_conflict, 0.20));
-                    elseif isfield(semantic, 'landing_context') && string(semantic.landing_context) == "caution"
+                    elseif autosimClampNaN(semantic.wind_risk_enc, 0.0) >= 0.65
                         semBoost = max(semBoost, autosimClampNaN(cfg.agent.fusion_semantic_boost_on_caution, 0.10));
-                    end
-                    if isfield(semantic, 'semantic_integration') && autosimNormalizeActionLabel(semantic.semantic_integration) == "HoldLanding"
-                        semBoost = max(semBoost, autosimClampNaN(cfg.agent.fusion_semantic_boost_on_conflict, 0.20));
                     end
                     fusionWeight = fusionWeight - semBoost;
                 end
@@ -1084,19 +1075,14 @@ function [res, traceTbl] = autosimRunScenario(cfg, scenarioCfg, scenarioId, mode
 
             ontologyGuardForModel = true;
             if isfield(cfg.agent, 'ontology_guard_enable') && cfg.agent.ontology_guard_enable
-                contextEncNow = autosimClampNaN(semantic.context_enc, 0.0);
                 visualEncNow = autosimClampNaN(semantic.visual_enc, 0.0);
                 windRiskEncNow = autosimClampNaN(semantic.wind_risk_enc, 1.0);
-                relationConflicting = isfield(semantic, 'semantic_relation') && (string(semantic.semantic_relation) == "conflicting");
-                abortRecommended = isfield(semantic, 'semantic_integration') && (autosimNormalizeActionLabel(semantic.semantic_integration) == "HoldLanding");
-                blockConflicting = ~isfield(cfg.agent, 'ontology_guard_block_conflicting_relation') || cfg.agent.ontology_guard_block_conflicting_relation;
+                safeForLandingNow = logical(semantic.isSafeForLanding);
 
                 ontologyGuardForModel = ...
-                    (contextEncNow >= autosimClampNaN(cfg.agent.ontology_guard_context_min, 0.45)) && ...
                     (visualEncNow >= autosimClampNaN(cfg.agent.ontology_guard_visual_min, 0.35)) && ...
                     (windRiskEncNow <= autosimClampNaN(cfg.agent.ontology_guard_max_wind_risk, 0.80)) && ...
-                    (~abortRecommended) && ...
-                    (~blockConflicting || ~relationConflicting);
+                    safeForLandingNow;
             end
             modelStableBlockedByOntology = modelSaysStable && ~ontologyGuardForModel;
 
@@ -1759,9 +1745,6 @@ function [res, traceTbl] = autosimRunScenario(cfg, scenarioCfg, scenarioId, mode
                     'drone_state', autosimLastNonEmptyString(semanticDroneState, "unknown"), ...
                     'alignment_state', autosimLastNonEmptyString(semanticAlign, "unknown"), ...
                     'visual_state', autosimLastNonEmptyString(semanticVisual, "unknown"), ...
-                    'landing_context', autosimLastNonEmptyString(semanticContext, "unknown"), ...
-                    'semantic_relation', autosimLastNonEmptyString(semanticRelation, "unknown"), ...
-                    'semantic_integration', autosimLastNonEmptyString(semanticIntegration, "unknown"), ...
                     'landing_feasibility', autosimLastFinite(landingFeasibility, nan), ...
                     'isSafeForLanding', logical(autosimLastFinite(double(semanticSafe), 0) > 0.5));
             end
@@ -1823,9 +1806,6 @@ function [res, traceTbl] = autosimRunScenario(cfg, scenarioCfg, scenarioId, mode
     res.semantic_environment = autosimLastNonEmptyString(semanticEnvironment, "unknown");
     res.semantic_drone_state = autosimLastNonEmptyString(semanticDroneState, "unknown");
     res.semantic_visual_state = autosimLastNonEmptyString(semanticVisual, "unknown");
-    res.semantic_landing_context = autosimLastNonEmptyString(semanticContext, "unknown");
-    res.semantic_relation = autosimLastNonEmptyString(semanticRelation, "unknown");
-    res.semantic_integration = autosimLastNonEmptyString(semanticIntegration, "unknown");
     res.landing_feasibility = autosimLastFinite(landingFeasibility, nan);
     if isfield(scenarioCfg, 'policy_mode')
         res.scenario_policy = string(scenarioCfg.policy_mode);
@@ -1873,9 +1853,6 @@ function [res, traceTbl] = autosimRunScenario(cfg, scenarioCfg, scenarioId, mode
     traceTbl.semantic_drone_state = autosimPadLenString(semanticDroneState, n);
     traceTbl.semantic_alignment = autosimPadLenString(semanticAlign, n);
     traceTbl.semantic_visual = autosimPadLenString(semanticVisual, n);
-    traceTbl.semantic_context = autosimPadLenString(semanticContext, n);
-    traceTbl.semantic_relation = autosimPadLenString(semanticRelation, n);
-    traceTbl.semantic_integration = autosimPadLenString(semanticIntegration, n);
     traceTbl.semantic_safe = autosimPadLen(double(semanticSafe), n);
     traceTbl.landing_feasibility = autosimPadLen(landingFeasibility, n);
     traceTbl.cmd_x = autosimPadLen(cmdXLog, n);

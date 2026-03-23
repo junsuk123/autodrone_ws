@@ -81,20 +81,9 @@ function semantic = autosimOntologyReasoning(onto, cfg)
     end
 
     attStab = 1.0 - autosimNormalize01(d.abs_attitude, 0.0, deg2rad(cfg.thresholds.final_attitude_max_deg));
-    riskCtx = ...
-        0.28 * windRiskRuleEnc + ...
-        0.16 * (1.0 - alignRuleEnc) + ...
-        0.16 * (1.0 - visualRuleEnc) + ...
-        0.12 * (1.0 - attStab) + ...
-        0.15 * tp.control_load + ...
-        0.13 * tp.visual_dropout + ...
-        0.40 * double(c.obstacle_presence);
-    contextRuleEnc = autosimClamp(1.0 - riskCtx, 0.0, 1.0);
-
     windRiskEnc = windRiskRuleEnc;
     alignEnc = alignRuleEnc;
     visualEnc = visualRuleEnc;
-    contextEnc = contextRuleEnc;
 
     if isfield(cfg, 'ontology_ai') && isfield(cfg.ontology_ai, 'enable') && cfg.ontology_ai.enable
         aiFeatWind = [ ...
@@ -133,18 +122,6 @@ function semantic = autosimOntologyReasoning(onto, cfg)
         ];
         visualAiEnc = autosimLinearSigmoid(aiFeatVisual, cfg.ontology_ai.visual_w, cfg.ontology_ai.visual_b, 0.0);
 
-        aiFeatContext = [ ...
-            windRiskAiEnc, ...
-            alignAiEnc, ...
-            visualAiEnc, ...
-            attStab, ...
-            tp.control_load, ...
-            tp.wind_persistence, ...
-            tp.visual_dropout, ...
-            1.0 - double(c.obstacle_presence) ...
-        ];
-        contextAiEnc = autosimLinearSigmoid(aiFeatContext, cfg.ontology_ai.context_w, cfg.ontology_ai.context_b, 0.5);
-
         rw = autosimClampNaN(cfg.ontology_ai.rule_weight, 0.60);
         rw = autosimClamp(rw, 0.0, 1.0);
         aw = 1.0 - rw;
@@ -152,7 +129,6 @@ function semantic = autosimOntologyReasoning(onto, cfg)
         windRiskEnc = autosimClamp(rw * windRiskRuleEnc + aw * windRiskAiEnc, 0.0, 1.0);
         alignEnc = autosimClamp(rw * alignRuleEnc + aw * alignAiEnc, 0.0, 1.0);
         visualEnc = autosimClamp(rw * visualRuleEnc + aw * visualAiEnc, 0.0, 1.0);
-        contextEnc = autosimClamp(rw * contextRuleEnc + aw * contextAiEnc, 0.0, 1.0);
     end
 
     windRisk = autosimRiskLevel3(windRiskEnc);
@@ -171,14 +147,6 @@ function semantic = autosimOntologyReasoning(onto, cfg)
     else
         visualState = 'unstable';
     end
-    if contextEnc >= 0.70
-        contextState = 'safe';
-    elseif contextEnc >= 0.40
-        contextState = 'caution';
-    else
-        contextState = 'unsafe';
-    end
-
     if windRiskEnc < 0.30 && tp.control_load < 0.35 && tp.visual_dropout < 0.20
         environmentState = 'favorable';
     elseif windRiskEnc < 0.65 && tp.control_load < 0.70
@@ -197,25 +165,24 @@ function semantic = autosimOntologyReasoning(onto, cfg)
         droneState = 'unstable';
     end
 
-    if strcmp(environmentState, 'favorable') && strcmp(droneState, 'stable') && strcmp(visualState, 'stable') && strcmp(contextState, 'safe')
+    if strcmp(environmentState, 'favorable') && strcmp(droneState, 'stable') && strcmp(visualState, 'stable')
         semanticRelation = 'supportive';
-    elseif strcmp(contextState, 'unsafe') || strcmp(environmentState, 'adverse') || strcmp(droneState, 'unstable')
+    elseif strcmp(environmentState, 'adverse') || strcmp(droneState, 'unstable')
         semanticRelation = 'conflicting';
     else
         semanticRelation = 'conditional';
     end
 
     landingFeasibility = autosimClamp( ...
-        0.30 * (1.0 - windRiskEnc) + ...
-        0.20 * alignEnc + ...
+        0.40 * (1.0 - windRiskEnc) + ...
+        0.25 * alignEnc + ...
         0.20 * visualEnc + ...
-        0.15 * contextEnc + ...
         0.15 * droneStability, 0.0, 1.0);
 
-    if landingFeasibility >= cfg.agent.semantic_land_threshold && strcmp(contextState, 'safe')
+    if landingFeasibility >= cfg.agent.semantic_land_threshold
         semanticIntegration = 'AttemptLanding';
         finalDecision = 'AttemptLanding';
-    elseif landingFeasibility <= cfg.agent.semantic_abort_threshold || strcmp(contextState, 'unsafe')
+    elseif landingFeasibility <= cfg.agent.semantic_abort_threshold
         semanticIntegration = 'HoldLanding';
         finalDecision = 'HoldLanding';
     else
@@ -232,10 +199,7 @@ function semantic = autosimOntologyReasoning(onto, cfg)
     semantic.alignment_trend = alignmentTrend;
     semantic.visual_state = visualState;
     semantic.visual_pattern = visualPattern;
-    semantic.landing_context = contextState;
     semantic.control_difficulty = controlDifficulty;
-    semantic.semantic_relation = semanticRelation;
-    semantic.semantic_integration = semanticIntegration;
     semantic.landing_feasibility = landingFeasibility;
     semantic.final_decision = finalDecision;
     semantic.isSafeForLanding = strcmp(finalDecision, 'AttemptLanding');
@@ -248,7 +212,6 @@ function semantic = autosimOntologyReasoning(onto, cfg)
     semantic.wind_risk_enc = windRiskEnc;
     semantic.alignment_enc = alignEnc;
     semantic.visual_enc = visualEnc;
-    semantic.context_enc = contextEnc;
 
 end
 

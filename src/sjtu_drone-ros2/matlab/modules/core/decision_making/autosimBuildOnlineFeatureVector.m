@@ -66,7 +66,6 @@ function feat = autosimBuildOnlineFeatureVector(z, vz, speedAbs, rollDeg, pitchD
         feat.wind_risk_enc = autosimSemGet(semVec, semNames, "wind_risk_enc", 0.0);
         feat.alignment_enc = autosimSemGet(semVec, semNames, "alignment_enc", 0.0);
         feat.visual_enc = autosimSemGet(semVec, semNames, "visual_enc", 0.0);
-        feat.context_enc = autosimSemGet(semVec, semNames, "context_enc", 0.0);
     end
 
     ontoFeat = autosimBuildOntologyInputFromFeatureStruct(feat, cfg);
@@ -75,7 +74,6 @@ function feat = autosimBuildOnlineFeatureVector(z, vz, speedAbs, rollDeg, pitchD
     feat.onto_temporal_pattern = ontoFeat.onto_temporal_pattern;
     feat.onto_drone_state = ontoFeat.onto_drone_state;
     feat.onto_tag_observation = ontoFeat.onto_tag_observation;
-    feat.onto_landing_context = ontoFeat.onto_landing_context;
 end
 
 

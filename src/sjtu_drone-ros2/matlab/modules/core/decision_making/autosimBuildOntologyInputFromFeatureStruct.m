@@ -29,7 +29,6 @@ stdVz = autosimField(feat, 'stability_std_vz', 0.0);
 windRiskEnc = autosimField(feat, 'wind_risk_enc', nan);
 alignEnc = autosimField(feat, 'alignment_enc', nan);
 visualEnc = autosimField(feat, 'visual_enc', nan);
-contextEnc = autosimField(feat, 'context_enc', nan);
 
 nWind = autosimClip01(windMean / max(1e-6, windMaxRef));
 nWindVel = autosimClip01(windVel / max(1e-6, windMaxRef));
@@ -47,7 +46,6 @@ windRiskFallback = autosimClip01(0.35 * nWind + 0.30 * nWindVel + 0.15 * nWindVe
 if ~isfinite(windRiskEnc), windRiskEnc = windRiskFallback; end
 if ~isfinite(alignEnc), alignEnc = autosimClip01(1.0 - nTag); end
 if ~isfinite(visualEnc), visualEnc = autosimClip01(1.0 - (0.70 * nTag + 0.30 * nTagSpread)); end
-if ~isfinite(contextEnc), contextEnc = autosimClip01(0.60 * (1.0 - windRiskEnc) + 0.40 * visualEnc); end
 
 ontoFeat = struct();
 ontoFeat.onto_wind_condition = autosimClip01(0.35 * nWind + 0.30 * nWindVel + 0.15 * nWindVelComp + 0.20 * windRiskEnc);
@@ -55,7 +53,6 @@ ontoFeat.onto_gust = autosimClip01(0.40 * nWindAcc + 0.20 * nWindAccComp + 0.40 
 ontoFeat.onto_temporal_pattern = autosimClip01(0.60 * ontoFeat.onto_gust + 0.40 * nStability);
 ontoFeat.onto_drone_state = autosimClip01(1.0 - (0.55 * nAtt + 0.45 * nVz));
 ontoFeat.onto_tag_observation = autosimClip01(0.60 * visualEnc + 0.40 * (1.0 - nTag));
-ontoFeat.onto_landing_context = autosimClip01(0.45 * contextEnc + 0.25 * alignEnc + 0.15 * ontoFeat.onto_drone_state + 0.15 * (1.0 - windRiskEnc));
 end
 
 function v = autosimField(s, name, fallback)

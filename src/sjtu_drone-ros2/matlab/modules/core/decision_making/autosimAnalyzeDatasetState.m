@@ -101,21 +101,21 @@ function state = autosimAnalyzeDatasetState(cfg, results, traceStore, learningHi
         state.nCaseLabeled = sum(state.caseCounts);
     end
 
-    boundaryByContext = false(height(summaryTbl), 1);
+    boundaryBySemantic = false(height(summaryTbl), 1);
     boundaryByProb = false(height(summaryTbl), 1);
     if ~isempty(traceStore) && ismember('scenario_id', traceStore.Properties.VariableNames)
-        if ismember('sem_context_enc', traceStore.Properties.VariableNames)
+        if ismember('sem_alignment_enc', traceStore.Properties.VariableNames)
             ids = summaryTbl.scenario_id;
-            contextMeans = nan(height(summaryTbl), 1);
+            semMeans = nan(height(summaryTbl), 1);
             for i = 1:height(summaryTbl)
                 sid = ids(i);
-                v = traceStore.sem_context_enc(traceStore.scenario_id == sid);
+                v = traceStore.sem_alignment_enc(traceStore.scenario_id == sid);
                 v = v(isfinite(v));
                 if ~isempty(v)
-                    contextMeans(i) = mean(v);
+                    semMeans(i) = mean(v);
                 end
             end
-            boundaryByContext = isfinite(contextMeans) & (abs(contextMeans - 0.5) <= 0.10);
+            boundaryBySemantic = isfinite(semMeans) & (abs(semMeans - 0.5) <= 0.10);
         end
 
         if ismember('pred_stable_prob', traceStore.Properties.VariableNames)
@@ -133,7 +133,7 @@ function state = autosimAnalyzeDatasetState(cfg, results, traceStore, learningHi
         end
     end
 
-    boundaryMask = boundaryByContext | boundaryByProb;
+    boundaryMask = boundaryBySemantic | boundaryByProb;
     if any(boundaryMask)
         state.boundarySampleRatio = sum(boundaryMask) / numel(boundaryMask);
     elseif state.nValid > 0

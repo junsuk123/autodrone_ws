@@ -53,7 +53,7 @@ function viz = autosimInitScenarioRealtimePlot(cfg, scenarioId, scenarioCfg)
     xlabel(axTrend, 't [s]');
     ylabel(axTrend, 'readiness');
     title(axTrend, 'Landing Readiness Trend', 'Interpreter', 'none');
-    legend(axTrend, {'decision confidence','safe-to-land score','context safety'}, 'Location', 'best', 'FontSize', 8);
+    legend(axTrend, {'decision confidence','safe-to-land score','semantic safety'}, 'Location', 'best', 'FontSize', 8);
     grid(axTrend, 'on');
 
     axFlow = nexttile(tl, 4);

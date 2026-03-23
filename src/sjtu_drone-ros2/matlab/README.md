@@ -185,15 +185,14 @@ graph TD
         Wind2Sem["Wind Risk Encoder<br/>input: wind vector + physics params<br/>drag load ratio -> wind_risk_enc"]
         IMU2Sem["Alignment Encoder<br/>input: roll, pitch, vz<br/>output: alignment_enc"]
         Vision2Sem["Visual Encoder<br/>input: tag_u, tag_v, jitter, stability<br/>output: visual_enc"]
-        Context["Context Encoder<br/>input: temporal patterns<br/>output: context_enc"]
     end
 
-    subgraph Fusion["🧠 의미론적 특성 벡터<br/>(14-dim Semantic)"]
-        SemVec["wind_speed<br/>wind_velocity<br/>wind_acceleration<br/>wind_dir_norm<br/>roll_abs | pitch_abs<br/>tag_u | tag_v<br/>jitter | stability_score<br/>+ 4x encoders"]
+    subgraph Fusion["🧠 의미론적 특성 벡터<br/>(13-dim Semantic)"]
+        SemVec["wind_speed<br/>wind_velocity<br/>wind_acceleration<br/>wind_dir_norm<br/>roll_abs | pitch_abs<br/>tag_u | tag_v<br/>jitter | stability_score<br/>+ 3x encoders"]
     end
 
-    subgraph AIInput["🎯 AI 입력 특성<br/>(24-dim AI Schema)"]
-        AIFeatures["mean_wind_speed | max_wind_speed<br/>mean_abs_roll_deg | mean_abs_pitch_deg<br/>wind_velocity_x | wind_velocity_y | wind_velocity<br/>wind_acceleration_x | wind_acceleration_y | wind_acceleration<br/>mean_abs_vz | max_abs_vz<br/>mean_tag_error | max_tag_error<br/>stability_std_z | stability_std_vz<br/>mean_imu_ang_vel | max_imu_ang_vel<br/>mean_imu_lin_acc | max_imu_lin_acc<br/>wind_risk_enc | alignment_enc | visual_enc | context_enc"]
+    subgraph AIInput["🎯 AI 입력 특성<br/>(23-dim AI Schema)"]
+        AIFeatures["mean_wind_speed | max_wind_speed<br/>mean_abs_roll_deg | mean_abs_pitch_deg<br/>wind_velocity_x | wind_velocity_y | wind_velocity<br/>wind_acceleration_x | wind_acceleration_y | wind_acceleration<br/>mean_abs_vz | max_abs_vz<br/>mean_tag_error | max_tag_error<br/>stability_std_z | stability_std_vz<br/>mean_imu_ang_vel | max_imu_ang_vel<br/>mean_imu_lin_acc | max_imu_lin_acc<br/>wind_risk_enc | alignment_enc | visual_enc"]
     end
 
     subgraph Model["🤖 Gaussian Naive Bayes 분류기"]
@@ -210,11 +209,10 @@ graph TD
     Wind --> Wind2Sem
     IMU --> IMU2Sem
     Vision --> Vision2Sem
-    Vision2Sem --> Context
 
     Wind2Sem --> SemVec
     IMU2Sem --> SemVec
-    Context --> SemVec
+    Vision2Sem --> SemVec
 
     SemVec --> AIFeatures
     Vision --> AIFeatures
@@ -234,9 +232,9 @@ graph TD
 **주요 특징:**
 
 - **센서 입력**: 풍속, IMU, AprilTag 카메라로부터 실시간 데이터 수집
-- **온톨로지 처리**: 4개 인코더(wind_risk, alignment, visual, context)를 통해 의미론적 특성 추출
-- **의미론적 벡터**: 14차원 벡터로 의미론 규칙 평가에 사용
-- **AI 입력**: 24차원 벡터로 통계량(평균, 최대값, 표준편차) + 4개 인코더 조합
+- **온톨로지 처리**: 3개 인코더(wind_risk, alignment, visual)를 통해 의미론적 특성 추출
+- **의미론적 벡터**: 13차원 벡터로 의미론 규칙 평가에 사용
+- **AI 입력**: 23차원 벡터로 통계량(평균, 최대값, 표준편차) + 3개 인코더 조합
 - **분류기**: Gaussian Naive Bayes로 AttemptLanding 확률 계산
 - **최종 결정**: 온톨로지 규칙과 AI 확률을 가중 결합하여 최종 의사결정
 
@@ -251,9 +249,9 @@ graph TD
 7. 정책 판단(`pred_decision`) 산출
 8. 결과 라벨링 및 학습/검증 데이터 반영
 
-## 최종 AI 입력 데이터 형태 (24 features)
+## 최종 AI 입력 데이터 형태 (23 features)
 
-입력 텐서: 1 x 24 실수 벡터 (double)
+입력 텐서: 1 x 23 실수 벡터 (double)
 
 생성 위치:
 
@@ -265,7 +263,7 @@ graph TD
 - 스키마 정의: modules/core/autosimDefaultConfig.m
 - 실제 X 생성: modules/core/autosimPredictModel.m, modules/core/autosimTrainGaussianNB.m
 
-현재 모델 스키마(`decision_v2`)는 아래 24개 입력으로 고정되어 있다.
+현재 모델 스키마(`decision_v2`)는 아래 23개 입력으로 고정되어 있다.
 
 1. `mean_wind_speed`
 2. `max_wind_speed`
@@ -290,7 +288,6 @@ graph TD
 21. `wind_risk_enc`
 22. `alignment_enc`
 23. `visual_enc`
-24. `context_enc`
 
 중요: 풍속/가속도는 입력 직전까지 벡터 성분(`x`, `y`)으로 유지하고, 크기 특성(`wind_velocity`, `wind_acceleration`)은 별도 feature로 함께 사용한다.
 
@@ -308,7 +305,7 @@ graph TD
 - `SafetyState`: 안전 여유(풍하중 대비 추력 여유, 시각 신뢰도, 자세 안정도)
 - `DecisionState`: 최종 권고(`AttemptLanding` 또는 `HoldLanding`)
 
-실제 구현에서는 위 객체를 특징 벡터와 인코딩 상태(`context_enc`, `visual_enc`, `wind_risk_enc`)로 변환해 규칙 평가와 모델 결합에 사용한다.
+실제 구현에서는 위 객체를 특징 벡터와 인코딩 상태(`wind_risk_enc`, `alignment_enc`, `visual_enc`)로 변환해 규칙 평가와 모델 결합에 사용한다.
 
 ### 2) 객체 간 관계(그래프) 설계
 
@@ -357,11 +354,10 @@ $$
 최종 의미론 안전 점수는 다음과 같이 결합한다.
 
 $$
-s_{sem} = w_w(1-r_w) + w_v c_v + w_a s_a + w_m m_{ctx}
+s_{sem} = w_w(1-r_w) + w_v c_v + w_a s_a
 $$
 
-- $m_{ctx}$: 임무 단계/관계 일관성 점수
-- $w_w + w_v + w_a + w_m = 1$
+- $w_w + w_v + w_a = 1$
 
 정책 판단은 임계값 기반으로 이진화한다.
 

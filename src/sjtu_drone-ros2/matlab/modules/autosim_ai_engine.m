@@ -60,7 +60,6 @@ if nargin >= 17 && ~isempty(semVec) && nargin >= 18 && isfield(cfg, 'ontology') 
     feat.wind_risk_enc = sem_get(semVec, semNames, "wind_risk_enc", 0.0);
     feat.alignment_enc = sem_get(semVec, semNames, "alignment_enc", 0.0);
     feat.visual_enc = sem_get(semVec, semNames, "visual_enc", 0.0);
-    feat.context_enc = sem_get(semVec, semNames, "context_enc", 0.0);
 end
 
 if nargin >= 17 && ~isempty(cfg)
@@ -70,7 +69,6 @@ if nargin >= 17 && ~isempty(cfg)
     feat.onto_temporal_pattern = ontoFeat.onto_temporal_pattern;
     feat.onto_drone_state = ontoFeat.onto_drone_state;
     feat.onto_tag_observation = ontoFeat.onto_tag_observation;
-    feat.onto_landing_context = ontoFeat.onto_landing_context;
 end
 end
 

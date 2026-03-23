@@ -92,7 +92,7 @@ $$
 s_{fusion} = w_m \cdot p_{model}(safe) + (1-w_m) \cdot s_{semantic}
 $$
 
-- `s_semantic`: 온톨로지 규칙(풍하중 위험, 시각 신뢰도, 관계 일관성) 기반 안전도
+- `s_semantic`: 온톨로지 규칙(풍하중 위험, 시각 신뢰도, 자세 안정성) 기반 안전도
 - `p_model(safe)`: 학습 모델의 안전 착륙 확률
 - `w_m`: 의미론 충돌/주의 상태에서 자동 축소되는 적응 가중치
 
@@ -150,11 +150,10 @@ graph TD
         O1["Wind Risk Computation<br/>---<br/>drag load based risk encoding<br/>output: wind_risk_enc"]
         O2["Alignment Confidence<br/>---<br/>tag error normalization<br/>output: alignment_enc"]
         O3["Attitude Stability<br/>---<br/>roll pitch stability assessment<br/>output: visual_enc"]
-        O4["Temporal Context<br/>---<br/>m_ctx: consistency across decision window<br/>output: context_enc"]
     end
 
     subgraph SemFeat["SEMANTIC FEATURE VECTOR"]
-        SF["Dimension: 14<br/>---<br/>wind_speed, wind_velocity<br/>wind_acceleration, wind_dir_norm<br/>roll_abs, pitch_abs<br/>tag_u, tag_v<br/>jitter, stability_score<br/>wind_risk_enc<br/>alignment_enc<br/>visual_enc<br/>context_enc"]
+        SF["Dimension: 13<br/>---<br/>wind_speed, wind_velocity<br/>wind_acceleration, wind_dir_norm<br/>roll_abs, pitch_abs<br/>tag_u, tag_v<br/>jitter, stability_score<br/>wind_risk_enc<br/>alignment_enc<br/>visual_enc"]
     end
 
     subgraph StatExtract["STATISTICAL FEATURE EXTRACTION"]
@@ -163,8 +162,8 @@ graph TD
         FE2["Compositional Features<br/>---<br/>vector components<br/>magnitude feature"]
     end
 
-    subgraph AIInput["AI INPUT VECTOR (24-dim)"]
-        AI["Schema: decision_v2<br/>---<br/>Aggregate Statistics:<br/>  mean_wind_speed, max_wind_speed<br/>  mean_abs_roll_deg, mean_abs_pitch_deg<br/>  wind_velocity_x, wind_velocity_y, wind_velocity<br/>  wind_acceleration_x, wind_acceleration_y, wind_acceleration<br/>  mean_abs_vz, max_abs_vz<br/>  mean_tag_error, max_tag_error<br/>  stability_std_z, stability_std_vz<br/>  mean_imu_ang_vel, max_imu_ang_vel<br/>  mean_imu_lin_acc, max_imu_lin_acc<br/>Encoded Terms:<br/>  wind_risk_enc, alignment_enc<br/>  visual_enc, context_enc"]
+    subgraph AIInput["AI INPUT VECTOR (23-dim)"]
+        AI["Schema: decision_v2<br/>---<br/>Aggregate Statistics:<br/>  mean_wind_speed, max_wind_speed<br/>  mean_abs_roll_deg, mean_abs_pitch_deg<br/>  wind_velocity_x, wind_velocity_y, wind_velocity<br/>  wind_acceleration_x, wind_acceleration_y, wind_acceleration<br/>  mean_abs_vz, max_abs_vz<br/>  mean_tag_error, max_tag_error<br/>  stability_std_z, stability_std_vz<br/>  mean_imu_ang_vel, max_imu_ang_vel<br/>  mean_imu_lin_acc, max_imu_lin_acc<br/>Encoded Terms:<br/>  wind_risk_enc, alignment_enc<br/>  visual_enc"]
     end
 
     subgraph Learning["LEARNING MODULE<br/>(Gaussian Naive Bayes)"]
@@ -184,12 +183,10 @@ graph TD
     S2 --> O2
     S2 --> O3
     S3 --> O3
-    S3 --> O4
 
     O1 --> SF
     O2 --> SF
     O3 --> SF
-    O4 --> SF
 
     SF --> FE1
     S1 --> FE2
@@ -223,11 +220,10 @@ graph TD
 - **풍하중 위험도 $r_w$**: 항력 하중 비율로부터 계산된 정규화 위험도 (0~1)
 - **정렬 신뢰도 $c_v$**: 태그 투영 오차로부터 비전 정렬 품질 평가
 - **자세 안정도 $s_a$**: Roll/Pitch 각도의 지수 감쇠 모델로 자세 안정성 평가
-- **시간 일관성 $m_{ctx}$**: 결정 윈도우 내 상태 변화 패턴 추적
 
 **3) 의미론적 특성 벡터 (Semantic Feature Vector)**
 
-14차원 벡터로 온톨로지 규칙 평가에 직접 사용됩니다.
+13차원 벡터로 온톨로지 규칙 평가에 직접 사용됩니다.
 
 **4) 통계적 특성 추출 (Statistical Feature Extraction)**
 
@@ -235,9 +231,9 @@ graph TD
 - 평균(mean), 최대값(max), 표준편차(std) 계산
 - 벡터 성분($x$, $y$)과 크기(magnitude) 동시 보존
 
-**5) AI 입력 벡터 (24-dim Decision Schema)**
+**5) AI 입력 벡터 (23-dim Decision Schema)**
 
-통계 특성(20개) + 온톨로지 인코딩(4개)으로 구성된 최종 입력 벡터
+통계 특성(20개) + 온톨로지 인코딩(3개)으로 구성된 최종 입력 벡터
 
 **6) 학습 모듈 (Gaussian Naive Bayes)**
 
