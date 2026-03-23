@@ -21,13 +21,36 @@ $$
 $$
 
 $$
-r_v=\max\!\left(\|\mathbf{v}_w\|_2,\max(|v_x|,|v_y|)\right),\quad
-r_a=\max\!\left(\|\mathbf{a}_w\|_2,\max(|a_x|,|a_y|)\right)
+\mathbf{F}_w=\frac{1}{2}\rho C S\,\mathbf{v}_w\left|\mathbf{v}_w\right|,
+\quad
+F_{body}=\sqrt{F_{wx}^2+F_{wy}^2}
 $$
 
 $$
-r_{wind}=\max(r_v,r_a)
+r_{body}=\min\left(1,\frac{F_{body}}{F_{cap}}\right)
 $$
+
+$$
+c_{tilt}=\cos(|roll|)\cos(|pitch|),\quad
+T_{req}=\frac{mg}{\max(c_{tilt},c_{min})},\quad
+F_{cap}=\max(T_{max}-T_{req},F_{min})
+$$
+
+$$
+a_w=\sqrt{a_x^2+a_y^2},\quad
+\Delta\theta_w=\arccos\!\left(\frac{\mathbf{v}_w(t)\cdot\mathbf{v}_w(t-\Delta t)}{\|\mathbf{v}_w(t)\|\,\|\mathbf{v}_w(t-\Delta t)\|}\right)
+$$
+
+$$
+r_{gust}=\min\left(1,\frac{a_w}{a_{thr}}\right),\quad
+r_{dir}=\min\left(1,\frac{\Delta\theta_w}{\theta_{thr}}\right)
+$$
+
+$$
+r_{wind}=\max(r_{body},r_{gust},r_{dir})
+$$
+
+핵심 정책: $r_{body}, r_{gust}, r_{dir}$는 가중합으로 하나로 압축하지 않고, 개별 위험 채널로 모델 입력 벡터까지 전달한다.
 
 $$
 s_{fusion}=w_m\,p_{model}(safe)+(1-w_m)\,s_{semantic},\quad
@@ -204,7 +227,7 @@ graph TD
 
 각 센서 도메인을 의미론적 점수로 변환합니다.
 
-- **풍위험도 $r_w$**: 풍속/가속도의 벡터 성분과 크기를 동시 반영한 결합 위험도
+- **풍위험도 채널**: $r_{body}$ (항력), $r_{gust}$ (가속도), $r_{dir}$ (방향 변화)로 분리해 사용
 - **정렬 신뢰도 $c_v$**: 태그 투영 오차로부터 비전 정렬 품질 평가
 - **자세 안정도 $s_a$**: Roll/Pitch 각도의 지수 감쇠 모델로 자세 안정성 평가
 

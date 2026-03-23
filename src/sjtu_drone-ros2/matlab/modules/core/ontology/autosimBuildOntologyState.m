@@ -40,6 +40,7 @@ function onto = autosimBuildOntologyState(windObs, droneObs, tagObs, cfg)
     if ~isfinite(windDirRep)
         windDirRep = autosimClampNaN(windObs.wind_direction, 0.0);
     end
+    [windDirChangeRad, windDirChangeRisk] = autosimComputeWindDirectionChangeRisk(windObs, cfg);
 
     baseN = max(8, round(cfg.ontology.gust_base_window_sec / dt));
     burstN = max(3, round(cfg.ontology.gust_burst_window_sec / dt));
@@ -67,7 +68,7 @@ function onto = autosimBuildOntologyState(windObs, droneObs, tagObs, cfg)
     temporal = autosimBuildTemporalSemanticState(windObs, droneObs, tagObs, gustIntensity, cfg);
     rollAbs = abs(autosimClampNaN(droneObs.roll, 0.0));
     pitchAbs = abs(autosimClampNaN(droneObs.pitch, 0.0));
-    windRiskComp = autosimBuildWindRiskState(windVelObs(1:2), windAccObs(1:2), cfg, rollAbs, pitchAbs);
+    windRiskComp = autosimBuildWindRiskState(windVelObs(1:2), windAccObs(1:2), cfg, rollAbs, pitchAbs, windDirChangeRisk);
 
     onto = struct();
     onto.entities = struct();
@@ -83,6 +84,8 @@ function onto = autosimBuildOntologyState(windObs, droneObs, tagObs, cfg)
         'wind_body_force', windRiskComp.F_body, ...
         'wind_body_risk', windRiskComp.r_body, ...
         'wind_gust_risk', windRiskComp.r_gust, ...
+        'wind_dir_change', windDirChangeRad, ...
+        'wind_dir_change_risk', windRiskComp.r_dir_change, ...
         'wind_risk_raw', windRiskComp.r_wind, ...
         'thrust_margin', windRiskComp.F_cap);
 
@@ -134,6 +137,8 @@ function onto = autosimBuildOntologyState(windObs, droneObs, tagObs, cfg)
         'wind_body_force', windRiskComp.F_body, ...
         'wind_body_risk', windRiskComp.r_body, ...
         'wind_gust_risk', windRiskComp.r_gust, ...
+        'wind_dir_change', windDirChangeRad, ...
+        'wind_dir_change_risk', windRiskComp.r_dir_change, ...
         'wind_risk_raw', windRiskComp.r_wind, ...
         'thrust_margin', windRiskComp.F_cap, ...
         'wind_pattern', string(temporal.wind_pattern), ...
@@ -161,7 +166,7 @@ function onto = autosimBuildOntologyState(windObs, droneObs, tagObs, cfg)
         'obstacle_presence', cfg.ontology.obstacle_presence);
 end
 
-function comp = autosimBuildWindRiskState(windVelocityVec, windAccelerationVec, cfg, rollAbs, pitchAbs)
+function comp = autosimBuildWindRiskState(windVelocityVec, windAccelerationVec, cfg, rollAbs, pitchAbs, dirChangeRisk)
     vel = double(windVelocityVec(:));
     if isempty(vel)
         vel = [0.0; 0.0];
@@ -181,6 +186,10 @@ function comp = autosimBuildWindRiskState(windVelocityVec, windAccelerationVec, 
         acc = acc(1:2);
     end
     acc(~isfinite(acc)) = 0.0;
+
+    if nargin < 6 || ~isfinite(double(dirChangeRisk))
+        dirChangeRisk = 0.0;
+    end
 
     model = autosimWindRiskModel(cfg);
     c_tilt = cos(abs(double(rollAbs))) * cos(abs(double(pitchAbs)));
@@ -217,18 +226,12 @@ function comp = autosimBuildWindRiskState(windVelocityVec, windAccelerationVec, 
         a_w = 0.0;
     end
     r_gust = autosimClamp(a_w / max(model.a_thr, 1e-6), 0.0, 1.0);
-    wSum = model.w_body + model.w_gust;
-    if ~(isfinite(wSum) && wSum > 0)
-        w_body = 0.7;
-        w_gust = 0.3;
-    else
-        w_body = model.w_body / wSum;
-        w_gust = model.w_gust / wSum;
-    end
-    r_wind = autosimClamp(w_body * r_body + w_gust * r_gust, 0.0, 1.0);
+    r_dir_change = autosimClamp(dirChangeRisk, 0.0, 1.0);
+    % Keep each risk independent; aggregate without additive weighting.
+    r_wind = max([r_body, r_gust, r_dir_change]);
 
     comp = struct('F_wx', F_wx, 'F_wy', F_wy, 'F_body', F_body, 'F_cap', F_cap, ...
-        'r_body', r_body, 'r_gust', r_gust, 'r_wind', r_wind);
+        'r_body', r_body, 'r_gust', r_gust, 'r_dir_change', r_dir_change, 'r_wind', r_wind);
 end
 
 function model = autosimWindRiskModel(cfg)
@@ -285,6 +288,47 @@ function v = autosimStateField(s, name, fallback)
         end
     end
     v = fallback;
+end
+
+function [deltaThetaRad, risk] = autosimComputeWindDirectionChangeRisk(windObs, cfg)
+    vxHist = double(autosimVizField(windObs, 'wind_vel_x_hist', nan));
+    vyHist = double(autosimVizField(windObs, 'wind_vel_y_hist', nan));
+    vxHist = vxHist(:);
+    vyHist = vyHist(:);
+    n = min(numel(vxHist), numel(vyHist));
+    if n < 2
+        deltaThetaRad = 0.0;
+        risk = 0.0;
+        return;
+    end
+
+    vNow = [vxHist(n); vyHist(n)];
+    vPrev = [vxHist(n-1); vyHist(n-1)];
+    if any(~isfinite(vNow)) || any(~isfinite(vPrev))
+        deltaThetaRad = 0.0;
+        risk = 0.0;
+        return;
+    end
+
+    nNow = norm(vNow);
+    nPrev = norm(vPrev);
+    if nNow <= 1e-6 || nPrev <= 1e-6
+        deltaThetaRad = 0.0;
+        risk = 0.0;
+        return;
+    end
+
+    cosTheta = dot(vNow, vPrev) / max(nNow * nPrev, 1e-12);
+    cosTheta = min(1.0, max(-1.0, cosTheta));
+    deltaThetaRad = acos(cosTheta);
+
+    thetaThr = pi;
+    if isstruct(cfg) && isfield(cfg, 'ontology') && isstruct(cfg.ontology) && ...
+            isfield(cfg.ontology, 'wind_risk_model') && isstruct(cfg.ontology.wind_risk_model) && ...
+            isfield(cfg.ontology.wind_risk_model, 'theta_thr_rad') && isfinite(cfg.ontology.wind_risk_model.theta_thr_rad)
+        thetaThr = max(1e-6, double(cfg.ontology.wind_risk_model.theta_thr_rad));
+    end
+    risk = autosimClamp(deltaThetaRad / thetaThr, 0.0, 1.0);
 end
 
 

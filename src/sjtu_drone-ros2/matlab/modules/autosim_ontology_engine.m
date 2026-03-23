@@ -42,6 +42,8 @@ onto.tag_err_hist = asv(tagObs, 'err_hist', nan);
 onto.tag_detected_hist = asv(tagObs, 'detected_hist', nan);
 onto.wind_speed_hist = asv(windObs, 'wind_speed_hist', nan);
 onto.wind_dir_hist = asv(windObs, 'wind_dir_hist', nan);
+onto.wind_vel_x_hist = asv(windObs, 'wind_vel_x_hist', nan);
+onto.wind_vel_y_hist = asv(windObs, 'wind_vel_y_hist', nan);
 onto.dt = max(asv(windObs, 'dt', 0.1), 1e-3);
 
 % MathematicalObject layer
@@ -49,7 +51,8 @@ onto.wind_velocity_vec = asv(windObs, 'wind_velocity', [onto.wind_speed; 0.0]);
 onto.wind_velocity = vector_mag(onto.wind_velocity_vec);
 onto.wind_acceleration_vec = asv(windObs, 'wind_acceleration', [0.0; 0.0]);
 onto.wind_acceleration = vector_mag(onto.wind_acceleration_vec);
-windRiskComp = compute_wind_risk_components(onto.wind_velocity_vec, onto.wind_acceleration_vec, cfg, onto.roll_abs, onto.pitch_abs);
+[onto.wind_dir_change, onto.wind_dir_change_risk] = compute_wind_direction_change(onto.wind_vel_x_hist, onto.wind_vel_y_hist, cfg);
+windRiskComp = compute_wind_risk_components(onto.wind_velocity_vec, onto.wind_acceleration_vec, cfg, onto.roll_abs, onto.pitch_abs, onto.wind_dir_change_risk);
 onto.wind_risk = windRiskComp.r_wind;
 windVelComp = ensure_vec2(onto.wind_velocity_vec, [onto.wind_velocity; 0.0]);
 windAccComp = ensure_vec2(onto.wind_acceleration_vec, [onto.wind_acceleration; 0.0]);
@@ -62,6 +65,7 @@ onto.wind_body_force_y = windRiskComp.F_wy;
 onto.wind_body_force = windRiskComp.F_body;
 onto.wind_body_risk = windRiskComp.r_body;
 onto.wind_gust_risk = windRiskComp.r_gust;
+onto.wind_dir_change_risk = windRiskComp.r_dir_change;
 onto.wind_risk_raw = windRiskComp.r_wind;
 onto.thrust_margin = windRiskComp.F_cap;
 
@@ -102,9 +106,11 @@ windAccVec = ensure_vec2(asv(onto, 'wind_acceleration_vec', [windAcc; 0.0]), [wi
 windVelocity = hypot(windVelocityVec(1), windVelocityVec(2));
 windAcc = hypot(windAccVec(1), windAccVec(2));
 windCaution = cfg.ontology.wind_caution_speed;
+windUnsafe = cfg.ontology.wind_unsafe_speed;
 rollAbs = abs(asv(onto, 'roll_abs', 0.0));
 pitchAbs = abs(asv(onto, 'pitch_abs', 0.0));
-windRiskComp = compute_wind_risk_components(windVelocityVec, windAccVec, cfg, rollAbs, pitchAbs);
+dirChangeRisk = asv(onto, 'wind_dir_change_risk', 0.0);
+windRiskComp = compute_wind_risk_components(windVelocityVec, windAccVec, cfg, rollAbs, pitchAbs, dirChangeRisk);
 windRisk = windRiskComp.r_wind;
 
 % Assign wind risk display name and encoding
@@ -131,6 +137,8 @@ semantic.wind_body_force_y = windRiskComp.F_wy;
 semantic.wind_body_force = windRiskComp.F_body;
 semantic.wind_body_risk = windRiskComp.r_body;
 semantic.wind_gust_risk = windRiskComp.r_gust;
+semantic.wind_dir_change = asv(onto, 'wind_dir_change', 0.0);
+semantic.wind_dir_change_risk = windRiskComp.r_dir_change;
 semantic.wind_risk_raw = windRiskComp.r_wind;
 semantic.thrust_margin = windRiskComp.F_cap;
 
@@ -215,6 +223,12 @@ for i = 1:numel(names)
             vec(i) = asv(semantic, 'alignment_enc', 0.0);
         case "visual_enc"
             vec(i) = asv(semantic, 'visual_enc', 0.0);
+        case "wind_body_risk_enc"
+            vec(i) = asv(semantic, 'wind_body_risk', asv(semantic, 'wind_risk_raw', 0.0));
+        case "wind_gust_risk_enc"
+            vec(i) = asv(semantic, 'wind_gust_risk', 0.0);
+        case "wind_dir_change_risk_enc"
+            vec(i) = asv(semantic, 'wind_dir_change_risk', 0.0);
         otherwise
             vec(i) = 0.0;
     end
@@ -315,12 +329,15 @@ p = polyfit(t, recentSamples, 1);
 windAcc = p(1);  % Slope in m/s per second = m/s^2
 end
 
-function risk = compute_wind_risk_components(windVelocity, windAcceleration, cfg, rollAbs, pitchAbs)
+function risk = compute_wind_risk_components(windVelocity, windAcceleration, cfg, rollAbs, pitchAbs, dirChangeRisk)
     if nargin < 4 || ~isfinite(double(rollAbs))
         rollAbs = 0.0;
     end
     if nargin < 5 || ~isfinite(double(pitchAbs))
         pitchAbs = 0.0;
+    end
+    if nargin < 6 || ~isfinite(double(dirChangeRisk))
+        dirChangeRisk = 0.0;
     end
 
     velVec = ensure_vec2(windVelocity, [0.0; 0.0]);
@@ -365,18 +382,12 @@ function risk = compute_wind_risk_components(windVelocity, windAcceleration, cfg
         a_w = 0.0;
     end
     r_gust = clamp(a_w / max(model.a_thr, 1e-6), 0.0, 1.0);
-    wSum = model.w_body + model.w_gust;
-    if ~(isfinite(wSum) && wSum > 0)
-        w_body = 0.7;
-        w_gust = 0.3;
-    else
-        w_body = model.w_body / wSum;
-        w_gust = model.w_gust / wSum;
-    end
-    r_wind = clamp(w_body * r_body + w_gust * r_gust, 0.0, 1.0);
+    r_dir_change = clamp(dirChangeRisk, 0.0, 1.0);
+    % Keep each risk independent; aggregate without additive weighting.
+    r_wind = max([r_body, r_gust, r_dir_change]);
 
     risk = struct('F_wx', F_wx, 'F_wy', F_wy, 'F_body', F_body, 'F_cap', F_cap, ...
-        'r_body', r_body, 'r_gust', r_gust, 'r_wind', r_wind);
+        'r_body', r_body, 'r_gust', r_gust, 'r_dir_change', r_dir_change, 'r_wind', r_wind);
 end
 
 function model = get_wind_risk_model(cfg)
@@ -495,4 +506,43 @@ function [magVal, compMax] = vector_mag_and_component_max(v)
 v2 = ensure_vec2(v, [0.0; 0.0]);
 magVal = hypot(v2(1), v2(2));
 compMax = max(abs(v2(1)), abs(v2(2)));
+end
+
+function [deltaThetaRad, risk] = compute_wind_direction_change(vxHistRaw, vyHistRaw, cfg)
+vxHist = double(vxHistRaw(:));
+vyHist = double(vyHistRaw(:));
+n = min(numel(vxHist), numel(vyHist));
+if n < 2
+    deltaThetaRad = 0.0;
+    risk = 0.0;
+    return;
+end
+
+vNow = [vxHist(n); vyHist(n)];
+vPrev = [vxHist(n-1); vyHist(n-1)];
+if any(~isfinite(vNow)) || any(~isfinite(vPrev))
+    deltaThetaRad = 0.0;
+    risk = 0.0;
+    return;
+end
+
+nNow = norm(vNow);
+nPrev = norm(vPrev);
+if nNow <= 1e-6 || nPrev <= 1e-6
+    deltaThetaRad = 0.0;
+    risk = 0.0;
+    return;
+end
+
+cosTheta = dot(vNow, vPrev) / max(nNow * nPrev, 1e-12);
+cosTheta = min(1.0, max(-1.0, cosTheta));
+deltaThetaRad = acos(cosTheta);
+
+thetaThr = pi;
+if isstruct(cfg) && isfield(cfg, 'ontology') && isstruct(cfg.ontology) && ...
+        isfield(cfg.ontology, 'wind_risk_model') && isstruct(cfg.ontology.wind_risk_model) && ...
+        isfield(cfg.ontology.wind_risk_model, 'theta_thr_rad') && isfinite(cfg.ontology.wind_risk_model.theta_thr_rad)
+    thetaThr = max(1e-6, double(cfg.ontology.wind_risk_model.theta_thr_rad));
+end
+risk = clamp(deltaThetaRad / thetaThr, 0.0, 1.0);
 end

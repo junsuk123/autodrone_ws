@@ -8,7 +8,8 @@ end
 
 required = [ ...
     "onto_wind_condition", "onto_gust", "onto_temporal_pattern", ...
-    "onto_drone_state", "onto_tag_observation" ...
+    "onto_drone_state", "onto_tag_observation", ...
+    "onto_wind_body_risk", "onto_wind_accel_risk", "onto_wind_dir_change_risk" ...
 ];
 
 vars = string(T.Properties.VariableNames);
@@ -45,6 +46,7 @@ windRiskEnc = autosimTblCol(T, 'wind_risk_enc', nan(n, 1));
 windRiskRaw = autosimTblCol(T, 'mean_wind_risk_raw', autosimTblCol(T, 'wind_risk_raw', nan(n, 1)));
 windBodyRisk = autosimTblCol(T, 'mean_wind_body_risk', autosimTblCol(T, 'wind_body_risk', nan(n, 1)));
 windGustRisk = autosimTblCol(T, 'mean_wind_gust_risk', autosimTblCol(T, 'wind_gust_risk', nan(n, 1)));
+windDirChangeRisk = autosimTblCol(T, 'mean_wind_dir_change_risk', autosimTblCol(T, 'wind_dir_change_risk', nan(n, 1)));
 alignEnc = autosimTblCol(T, 'alignment_enc', nan(n, 1));
 visualEnc = autosimTblCol(T, 'visual_enc', nan(n, 1));
 
@@ -70,6 +72,9 @@ if any(isfinite(windBodyRisk) | isfinite(windGustRisk))
 end
 windRiskFallback = autosimFillNaN(windRiskRaw, windRiskFallback);
 windRisk = autosimFillNaN(windRiskEnc, windRiskFallback);
+windBody = autosimFillNaN(windBodyRisk, autosimClip01(0.5 * nWindVel + 0.5 * nWind));
+windAccel = autosimFillNaN(windGustRisk, nWindAcc);
+windDirChange = autosimFillNaN(windDirChangeRisk, nGustAmp);
 align = autosimFillNaN(alignEnc, autosimClip01(1.0 - nTag));
 visual = autosimFillNaN(visualEnc, autosimClip01(1.0 - (0.70 * nTag + 0.30 * nTagSpread)));
 
@@ -84,6 +89,9 @@ T.onto_gust = ontoGust;
 T.onto_temporal_pattern = ontoTemporalPattern;
 T.onto_drone_state = ontoDroneState;
 T.onto_tag_observation = ontoTagObservation;
+T.onto_wind_body_risk = autosimClip01(windBody);
+T.onto_wind_accel_risk = autosimClip01(windAccel);
+T.onto_wind_dir_change_risk = autosimClip01(windDirChange);
 end
 
 function v = autosimTblCol(T, name, fallback)

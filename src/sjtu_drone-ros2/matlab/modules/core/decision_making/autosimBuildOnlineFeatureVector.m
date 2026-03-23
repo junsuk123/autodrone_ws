@@ -66,6 +66,9 @@ function feat = autosimBuildOnlineFeatureVector(z, vz, speedAbs, rollDeg, pitchD
         feat.wind_risk_enc = autosimSemGet(semVec, semNames, "wind_risk_enc", 0.0);
         feat.alignment_enc = autosimSemGet(semVec, semNames, "alignment_enc", 0.0);
         feat.visual_enc = autosimSemGet(semVec, semNames, "visual_enc", 0.0);
+        feat.wind_body_risk_enc = autosimSemGet(semVec, semNames, "wind_body_risk_enc", feat.wind_risk_enc);
+        feat.wind_gust_risk_enc = autosimSemGet(semVec, semNames, "wind_gust_risk_enc", 0.0);
+        feat.wind_dir_change_risk_enc = autosimSemGet(semVec, semNames, "wind_dir_change_risk_enc", 0.0);
     end
 
     ontoFeat = autosimBuildOntologyInputFromFeatureStruct(feat, cfg);

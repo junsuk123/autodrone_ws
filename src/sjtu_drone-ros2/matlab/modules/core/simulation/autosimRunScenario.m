@@ -111,6 +111,7 @@ function [res, traceTbl] = autosimRunScenario(cfg, scenarioCfg, scenarioId, mode
     windBodyForce = nan(sampleN,1);
     windBodyRisk = nan(sampleN,1);
     windGustRisk = nan(sampleN,1);
+    windDirChangeRisk = nan(sampleN,1);
     windRiskRaw = nan(sampleN,1);
     thrustMargin = nan(sampleN,1);
     semFeat = nan(sampleN, numel(cfg.ontology.semantic_feature_names));
@@ -327,6 +328,7 @@ function [res, traceTbl] = autosimRunScenario(cfg, scenarioCfg, scenarioId, mode
             windBodyForce = [windBodyForce; nan(growN,1)]; %#ok<AGROW>
             windBodyRisk = [windBodyRisk; nan(growN,1)]; %#ok<AGROW>
             windGustRisk = [windGustRisk; nan(growN,1)]; %#ok<AGROW>
+            windDirChangeRisk = [windDirChangeRisk; nan(growN,1)]; %#ok<AGROW>
             windRiskRaw = [windRiskRaw; nan(growN,1)]; %#ok<AGROW>
             thrustMargin = [thrustMargin; nan(growN,1)]; %#ok<AGROW>
             semFeat = [semFeat; nan(growN, numel(cfg.ontology.semantic_feature_names))]; %#ok<AGROW>
@@ -949,6 +951,9 @@ function [res, traceTbl] = autosimRunScenario(cfg, scenarioCfg, scenarioId, mode
             end
             if isfield(semantic, 'wind_gust_risk')
                 windGustRisk(k) = double(semantic.wind_gust_risk);
+            end
+            if isfield(semantic, 'wind_dir_change_risk')
+                windDirChangeRisk(k) = double(semantic.wind_dir_change_risk);
             end
             if isfield(semantic, 'wind_risk_raw')
                 windRiskRaw(k) = double(semantic.wind_risk_raw);
@@ -1852,6 +1857,7 @@ function [res, traceTbl] = autosimRunScenario(cfg, scenarioCfg, scenarioId, mode
     res.wind_body_force = autosimNanMean(windBodyForce);
     res.mean_wind_body_risk = autosimNanMean(windBodyRisk);
     res.mean_wind_gust_risk = autosimNanMean(windGustRisk);
+    res.mean_wind_dir_change_risk = autosimNanMean(windDirChangeRisk);
     res.mean_wind_risk_raw = autosimNanMean(windRiskRaw);
     thrFinite = thrustMargin(isfinite(thrustMargin));
     if isempty(thrFinite)
@@ -1912,6 +1918,7 @@ function [res, traceTbl] = autosimRunScenario(cfg, scenarioCfg, scenarioId, mode
     traceTbl.wind_body_force = autosimPadLen(windBodyForce, n);
     traceTbl.wind_body_risk = autosimPadLen(windBodyRisk, n);
     traceTbl.wind_gust_risk = autosimPadLen(windGustRisk, n);
+    traceTbl.wind_dir_change_risk = autosimPadLen(windDirChangeRisk, n);
     traceTbl.wind_risk_raw = autosimPadLen(windRiskRaw, n);
     traceTbl.thrust_margin = autosimPadLen(thrustMargin, n);
     traceTbl.cmd_x = autosimPadLen(cmdXLog, n);

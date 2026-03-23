@@ -60,6 +60,9 @@ if nargin >= 17 && ~isempty(semVec) && nargin >= 18 && isfield(cfg, 'ontology') 
     feat.wind_risk_enc = sem_get(semVec, semNames, "wind_risk_enc", 0.0);
     feat.alignment_enc = sem_get(semVec, semNames, "alignment_enc", 0.0);
     feat.visual_enc = sem_get(semVec, semNames, "visual_enc", 0.0);
+    feat.wind_body_risk_enc = sem_get(semVec, semNames, "wind_body_risk_enc", feat.wind_risk_enc);
+    feat.wind_gust_risk_enc = sem_get(semVec, semNames, "wind_gust_risk_enc", 0.0);
+    feat.wind_dir_change_risk_enc = sem_get(semVec, semNames, "wind_dir_change_risk_enc", 0.0);
 end
 
 if nargin >= 17 && ~isempty(cfg)

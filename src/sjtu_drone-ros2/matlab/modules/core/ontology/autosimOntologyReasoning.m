@@ -41,7 +41,9 @@ function semantic = autosimOntologyReasoning(onto, cfg)
 
     rollAbs = abs(autosimClampNaN(d.roll, 0.0));
     pitchAbs = abs(autosimClampNaN(d.pitch, 0.0));
-    windRiskComp = autosimComputeWindRiskComponents(windVelocityVec, windAccelerationVec, cfg, rollAbs, pitchAbs);
+    windDirChangeRisk = autosimClampNaN(autosimVizField(w, 'wind_dir_change_risk', 0.0), 0.0);
+    windDirChange = autosimClampNaN(autosimVizField(w, 'wind_dir_change', 0.0), 0.0);
+    windRiskComp = autosimComputeWindRiskComponents(windVelocityVec, windAccelerationVec, cfg, rollAbs, pitchAbs, windDirChangeRisk);
     condScore = windRiskComp.r_wind;
     windRiskRuleEnc = windRiskComp.r_wind;
 
@@ -208,6 +210,8 @@ function semantic = autosimOntologyReasoning(onto, cfg)
     semantic.wind_body_force = windRiskComp.F_body;
     semantic.wind_body_risk = windRiskComp.r_body;
     semantic.wind_gust_risk = windRiskComp.r_gust;
+    semantic.wind_dir_change = windDirChange;
+    semantic.wind_dir_change_risk = windRiskComp.r_dir_change;
     semantic.wind_risk_raw = windRiskComp.r_wind;
     semantic.thrust_margin = windRiskComp.F_cap;
     semantic.wind_risk_enc = windRiskEnc;
@@ -216,12 +220,15 @@ function semantic = autosimOntologyReasoning(onto, cfg)
 
 end
 
-function risk = autosimComputeWindRiskComponents(windVelocityVec, windAccelerationVec, cfg, rollAbs, pitchAbs)
+function risk = autosimComputeWindRiskComponents(windVelocityVec, windAccelerationVec, cfg, rollAbs, pitchAbs, dirChangeRisk)
     if nargin < 5 || ~isfinite(double(rollAbs))
         rollAbs = 0.0;
     end
     if nargin < 6 || ~isfinite(double(pitchAbs))
         pitchAbs = 0.0;
+    end
+    if nargin < 7 || ~isfinite(double(dirChangeRisk))
+        dirChangeRisk = 0.0;
     end
 
     velVec = double(windVelocityVec(:));
@@ -281,16 +288,9 @@ function risk = autosimComputeWindRiskComponents(windVelocityVec, windAccelerati
     end
     r_gust = autosimClamp(a_w / max(model.a_thr, 1e-6), 0.0, 1.0);
 
-    wSum = model.w_body + model.w_gust;
-    if ~(isfinite(wSum) && wSum > 0)
-        w_body = 0.7;
-        w_gust = 0.3;
-    else
-        w_body = model.w_body / wSum;
-        w_gust = model.w_gust / wSum;
-    end
-
-    r_wind = autosimClamp(w_body * r_body + w_gust * r_gust, 0.0, 1.0);
+    r_dir_change = autosimClamp(dirChangeRisk, 0.0, 1.0);
+    % Keep each risk independent; aggregate without additive weighting.
+    r_wind = max([r_body, r_gust, r_dir_change]);
 
     risk = struct();
     risk.F_wx = F_wx;
@@ -299,6 +299,7 @@ function risk = autosimComputeWindRiskComponents(windVelocityVec, windAccelerati
     risk.F_cap = F_cap;
     risk.r_body = r_body;
     risk.r_gust = r_gust;
+    risk.r_dir_change = r_dir_change;
     risk.r_wind = r_wind;
 end
 
