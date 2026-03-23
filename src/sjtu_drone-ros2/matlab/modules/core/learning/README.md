@@ -48,6 +48,90 @@ $$
 
 Learning 모듈은 의사결정 파이프라인 내에서 **특징 인코딩(Sigmoid)과 확률 분류(GaussianNB)** 두 단계를 보완적으로 사용한다.
 
+### 전체 파이프라인 (입력 → 출력)
+
+```mermaid
+graph TD
+    A["센서 신호 입력"] --> B["Raw Sensors"]
+    B --> B1["풍속 성분<br/>wind_vx, wind_vy"]
+    B --> B2["풍가속도<br/>wind_ax, wind_ay"]
+    B --> B3["태그 정렬 오차<br/>tag_error_x/y"]
+    B --> B4["드론 자세<br/>roll, pitch, yaw"]
+    
+    B1 --> C["온톨로지 엔진<br/>autosim_ontology_engine.m"]
+    B2 --> C
+    B3 --> C
+    B4 --> C
+    
+    C --> D["규칙 기반 특징 계산"]
+    D --> D1["바람 위험도<br/>r_wind 계산"]
+    D --> D2["정렬 신뢰도<br/>c_align 계산"]
+    D --> D3["자세 안정도<br/>s_attitude 계산"]
+    
+    D1 --> E["Sigmoid 인코딩<br/>autosimLinearSigmoid.m"]
+    D2 --> E
+    D3 --> E
+    
+    E --> F["의미론적 특징"]
+    F --> F1["wind_risk_enc ∈ [0,1]"]
+    F --> F2["alignment_enc ∈ [0,1]"]
+    F --> F3["visual_enc ∈ [0,1]"]
+    
+    F1 --> G["특징 벡터 구성<br/>13차원"]
+    F2 --> G
+    F3 --> G
+    
+    B1 --> G
+    B2 --> G
+    
+    G --> H["Learning 모듈<br/>의사결정 모델"]
+    
+    H --> I["GaussianNB 분류기<br/>autosimPredictGaussianNB.m"]
+    
+    I --> J["학습된 클래스별<br/>확률 분포"]
+    J --> J1["P(AttemptLanding|X)"]
+    J --> J2["P(HoldLanding|X)"]
+    
+    J1 --> K["argmax 선택"]
+    J2 --> K
+    
+    K --> L["최종 판정"]
+    L --> L1["✓ AttemptLanding<br/>신뢰도: 0.91"]
+    L --> L2["✗ HoldLanding<br/>신뢰도: 0.09"]
+    
+    L1 --> M["착륙 정책 실행"]
+    L2 --> M
+    
+    style A fill:#e1f5ff
+    style C fill:#fff3e0
+    style E fill:#f3e5f5
+    style I fill:#c8e6c9
+    style M fill:#ffebee
+```
+
+### 시그모이드 출력 흐름
+
+Sigmoid 인코딩은 Ontology 엔진에서 수행되고, 출력은 다음과 같이 흐른다:
+
+```
+Ontology 엔진 (autosim_ontology_engine.m)
+  ↓ Sigmoid 인코딩 수행
+  ↓ 
+  [wind_risk_enc, alignment_enc, visual_enc, ...] 
+  (semantic state에 저장)
+  ↓
+Decision Making 시점
+  ↓
+  Feature 수집 (runtime observable + semantic encodings)
+  ↓
+  [13차원 특징 벡터] 
+  ↓
+Learning 모듈 (autosimPredictGaussianNB.m)
+  ↓ GaussianNB 분류
+  ↓
+P(AttemptLanding | X) 계산
+```
+
 ### 아키텍처 플로우
 
 센서 신호 → Sigmoid 정규화 → 특징 벡터 → GaussianNB → 착륙 판정
@@ -62,7 +146,7 @@ Learning 모듈은 의사결정 파이프라인 내에서 **특징 인코딩(Sig
 
 **2단계: GaussianNB 분류**
 - 담당 모듈: `autosimPredictGaussianNB.m`
-- 입력: 인코딩된 특징 (13차원)
+- 입력: 인코딩된 특징 (13차원) ← Sigmoid 출력 포함
 - 출력: P(AttemptLanding | X)
 - 목적: 확률 기반 분류 + 신뢰도
 
