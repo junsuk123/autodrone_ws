@@ -89,20 +89,20 @@ $$
 
 ```matlab
 % 1) Sigmoid 인코딩 (ontology engine)
-wind_risk_enc = sigmoid(0.5 * wind_speed + (-0.3) * wind_accel + 0.2)  % = 0.62
-align_enc = sigmoid(2.0 * (-tag_error) + 0.1)                          % = 0.78
-visual_enc = sigmoid(1.5 * attitude_stability + (-0.5))                % = 0.85
+wind_risk_enc = sigmoid(0.5 * wind_speed + (-0.3) * wind_accel + 0.2);  % = 0.62
+align_enc = sigmoid(2.0 * (-tag_error) + 0.1);                          % = 0.78
+visual_enc = sigmoid(1.5 * attitude_stability + (-0.5));                % = 0.85
 
 % 2) GaussianNB 분류 (learning module)
-X = [0.62, 0.78, 0.85, ..., other_features];  % 13차원 입력
+X = [0.62, 0.78, 0.85, other_features];  % 13차원 입력
 
-% 조건부 분포: P(X|AttemptLanding), P(X|HoldLanding)
-log_prob_attempt = sum(log_likelihood_attempt);  % 학습된 μ, σ²로 계산
+% 각 클래스의 log 우도 계산
+log_prob_attempt = sum(log_likelihood_attempt);  % mean, variance로 계산
 log_prob_hold = sum(log_likelihood_hold);
 
-% 사후확률
+% 클래스 선택
 post_prob_attempt = softmax(log_prob_attempt, log_prob_hold);
-% post_prob_attempt ≈ 0.91 → "AttemptLanding" 결정 (신뢰도 91%)
+% post_prob_attempt ≈ 0.91 → AttemptLanding (신뢰도 91%)
 ```
 
 ## 핵심 변수/용어 표

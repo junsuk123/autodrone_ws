@@ -78,21 +78,21 @@ AutoSim의 의사결정 파이프라인은 **Sigmoid 인코딩**과 **Gaussian N
 | 해석성 | 낮음 | 높음 |
 
 **구체적 예시:**
+
+입력 센서: `wind_vel_x=-0.5, wind_accel_y=2.1, tag_error=0.12, roll=0.08rad`
+
+**1) Sigmoid 인코딩 (특징 변환)**
 ```
-입력 센서:
-  wind_vel_x=-0.5, wind_accel_y=2.1, tag_error=0.12, roll=0.08rad
+wind_risk_enc  = 0.62  (풍속/가속도로부터)
+alignment_enc  = 0.78  (태그 오차로부터)
+visual_enc     = 0.85  (자세로부터)
+```
 
-↓ [Sigmoid 인코딩 (특징 변환)]
-
-  wind_risk_enc = σ(w_w·[-0.5, 2.1] + b_w) = 0.62
-  alignment_enc = σ(w_a·0.12 + b_a) = 0.78
-  visual_enc = σ(w_v·0.08 + b_v) = 0.85
-
-↓ [GaussianNB 분류 (확률 판정)]
-
-  P(AttemptLanding|[0.62, 0.78, 0.85, ...]) = 0.91
-  
-  → 결론: "AttemptLanding" (신뢰도 91%)
+**2) GaussianNB 분류 (확률 판정)**
+```
+입력: [0.62, 0.78, 0.85, ...] (13차원)
+사후확률: P(AttemptLanding | X) = 0.91
+결론: "AttemptLanding" (신뢰도 91%)
 ```
 
 ## 실행 목적
