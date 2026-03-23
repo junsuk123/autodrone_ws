@@ -174,7 +174,188 @@ P(AttemptLanding | X) 계산
 | 불균형 처리 | 수동 | 자동 |
 | 실시간 성능 | 매우 빠름 | 빠름 |
 
-### 구체적 예시
+### 구체적 예시: Raw 입력 → 의미론적 특징 생성
+
+#### 시나리오: 약한 횡풍에서 착륙 시도
+
+**Step 1: Raw 센서 입력**
+
+```
+타임스탬프: t=15.3s
+풍속 벡터:           wind_vx = -0.8 m/s,  wind_vy = 0.3 m/s
+풍가속도 벡터:       wind_ax = -0.15 m/s²,wind_ay = 0.1 m/s²
+태그 정렬 오차:       tag_error_x = 0.05 px, tag_error_y = 0.02 px
+드론 자세:           roll = 0.1 rad (5.7°), pitch = 0.08 rad (4.6°)
+```
+
+**Step 2: 온톨로지 규칙 기반 특징 계산**
+
+**2-1) 바람 위험도 계산**
+
+```
+1. 풍속 벡터 크기:
+   v_norm = sqrt((-0.8)^2 + (0.3)^2) = 0.854 m/s
+   v_max = max(0.854, max(0.8, 0.3)) = 0.854 m/s
+
+2. 항력 계산:
+   F_d = 0.5 * 1.225 * 0.3 * 0.5 * (0.854)^2 ≈ 0.053 N
+   
+3. 드론 기울기 보정:
+   c_tilt = cos(0.1) * cos(0.08) ≈ 0.992
+   T_req = (1.2 * 9.81) / 0.992 ≈ 11.9 N
+   F_cap = max(15.0 - 11.9, 0.5) = 3.1 N
+   
+4. 항력 하중비:
+   r_d = F_d / F_cap = 0.053 / 3.1 ≈ 0.017
+   
+5. 풍위험도 (규칙):
+   r_wind = max(v, v_unsafe * sqrt(r_d))
+         = max(0.854, 2.0 * sqrt(0.017))
+         = max(0.854, 0.261) = 0.854
+```
+
+**2-2) 정렬 신뢰도 계산**
+
+```
+1. 태그 오차 (정규화):
+   e_tag = sqrt((0.05)^2 + (0.02)^2) ≈ 0.054 px
+   e_thr = 0.3 px (임계값)
+   
+2. 정렬 신뢰도:
+   c_align = min(1, max(0, 1 - 0.054/0.3))
+          = min(1, max(0, 1 - 0.18))
+          = 0.82
+```
+
+**2-3) 자세 안정도 계산**
+
+```
+1. Roll/Pitch 감쇠:
+   beta_r = 2.0, beta_p = 2.0
+   roll_thr = 0.3 rad, pitch_thr = 0.3 rad
+   
+2. 자세 안정도:
+   exp_term = -2.0*(0.1/0.3) - 2.0*(0.08/0.3)
+           = -0.667 - 0.533 = -1.2
+   s_attitude = exp(-1.2) ≈ 0.301
+```
+
+**Step 3: Sigmoid 인코딩 (비선형 정규화)**
+
+```matlab
+% 학습된 Sigmoid 가중치 (예시값)
+wind_w = [0.8, 0.5, -0.3];  % [풍속, 풍가속도, 기울기 보정]
+wind_b = -0.2;
+
+align_w = [1.2, 0.6];        % [오차, 안정도]
+align_b = 0.1;
+
+visual_w = [0.9];            % [자세]
+visual_b = -0.15;
+```
+
+**Sigmoid 변환:**
+
+```
+1) Wind Risk Encoding:
+   input_wind = [0.854, sqrt((0.15)^2+(0.1)^2), 0.992]
+              = [0.854, 0.179, 0.992]
+   
+   z_wind = 0.8*0.854 + 0.5*0.179 + (-0.3)*0.992 + (-0.2)
+          = 0.683 + 0.090 - 0.298 - 0.2
+          = 0.275
+   
+   wind_risk_enc = 1 / (1 + exp(-0.275))
+                 = 1 / (1 + 0.760)
+                 = 0.568
+                 
+   의미: 56.8% 풍위험 (중간 수준)
+
+2) Alignment Encoding:
+   input_align = [0.054, 0.82]
+   
+   z_align = 1.2*0.054 + 0.6*0.82 + 0.1
+           = 0.065 + 0.492 + 0.1
+           = 0.657
+   
+   alignment_enc = 1 / (1 + exp(-0.657))
+                 = 1 / (1 + 0.518)
+                 = 0.659
+                 
+   의미: 65.9% 정렬 신뢰도 (양호)
+
+3) Visual Encoding:
+   input_visual = [0.301]
+   
+   z_visual = 0.9*0.301 + (-0.15)
+            = 0.271 - 0.15
+            = 0.121
+   
+   visual_enc = 1 / (1 + exp(-0.121))
+              = 1 / (1 + 0.886)
+              = 0.530
+              
+   의미: 53.0% 시각 안정도 (중간)
+```
+
+**Step 4: 최종 의미론적 특징 벡터 (13차원)**
+
+```matlab
+semantic_features = [
+    wind_risk_enc,      % 0.568   ← Sigmoid 출력 #1
+    alignment_enc,      % 0.659   ← Sigmoid 출력 #2
+    visual_enc,         % 0.530   ← Sigmoid 출력 #3
+    wind_vx,            % -0.8    ← Raw 센서
+    wind_vy,            % 0.3     ← Raw 센서
+    wind_ax,            % -0.15   ← Raw 센서
+    wind_ay,            % 0.1     ← Raw 센서
+    tag_error_x,        % 0.05    ← Raw 센서
+    tag_error_y,        % 0.02    ← Raw 센서
+    roll,               % 0.1     ← Raw 센서
+    pitch,              % 0.08    ← Raw 센서
+    yaw_rate,           % 0.01    ← Runtime 특징
+    time_since_detect   % 2.5     ← Runtime 특징
+];
+
+% 정규화 (GaussianNB 입력용)
+X = [0.568, 0.659, 0.530, -0.8, 0.3, -0.15, 0.1, 0.05, 0.02, 0.1, 0.08, 0.01, 2.5]
+```
+
+**Step 5: GaussianNB 분류 (Learning 모듈)**
+
+```matlab
+% GaussianNB 분류기
+[predLabel, predScore] = autosimPredictGaussianNB(model, X, cfg);
+
+% 내부 계산:
+% log_prob_attempt = -3.2 (학습된 분포 기반)
+% log_prob_hold = -2.1
+
+P(AttemptLanding | X) = 0.89  (89% 신뢰도)
+P(HoldLanding | X) = 0.11     (11% 신뢰도)
+
+→ 결정: AttemptLanding 선택
+```
+
+### 핵심 흐름 요약
+
+```
+Raw 센서 입력 (11개)
+    ↓
+온톨로지 규칙 계산 (물리 기반 위험도/신뢰도)
+    ↓
+Sigmoid 인코딩 (3개 의미 인코더)
+    ↓
+13차원 의미 벡터 생성
+    ↓
+GaussianNB 분류기 입력
+    ↓
+확률 사후분포 계산
+    ↓
+최종 판정: AttemptLanding (89%)
+```
+
+### 실제 구체적 예시 (코드)
 
 ```matlab
 % 1) Sigmoid 인코딩 (ontology engine)
