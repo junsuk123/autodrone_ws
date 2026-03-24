@@ -214,6 +214,13 @@ if isfield(cfg, 'launch_use_teleop')
     setenv('AUTOSIM_USE_TELEOP', autosimCollectBoolText(logical(cfg.launch_use_teleop)));
 end
 
+if isfield(cfg, 'dynamic_worker_scale')
+    setenv('AUTOSIM_DYNAMIC_WORKER_SCALE', autosimCollectBoolText(logical(cfg.dynamic_worker_scale)));
+end
+if isfield(cfg, 'memory_probe_wait_sec') && isfinite(cfg.memory_probe_wait_sec) && cfg.memory_probe_wait_sec >= 0
+    setenv('AUTOSIM_MEMORY_PROBE_WAIT_SEC', num2str(round(double(cfg.memory_probe_wait_sec))));
+end
+
 if isfield(cfg, 'multi_drone_spacing_m') && isfinite(cfg.multi_drone_spacing_m) && cfg.multi_drone_spacing_m > 0
     spacingTxt = num2str(double(cfg.multi_drone_spacing_m));
     setenv('AUTOSIM_MAIN_MULTI_DRONE_SPACING_M', spacingTxt);
