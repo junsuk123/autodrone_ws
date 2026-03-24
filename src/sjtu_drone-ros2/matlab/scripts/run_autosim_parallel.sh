@@ -78,10 +78,12 @@ else
   if (( mem_limit < 1 )); then mem_limit=1; fi
 fi
 
-auto_workers="$cpu_limit"
-if (( mem_limit < auto_workers )); then
-  auto_workers="$mem_limit"
+auto_workers_probe="$cpu_limit"
+if (( mem_limit < auto_workers_probe )); then
+  auto_workers_probe="$mem_limit"
 fi
+
+auto_workers="$auto_workers_probe"
 if [[ "$AUTOSIM_ENABLE_GPU" == "true" ]] && (( gpu_count > 0 )); then
   if ! [[ "$WORKERS_PER_GPU" =~ ^[0-9]+$ ]] || (( WORKERS_PER_GPU < 1 )); then
     WORKERS_PER_GPU=1
@@ -91,16 +93,24 @@ if [[ "$AUTOSIM_ENABLE_GPU" == "true" ]] && (( gpu_count > 0 )); then
     auto_workers="$gpu_worker_limit"
   fi
 fi
+if (( auto_workers_probe < 1 )); then auto_workers_probe=1; fi
 if (( auto_workers < 1 )); then auto_workers=1; fi
 
 if [[ "$AUTOSIM_MAX_WORKERS" =~ ^[0-9]+$ ]] && (( AUTOSIM_MAX_WORKERS >= 1 )); then
+  if (( auto_workers_probe > AUTOSIM_MAX_WORKERS )); then
+    auto_workers_probe="$AUTOSIM_MAX_WORKERS"
+  fi
   if (( auto_workers > AUTOSIM_MAX_WORKERS )); then
     auto_workers="$AUTOSIM_MAX_WORKERS"
   fi
 fi
 
 if [[ "$WORKERS_ARG" == "auto" ]]; then
-  REQUESTED_WORKERS="$auto_workers"
+  if [[ "$AUTOSIM_DYNAMIC_WORKER_SCALE" == "1" || "$AUTOSIM_DYNAMIC_WORKER_SCALE" == "true" || "$AUTOSIM_DYNAMIC_WORKER_SCALE" == "yes" ]]; then
+    REQUESTED_WORKERS="$auto_workers_probe"
+  else
+    REQUESTED_WORKERS="$auto_workers"
+  fi
 else
   REQUESTED_WORKERS="$WORKERS_ARG"
 fi
@@ -110,8 +120,8 @@ if ! [[ "$REQUESTED_WORKERS" =~ ^[0-9]+$ ]] || (( REQUESTED_WORKERS < 1 )); then
   exit 1
 fi
 
-if [[ "$WORKERS_ARG" != "auto" ]] && (( REQUESTED_WORKERS > auto_workers )); then
-  echo "[AUTOSIM] Requested workers=$REQUESTED_WORKERS exceeds initial resource-safe estimate(auto_workers=$auto_workers)."
+if [[ "$WORKERS_ARG" != "auto" ]] && (( REQUESTED_WORKERS > auto_workers_probe )); then
+  echo "[AUTOSIM] Requested workers=$REQUESTED_WORKERS exceeds initial resource-safe estimate(auto_workers_probe=$auto_workers_probe)."
   echo "[AUTOSIM] Dynamic probe will launch one worker first, then scale up safely."
 fi
 
@@ -295,7 +305,7 @@ EOF
 printf "pid\tworker_id\tdomain_id\tgazebo_port\tlog_file\n" > "$PID_TABLE"
 
 echo "[AUTOSIM] Session root: $SESSION_ROOT"
-echo "[AUTOSIM] Worker auto-tune: cpu_limit=$cpu_limit mem_limit=$mem_limit -> auto=$auto_workers"
+echo "[AUTOSIM] Worker auto-tune: cpu_limit=$cpu_limit mem_limit=$mem_limit -> probe_auto=$auto_workers_probe gpu_auto=$auto_workers"
 echo "[AUTOSIM] GPU mode: enable=$AUTOSIM_ENABLE_GPU gpu_count=$gpu_count"
 echo "[AUTOSIM] Requested workers: $REQUESTED_WORKERS"
 echo "[AUTOSIM] Visualization defaults: use_gui=$AUTOSIM_USE_GUI use_rviz=$AUTOSIM_USE_RVIZ"
@@ -396,8 +406,8 @@ if (( REQUESTED_WORKERS > 1 )) && [[ "$AUTOSIM_DYNAMIC_WORKER_SCALE" == "1" || "
   fi
 
   WORKERS="$REQUESTED_WORKERS"
-  if (( WORKERS > auto_workers )); then
-    WORKERS="$auto_workers"
+  if (( WORKERS > auto_workers_probe )); then
+    WORKERS="$auto_workers_probe"
   fi
   if (( WORKERS > probe_workers )); then
     WORKERS="$probe_workers"
@@ -407,7 +417,7 @@ if (( REQUESTED_WORKERS > 1 )) && [[ "$AUTOSIM_DYNAMIC_WORKER_SCALE" == "1" || "
   fi
 
   echo "[AUTOSIM] Memory probe: pre=${mem_avail_kb}KB post=${mem_probe_kb}KB observed_per_worker=${observed_worker_kb}KB reserve=${reserve_kb}KB"
-  echo "[AUTOSIM] Worker scaling result: requested=$REQUESTED_WORKERS auto_limit=$auto_workers probe_limit=$probe_workers -> launch=$WORKERS"
+  echo "[AUTOSIM] Worker scaling result: requested=$REQUESTED_WORKERS initial_limit=$auto_workers_probe probe_limit=$probe_workers -> launch=$WORKERS"
 
   for ((i=2; i<=WORKERS; i++)); do
     launch_worker "$i" "$WORKERS"
