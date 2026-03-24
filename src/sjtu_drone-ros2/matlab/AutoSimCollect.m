@@ -45,11 +45,41 @@ tf = false;
 if nargin < 1 || isempty(ME)
     return;
 end
-id = string(ME.identifier);
-msg = lower(string(ME.message));
-tf = contains(id, "OperationTerminatedByUser", 'IgnoreCase', true) || ...
+
+try
+    id = lower(string(ME.identifier));
+catch
+    id = "";
+end
+
+try
+    msg = lower(string(ME.message));
+catch
+    msg = "";
+end
+
+tf = contains(id, "operationterminatedbyuser") || ...
+     contains(id, "interrupted") || ...
+     contains(msg, "operation terminated by user") || ...
+     contains(msg, "operation terminated") || ...
      contains(msg, "terminated by user") || ...
-     contains(msg, "operation terminated");
+     contains(msg, "interrupt") || ...
+     contains(msg, "ctrl+c");
+
+if tf
+    return;
+end
+
+try
+    causes = ME.cause;
+    for i = 1:numel(causes)
+        if autosimCollectIsUserTermination(causes{i})
+            tf = true;
+            return;
+        end
+    end
+catch
+end
 end
 
 function cfg = autosimCollectWithDefaults(cfg)

@@ -1114,12 +1114,27 @@ function [res, traceTbl] = autosimRunScenario(cfg, scenarioCfg, scenarioId, mode
             if isfield(cfg.agent, 'ontology_guard_enable') && cfg.agent.ontology_guard_enable
                 visualEncNow = autosimClampNaN(semantic.visual_enc, 0.0);
                 windRiskEncNow = autosimClampNaN(semantic.wind_risk_enc, 1.0);
-                safeForLandingNow = logical(semantic.isSafeForLanding);
+                contextScoreNow = autosimClampNaN(semantic.landing_feasibility, 0.0);
+                contextMinNow = autosimClampNaN(cfg.agent.ontology_guard_context_min, 0.45);
 
                 ontologyGuardForModel = ...
                     (visualEncNow >= autosimClampNaN(cfg.agent.ontology_guard_visual_min, 0.35)) && ...
                     (windRiskEncNow <= autosimClampNaN(cfg.agent.ontology_guard_max_wind_risk, 0.80)) && ...
-                    safeForLandingNow;
+                    (contextScoreNow >= contextMinNow);
+
+                % Allow high-confidence model decisions to pass guard when ontology signals are not adverse.
+                if (~ontologyGuardForModel) && modelSaysStable
+                    allowOverride = (~isfield(cfg.agent, 'ontology_guard_allow_model_override')) || cfg.agent.ontology_guard_allow_model_override;
+                    overrideMargin = autosimClampNaN(cfg.agent.ontology_guard_model_override_margin, 0.10);
+                    overrideVisualMin = autosimClampNaN(cfg.agent.ontology_guard_model_override_visual_min, 0.30);
+                    overrideMaxWindRisk = autosimClampNaN(cfg.agent.ontology_guard_model_override_max_wind_risk, 0.75);
+                    highConfModel = isfinite(decisionStableProb) && ...
+                        (decisionStableProb >= (adaptiveProbLandThreshold + max(0.0, overrideMargin)));
+                    if allowOverride && highConfModel && ...
+                            (visualEncNow >= overrideVisualMin) && (windRiskEncNow <= overrideMaxWindRisk)
+                        ontologyGuardForModel = true;
+                    end
+                end
             end
             modelStableBlockedByOntology = modelSaysStable && ~ontologyGuardForModel;
 
@@ -1247,12 +1262,47 @@ function [res, traceTbl] = autosimRunScenario(cfg, scenarioCfg, scenarioId, mode
                     ((tk - decisionEvalStartT) >= hoverTimeoutSec) && ...
                     ((tk - lastDecisionT) >= cfg.agent.decision_cooldown_sec);
                 if hoverTimeoutHit && ~hoverTimeoutDecisionDone
-                    landingDecisionMode = "HoldLanding";
-                    executedAction = "HoldLanding";
-                    actionSource = "timeout_hover_hold";
+                    timeoutSafeModel = hasTrainedModel && modelGateEnabled && modelSaysStable && ontologyGuardForModel && ...
+                        isfinite(tagErr(k)) && (tagErr(k) <= cfg.agent.max_tag_error_before_land) && ...
+                        isfinite(zEvalNow) && (zEvalNow >= cfg.agent.min_altitude_before_land);
+                    timeoutSafeSemantic = isfinite(semantic.landing_feasibility) && ...
+                        (semantic.landing_feasibility >= adaptiveSemanticLandThreshold) && logical(semanticSafe(k)) && ...
+                        isfinite(tagErr(k)) && (tagErr(k) <= cfg.agent.max_tag_error_before_land) && ...
+                        isfinite(zEvalNow) && (zEvalNow >= cfg.agent.min_altitude_before_land);
+                    timeoutSafeFallback = canLandByNoModelThreshold || canLandByUncertainModelFallback;
+
+                    if timeoutSafeModel || timeoutSafeSemantic || timeoutSafeFallback
+                        landingSent = true;
+                        landingSentT = tk;
+                        landingStartZ = zEvalNow;
+                        if ~isfinite(landingStartZ)
+                            landingStartZ = zNow;
+                        end
+                        if ~isfinite(landingStartZ)
+                            landingStartZ = max(cfg.control.land_cmd_alt_m, cfg.control.landing_near_ground_alt_m + 0.2);
+                        end
+                        landingTargetZ = landingStartZ;
+                        landingDecisionMode = "AttemptLanding";
+                        executedAction = "AttemptLanding";
+                        if timeoutSafeModel
+                            actionSource = "timeout_safe_land_model";
+                            decisionTxt(k) = "start_landing_track_by_timeout_model";
+                        elseif timeoutSafeSemantic
+                            actionSource = "timeout_safe_land_semantic";
+                            decisionTxt(k) = "start_landing_track_by_timeout_semantic";
+                        else
+                            actionSource = "timeout_safe_land_fallback";
+                            decisionTxt(k) = "start_landing_track_by_timeout_fallback";
+                        end
+                        controlPhase = "landing_track";
+                    else
+                        landingDecisionMode = "HoldLanding";
+                        executedAction = "HoldLanding";
+                        actionSource = "timeout_hover_hold";
+                        decisionTxt(k) = "abort_by_hover_timeout";
+                    end
                     lastDecisionT = tk;
                     hoverTimeoutDecisionDone = true;
-                    decisionTxt(k) = "abort_by_hover_timeout";
                     break;
                 end
             end

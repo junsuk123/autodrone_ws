@@ -28,8 +28,8 @@ function cfg = autosimDefaultConfig()
     cfg.runtime.domain_id = nan;
     cfg.runtime.gazebo_port = nan;
     cfg.runtime.drone_namespace = '/drone';
-    cfg.runtime.multi_drone_count = 4;
-    cfg.runtime.multi_drone_spacing_m = 3.0;
+    cfg.runtime.multi_drone_count = 3;
+    cfg.runtime.multi_drone_spacing_m = 5.0;
     cfg.runtime.multi_drone_namespace_prefix = 'drone_w';
     cfg.runtime.multi_drone_spawn_tags = true;
     cfg.runtime.multi_drone_use_world_tag_as_first = false;
@@ -202,8 +202,8 @@ function cfg = autosimDefaultConfig()
     cfg.control.pose_hold_i_limit = 0.40;
     cfg.control.pose_hold_cmd_limit = 0.35;
     cfg.control.land_cmd_alt_m = 0.22;
-    cfg.control.land_forced_timeout_sec = 30.0;
-    cfg.control.hover_hold_abort_timeout_sec = 60.0;
+    cfg.control.land_forced_timeout_sec = 35.0;
+    cfg.control.hover_hold_abort_timeout_sec = 90.0;
     cfg.control.landing_use_z_tracking = true;
     cfg.control.landing_descent_rate_mps = 0.24;
     cfg.control.landing_descent_rate_near_ground_mps = 0.10;
@@ -229,10 +229,10 @@ function cfg = autosimDefaultConfig()
     cfg.agent = struct();
     cfg.agent.enable_model_decision = true;
     cfg.agent.semantic_only_mode = false;
-    cfg.agent.semantic_land_threshold = 0.70;
+    cfg.agent.semantic_land_threshold = 0.64;
     cfg.agent.semantic_abort_threshold = 0.40;
     cfg.agent.prob_land_threshold = 0.50;
-    cfg.agent.model_uncertain_margin = 0.12;
+    cfg.agent.model_uncertain_margin = 0.08;
     cfg.agent.model_uncertain_fallback_enable = true;
     cfg.agent.model_semantic_fusion_weight = 0.65;
     cfg.agent.online_feature_window_sec = 15.0;
@@ -269,6 +269,10 @@ function cfg = autosimDefaultConfig()
     cfg.agent.ontology_guard_context_min = 0.45;
     cfg.agent.ontology_guard_visual_min = 0.35;
     cfg.agent.ontology_guard_max_wind_risk = 0.80;
+    cfg.agent.ontology_guard_allow_model_override = true;
+    cfg.agent.ontology_guard_model_override_margin = 0.10;
+    cfg.agent.ontology_guard_model_override_visual_min = 0.30;
+    cfg.agent.ontology_guard_model_override_max_wind_risk = 0.75;
     cfg.agent.ontology_guard_block_conflicting_relation = true;
 
     cfg.learning = struct();
@@ -497,7 +501,7 @@ function cfg = autosimDefaultConfig()
     cfg.ontology_ai = struct();
     cfg.ontology_ai.enable = true;
     cfg.ontology_ai.mode = "temporal_tcn_lite";
-    cfg.ontology_ai.rule_weight = 0.58; % fused = rule_weight*rule + (1-rule_weight)*temporal_ai
+    cfg.ontology_ai.rule_weight = 0.50; % fused = rule_weight*rule + (1-rule_weight)*temporal_ai
 
     % temporal ontology encoder branch weights (features defined in autosimOntologyReasoning)
     cfg.ontology_ai.wind_w = [1.05, 1.20, 1.10, 0.85, 0.75, 0.55, 0.35, 0.40];

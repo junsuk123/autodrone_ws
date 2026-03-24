@@ -73,6 +73,7 @@ if isempty(datasetPath)
 end
 
 datasetTbl = readtable(datasetPath);
+nTotalScenario = height(datasetTbl);
 traceTbl = table();
 dmetTblRaw = table(); %#ok<NASGU>
 
@@ -126,6 +127,7 @@ xticklabels(ax1, {'Ontology+AI (policy)', 'Threshold'});
 ylim(ax1, [0 1]);
 ylabel(ax1, 'score');
 title(ax1, 'Overall Metrics Comparison', 'FontSize', FONT_TITLE);
+annotateTotalScenario(ax1, nTotalScenario, FONT_AX);
 legend(ax1, {'Accuracy', 'F1', 'Unsafe landing rate'}, ...
     'Location', 'northoutside', 'Orientation', 'horizontal', 'FontSize', FONT_LEGEND);
 set(ax1, 'FontSize', FONT_AX);
@@ -143,6 +145,7 @@ xticks(ax2, 1:2);
 xticklabels(ax2, {'Ontology+AI (policy)', 'Threshold'});
 ylabel(ax2, 'scenario count');
 title(ax2, 'Decision Outcome Composition', 'FontSize', FONT_TITLE);
+annotateTotalScenario(ax2, nTotalScenario, FONT_AX);
 legend(ax2, {'TP','FP','FN','TN'}, ...
     'Location', 'northoutside', 'Orientation', 'horizontal', 'FontSize', FONT_LEGEND);
 set(ax2, 'FontSize', FONT_AX);
@@ -168,6 +171,7 @@ plot(ax21, sid, smoothAdaptive(trendB.accuracy), '-', 'LineWidth', 1.8, 'Color',
 ylim(ax21, [0 1]);
 ylabel(ax21, 'accuracy');
 title(ax21, 'Cumulative Accuracy Trend', 'FontSize', FONT_TITLE);
+annotateTotalScenario(ax21, nTotalScenario, FONT_AX);
 legend(ax21, {'Ontology+AI (policy)','Threshold'}, ...
     'Location', 'southoutside', 'Orientation', 'horizontal', 'FontSize', FONT_LEGEND);
 set(ax21, 'FontSize', FONT_AX);
@@ -181,6 +185,7 @@ ylim(ax22, [0 1]);
 xlabel(ax22, 'scenario');
 ylabel(ax22, 'unsafe landing rate');
 title(ax22, 'Cumulative Unsafe Landing Rate', 'FontSize', FONT_TITLE);
+annotateTotalScenario(ax22, nTotalScenario, FONT_AX);
 legend(ax22, {'Ontology+AI (policy)','Threshold'}, ...
     'Location', 'southoutside', 'Orientation', 'horizontal', 'FontSize', FONT_LEGEND);
 set(ax22, 'FontSize', FONT_AX);
@@ -200,6 +205,7 @@ drawClass(ax3, xRisk, yRisk, cls == "TN", [0.20 0.45 0.90], 'TN');
 xlabel(ax3, 'wind severity (selected feature)');
 ylabel(ax3, 'visual/alignment severity (selected feature)');
 title(ax3, 'Scenario Risk Map (Ontology+AI policy decision)', 'FontSize', FONT_TITLE);
+annotateTotalScenario(ax3, nTotalScenario, FONT_AX);
 grid(ax3, 'on');
 legend(ax3, 'Location', 'eastoutside', 'FontSize', FONT_LEGEND);
 set(ax3, 'FontSize', FONT_AX);
@@ -215,8 +221,12 @@ exportgraphics(fig3, fullfile(outputDir, 'paper_fig3_risk_map.png'), 'Resolution
 
 fig4 = figure('Name', 'ConfusionMatrices', 'Color', 'w', 'Position', [160 160 980 440]);
 tl4 = tiledlayout(fig4, 1, 2, 'TileSpacing', 'compact', 'Padding', 'compact');
-plotConfusion(nexttile(tl4, 1), mProposed, 'Ontology+AI (policy)');
-plotConfusion(nexttile(tl4, 2), mBaseline, 'Threshold baseline');
+ax41 = nexttile(tl4, 1);
+plotConfusion(ax41, mProposed, 'Ontology+AI (policy)');
+annotateTotalScenario(ax41, nTotalScenario, FONT_AX);
+ax42 = nexttile(tl4, 2);
+plotConfusion(ax42, mBaseline, 'Threshold baseline');
+annotateTotalScenario(ax42, nTotalScenario, FONT_AX);
 exportgraphics(fig4, fullfile(outputDir, 'paper_fig4_confusion_matrices.png'), 'Resolution', 220);
 
 if ~isempty(traceTbl) && ismember('pred_stable_prob', traceTbl.Properties.VariableNames)
@@ -227,8 +237,10 @@ if ~isempty(traceTbl) && ismember('pred_stable_prob', traceTbl.Properties.Variab
     xlabel('pred\_stable\_prob', 'FontSize', FONT_LABEL);
     ylabel('count', 'FontSize', FONT_LABEL);
     title('Prediction Confidence Distribution (trace-level)', 'FontSize', FONT_TITLE);
-    set(gca, 'FontSize', FONT_AX);
-    grid on;
+    ax5 = gca;
+    set(ax5, 'FontSize', FONT_AX);
+    annotateTotalScenario(ax5, nTotalScenario, FONT_AX);
+    grid(ax5, 'on');
     exportgraphics(fig5, fullfile(outputDir, 'paper_fig5_confidence_hist.png'), 'Resolution', 220);
 end
 
@@ -280,6 +292,7 @@ xlabel(ax6, 'Scenario', 'FontSize', FONT_LABEL);
 ylabel(ax6, 'Wind risk (normalized)', 'FontSize', FONT_LABEL);
 title(ax6, 'Ontology+AI Decision  |  {\color[rgb]{0.27,0.52,0.79}■ AttemptLanding}  {\color[rgb]{0.85,0.28,0.22}■ HoldLanding}  —  Wind risk', ...
     'FontSize', FONT_TITLE);
+annotateTotalScenario(ax6, nTotalScenario, FONT_AX);
 set(ax6, 'FontSize', FONT_AX, 'Box', 'on');
 grid(ax6, 'on');
 
@@ -294,6 +307,7 @@ if ismember('action_source', datasetTbl.Properties.VariableNames)
     srcVec7 = string(datasetTbl.action_source);
 end
 oc7 = classifyOutcome(gtSafe, predProposed);
+oc7b = classifyOutcome(gtSafe, predBaseline);
 
 bEdges  = [0, 1.5, 2.0, 2.5, 3.0, Inf];
 bLabels = {'0–1.5', '1.5–2.0', '2.0–2.5', '2.5–3.0', '≥3.0'};
@@ -301,7 +315,7 @@ nB7 = numel(bLabels);
 
 % cols: [TP_active | FP_active | FN_passive(timeout/forced) | FN_active | TN]
 bCounts7    = zeros(nB7, 5);
-gtSafeRate7 = zeros(nB7, 1);
+bCounts7b   = zeros(nB7, 5);
 bTotal7     = zeros(nB7, 1);
 
 for b = 1:nB7
@@ -316,42 +330,79 @@ for b = 1:nB7
     bCounts7(b,3) = sum(oc_b == "FN" &  isPassive);
     bCounts7(b,4) = sum(oc_b == "FN" & ~isPassive);
     bCounts7(b,5) = sum(oc_b == "TN");
-    gtSafeRate7(b) = 100 * sum(logical(gtSafe(mask))) / sum(mask);
+    oc_bb = oc7b(mask);
+    bCounts7b(b,1) = sum(oc_bb == "TP");
+    bCounts7b(b,2) = sum(oc_bb == "FP");
+    bCounts7b(b,3) = sum(oc_bb == "FN" &  isPassive);
+    bCounts7b(b,4) = sum(oc_bb == "FN" & ~isPassive);
+    bCounts7b(b,5) = sum(oc_bb == "TN");
     bTotal7(b) = sum(mask);
 end
 
-fig7 = figure('Name', 'WindBandDecisionBreakdown', 'Color', 'w', 'Position', [200 200 920 440]);
+fig7 = figure('Name', 'WindBandDecisionBreakdown', 'Color', 'w', 'Position', [200 200 960 460]);
 ax7L = axes(fig7);
+hold(ax7L, 'on');
 
-bh7 = bar(ax7L, 1:nB7, bCounts7, 'stacked', 'BarWidth', 0.62);
-bh7(1).FaceColor = [0.18 0.62 0.28];  % TP active  : green
-bh7(2).FaceColor = [0.85 0.28 0.18];  % FP active  : red
-bh7(3).FaceColor = [0.97 0.62 0.14];  % FN passive : orange (timeout/forced – hesitation)
-bh7(4).FaceColor = [0.98 0.88 0.50];  % FN active  : light yellow
-bh7(5).FaceColor = [0.72 0.72 0.76];  % TN         : gray
+tpRate7 = nan(nB7, 1);
+fnRate7 = nan(nB7, 1);
+tpRate7b = nan(nB7, 1);
+fnRate7b = nan(nB7, 1);
+for b = 1:nB7
+    if bTotal7(b) > 0
+        tpRate7(b) = 100 * bCounts7(b,1) / bTotal7(b);
+        fnRate7(b) = 100 * (bCounts7(b,3) + bCounts7(b,4)) / bTotal7(b);
+        tpRate7b(b) = 100 * bCounts7b(b,1) / bTotal7(b);
+        fnRate7b(b) = 100 * (bCounts7b(b,3) + bCounts7b(b,4)) / bTotal7(b);
+    end
+end
+
+pTP = plot(ax7L, 1:nB7, tpRate7, '-o', ...
+    'LineWidth', 2.2, ...
+    'Color', [0.15 0.62 0.22], ...
+    'MarkerFaceColor', [0.15 0.62 0.22], ...
+    'MarkerSize', 7, ...
+    'DisplayName', 'TP ratio');
+
+pFN = plot(ax7L, 1:nB7, fnRate7, '-s', ...
+    'LineWidth', 2.2, ...
+    'Color', [0.90 0.46 0.10], ...
+    'MarkerFaceColor', [0.90 0.46 0.10], ...
+    'MarkerSize', 7, ...
+    'DisplayName', 'FN ratio');
+
+pTPb = plot(ax7L, 1:nB7, tpRate7b, '--o', ...
+    'LineWidth', 1.8, ...
+    'Color', [0.10 0.35 0.72], ...
+    'MarkerFaceColor', [0.10 0.35 0.72], ...
+    'MarkerSize', 6, ...
+    'DisplayName', 'TP ratio (threshold)');
+
+pFNb = plot(ax7L, 1:nB7, fnRate7b, '--s', ...
+    'LineWidth', 1.8, ...
+    'Color', [0.55 0.30 0.08], ...
+    'MarkerFaceColor', [0.55 0.30 0.08], ...
+    'MarkerSize', 6, ...
+    'DisplayName', 'FN ratio (threshold)');
 
 set(ax7L, 'XTick', 1:nB7, 'XTickLabel', bLabels, 'FontSize', FONT_AX);
 xlabel(ax7L, 'Wind speed band (m/s)', 'FontSize', FONT_LABEL);
-ylabel(ax7L, 'Scenario count',        'FontSize', FONT_LABEL);
-title(ax7L, 'Decision Composition per Wind Band  (Ontology+AI)', 'FontSize', FONT_TITLE);
+ylabel(ax7L, 'Ratio within wind band (%)', 'FontSize', FONT_LABEL);
+title(ax7L, 'TP/FN Ratio per Wind Band (Ontology+AI)', 'FontSize', FONT_TITLE);
+annotateTotalScenario(ax7L, nTotalScenario, FONT_AX);
+ylim(ax7L, [0 100]);
 grid(ax7L, 'on');
-hold(ax7L, 'on');
 
-% Right axis: % gt safe to land (reference line)
-yyaxis(ax7L, 'right');
-pgts = plot(ax7L, 1:nB7, gtSafeRate7, 'o--', 'LineWidth', 1.6, ...
-    'Color', [0.12 0.35 0.72], 'MarkerFaceColor', [0.12 0.35 0.72], ...
-    'MarkerSize', 6, 'DisplayName', '% actually safe');
-ylim(ax7L, [0 108]);
-ylabel(ax7L, '% scenarios actually safe to land', 'FontSize', FONT_LABEL);
-ax7L.YAxis(2).Color = [0.12 0.35 0.72];
+for b = 1:nB7
+    text(ax7L, b, 2.5, sprintf('n=%d', round(bTotal7(b))), ...
+        'HorizontalAlignment', 'center', ...
+        'VerticalAlignment', 'bottom', ...
+        'FontSize', max(12, FONT_AX - 8), ...
+        'Color', [0.30 0.30 0.30]);
+end
 
-yyaxis(ax7L, 'left');
-legend(ax7L, [bh7(1) bh7(2) bh7(3) bh7(4) bh7(5) pgts], ...
-    {'Active Land → TP (correct)', 'Active Land → FP (wrong)', ...
-     'Passive Abort → FN (timeout/hesitation)', 'Active Abort → FN', ...
-     'Correct Reject (TN)', '% gt safe to land'}, ...
-    'Location', 'northeast', 'Orientation', 'vertical', 'FontSize', FONT_LEGEND, 'Box', 'off');
+legend(ax7L, [pTP pFN pTPb pFNb], ...
+    {'TP ratio (Ontology+AI)', 'FN ratio (Ontology+AI)', 'TP ratio (Threshold)', 'FN ratio (Threshold)'}, ...
+    'Location', 'northoutside', 'Orientation', 'horizontal', 'FontSize', FONT_LEGEND, 'Box', 'off');
 
 exportgraphics(fig7, fullfile(outputDir, 'paper_fig7_wind_band_breakdown.png'), 'Resolution', 220);
 
@@ -864,6 +915,27 @@ function drawClass(ax, x, y, mask, colorVal, label)
         'MarkerFaceColor', colorVal, 'MarkerEdgeColor', [0.08 0.08 0.08], ...
         'MarkerFaceAlpha', 0.72, 'MarkerEdgeAlpha', 0.45, 'DisplayName', label);
     hold(ax, 'on');
+end
+
+
+function annotateTotalScenario(ax, nTotal, baseFont)
+    if ~isgraphics(ax)
+        return;
+    end
+    if ~isfinite(nTotal) || nTotal <= 0
+        return;
+    end
+    fs = max(10, min(16, round(baseFont * 0.55)));
+    text(ax, 0.99, 0.98, sprintf('N=%d', round(nTotal)), ...
+        'Units', 'normalized', ...
+        'HorizontalAlignment', 'right', ...
+        'VerticalAlignment', 'top', ...
+        'FontSize', fs, ...
+        'FontWeight', 'bold', ...
+        'Color', [0.20 0.20 0.20], ...
+        'BackgroundColor', [1 1 1], ...
+        'Margin', 2, ...
+        'Clipping', 'on');
 end
 
 
