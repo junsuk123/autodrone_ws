@@ -26,6 +26,7 @@ mainCfg.collection.primary_drone_index = 1;
 % Parallel autoscaling controls (applied by run_autosim_parallel.sh).
 mainCfg.collection.dynamic_worker_scale = true;
 mainCfg.collection.memory_probe_wait_sec = 8;
+mainCfg.collection.allow_scale_above_requested = false;
 
 % Pipeline stages (main always executes all stages).
 mainCfg.run_collection = true;

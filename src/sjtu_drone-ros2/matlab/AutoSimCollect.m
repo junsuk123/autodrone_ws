@@ -130,6 +130,9 @@ end
 if ~isfield(cfg, 'safe_cleanup_on_exit')
     cfg.safe_cleanup_on_exit = true;
 end
+if ~isfield(cfg, 'allow_scale_above_requested')
+    cfg.allow_scale_above_requested = false;
+end
 end
 
 function autosimCollectCleanupOnExit(cfg, thisDir)
@@ -221,6 +224,9 @@ end
 
 if isfield(cfg, 'dynamic_worker_scale')
     setenv('AUTOSIM_DYNAMIC_WORKER_SCALE', autosimCollectBoolText(logical(cfg.dynamic_worker_scale)));
+end
+if isfield(cfg, 'allow_scale_above_requested')
+    setenv('AUTOSIM_ALLOW_SCALE_ABOVE_REQUESTED', autosimCollectBoolText(logical(cfg.allow_scale_above_requested)));
 end
 if isfield(cfg, 'memory_probe_wait_sec') && isfinite(cfg.memory_probe_wait_sec) && cfg.memory_probe_wait_sec >= 0
     setenv('AUTOSIM_MEMORY_PROBE_WAIT_SEC', num2str(round(double(cfg.memory_probe_wait_sec))));

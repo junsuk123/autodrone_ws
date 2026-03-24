@@ -33,6 +33,7 @@ AUTOSIM_WORKER_LAUNCH_STAGGER_SEC="${AUTOSIM_WORKER_LAUNCH_STAGGER_SEC:-4}"
 AUTOSIM_FORCE_SOFTWARE_GL="${AUTOSIM_FORCE_SOFTWARE_GL:-auto}"
 AUTOSIM_ALLOW_PARALLEL_RVIZ="${AUTOSIM_ALLOW_PARALLEL_RVIZ:-false}"
 AUTOSIM_DYNAMIC_WORKER_SCALE="${AUTOSIM_DYNAMIC_WORKER_SCALE:-true}"
+AUTOSIM_ALLOW_SCALE_ABOVE_REQUESTED="${AUTOSIM_ALLOW_SCALE_ABOVE_REQUESTED:-false}"
 AUTOSIM_MEMORY_PROBE_WAIT_SEC="${AUTOSIM_MEMORY_PROBE_WAIT_SEC:-8}"
 AUTOSIM_MEMORY_MONITOR_INTERVAL_SEC="${AUTOSIM_MEMORY_MONITOR_INTERVAL_SEC:-10}"
 AUTOSIM_SCALE_STEP="${AUTOSIM_SCALE_STEP:-1}"
@@ -350,6 +351,7 @@ echo "[AUTOSIM] Session root: $SESSION_ROOT"
 echo "[AUTOSIM] Worker auto-tune: cpu_limit=$cpu_limit mem_limit=$mem_limit -> probe_auto=$auto_workers_probe gpu_auto=$auto_workers"
 echo "[AUTOSIM] GPU mode: enable=$AUTOSIM_ENABLE_GPU gpu_count=$gpu_count"
 echo "[AUTOSIM] Requested workers: $REQUESTED_WORKERS"
+echo "[AUTOSIM] Allow scale above requested: $AUTOSIM_ALLOW_SCALE_ABOVE_REQUESTED"
 echo "[AUTOSIM] CPU hybrid policy: target=${AUTOSIM_CPU_TARGET_UTIL_PCT}% hard=${AUTOSIM_CPU_HARD_LIMIT_PCT}%"
 echo "[AUTOSIM] Visualization defaults: use_gui=$AUTOSIM_USE_GUI use_rviz=$AUTOSIM_USE_RVIZ"
 echo "[AUTOSIM] Worker launch stagger: ${AUTOSIM_WORKER_LAUNCH_STAGGER_SEC}s"
@@ -550,6 +552,11 @@ compute_target_workers() {
   if (( target < 1 )); then
     target=1
   fi
+  if [[ "$AUTOSIM_ALLOW_SCALE_ABOVE_REQUESTED" != "1" && "$AUTOSIM_ALLOW_SCALE_ABOVE_REQUESTED" != "true" && "$AUTOSIM_ALLOW_SCALE_ABOVE_REQUESTED" != "yes" ]]; then
+    if (( target > REQUESTED_WORKERS )); then
+      target="$REQUESTED_WORKERS"
+    fi
+  fi
   if [[ -n "$AUTOSIM_MAX_WORKERS" ]] && [[ "$AUTOSIM_MAX_WORKERS" =~ ^[0-9]+$ ]] && (( AUTOSIM_MAX_WORKERS >= 1 )) && (( target > AUTOSIM_MAX_WORKERS )); then
     target="$AUTOSIM_MAX_WORKERS"
   fi
@@ -605,6 +612,9 @@ fi
 
 if [[ "$AUTOSIM_DYNAMIC_WORKER_SCALE" == "1" || "$AUTOSIM_DYNAMIC_WORKER_SCALE" == "true" || "$AUTOSIM_DYNAMIC_WORKER_SCALE" == "yes" ]]; then
   echo "[AUTOSIM] Dynamic hybrid scaler enabled: interval=${AUTOSIM_MEMORY_MONITOR_INTERVAL_SEC}s reserve=${MEM_RESERVE_GB}GB step=${AUTOSIM_SCALE_STEP} cpu_target=${AUTOSIM_CPU_TARGET_UTIL_PCT}% cpu_hard=${AUTOSIM_CPU_HARD_LIMIT_PCT}%"
+  if [[ "$AUTOSIM_ALLOW_SCALE_ABOVE_REQUESTED" != "1" && "$AUTOSIM_ALLOW_SCALE_ABOVE_REQUESTED" != "true" && "$AUTOSIM_ALLOW_SCALE_ABOVE_REQUESTED" != "yes" ]]; then
+    echo "[AUTOSIM] Dynamic scaler cap: requested_workers=${REQUESTED_WORKERS} (no growth above requested)"
+  fi
   start_worker_with_new_id 1
   PEAK_WORKERS=1
 
