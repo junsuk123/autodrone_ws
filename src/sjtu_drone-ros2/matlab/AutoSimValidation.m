@@ -43,6 +43,8 @@ end
 if isempty(allTbl)
     error('AutoSimValidation:NoFinalDataset', 'No FinalDataset CSV found under %s', finalRoot);
 end
+allTblRawCount = height(allTbl);
+[allTbl, recentNUsed] = autosimValidationApplyRecentWindow(allTbl);
 allTbl = autosimEnsureOntologyFeatureColumns(allTbl, cfg);
 droneMeta = autosimValidationResolveDroneMeta(cfg, allTbl);
 
@@ -108,6 +110,12 @@ sumTbl = table();
 sumTbl.created_at = string(datetime('now'));
 sumTbl.model_path = string(modelPath);
 sumTbl.n_all = height(allTbl);
+sumTbl.n_all_raw = allTblRawCount;
+if isfinite(recentNUsed) && recentNUsed > 0
+    sumTbl.recent_dataset_n = round(recentNUsed);
+else
+    sumTbl.recent_dataset_n = nan;
+end
 sumTbl.n_train = height(trainTbl);
 sumTbl.n_val = height(valTbl);
 sumTbl.seed = splitSeed;
@@ -129,6 +137,12 @@ writetable(sumTbl, summaryCsv);
 splitTbl = table();
 splitTbl.created_at = string(datetime('now'));
 splitTbl.n_all = height(allTbl);
+splitTbl.n_all_raw = allTblRawCount;
+if isfinite(recentNUsed) && recentNUsed > 0
+    splitTbl.recent_dataset_n = round(recentNUsed);
+else
+    splitTbl.recent_dataset_n = nan;
+end
 splitTbl.n_train = height(trainTbl);
 splitTbl.n_val = height(valTbl);
 splitTbl.train_ratio = splitInfo.train_ratio;
@@ -142,6 +156,9 @@ end
 writetable(splitTbl, splitCsv);
 
 fprintf('[AutoSimValidation] model: %s\n', char(modelPath));
+if isfinite(recentNUsed) && recentNUsed > 0
+    fprintf('[AutoSimValidation] recent window: last %d rows (raw=%d, used=%d)\n', round(recentNUsed), allTblRawCount, height(allTbl));
+end
 fprintf('[AutoSimValidation] all=%d train=%d val=%d (seed=%d)\n', height(allTbl), height(trainTbl), height(valTbl), round(splitSeed));
 fprintf('[AutoSimValidation] summary: %s\n', summaryCsv);
 fprintf('[AutoSimValidation] accuracy=%.4f precision=%.4f recall=%.4f specificity=%.4f balanced=%.4f unsafe_landing=%.4f\n', ...
@@ -165,6 +182,40 @@ end
 function [trainTbl, valTbl, info] = autosimValidationSplit70_30(T, trainRatio, seed)
 if nargin < 2 || ~isfinite(trainRatio)
     trainRatio = 0.7;
+end
+
+
+function [T, recentN] = autosimValidationApplyRecentWindow(T)
+recentN = autosimValidationResolveRecentDatasetN();
+if ~(isfinite(recentN) && recentN > 0)
+    return;
+end
+n = height(T);
+if n <= 0
+    return;
+end
+k = min(n, round(recentN));
+T = T(n - k + 1:n, :);
+end
+
+
+function recentN = autosimValidationResolveRecentDatasetN()
+recentN = inf;
+if exist('recentDatasetN', 'var')
+    vLocal = double(recentDatasetN);
+    if isfinite(vLocal) && vLocal > 0
+        recentN = round(vLocal);
+        return;
+    end
+end
+raw = string(getenv('AUTOSIM_RECENT_DATASET_N'));
+if strlength(raw) == 0
+    return;
+end
+v = str2double(raw);
+if isfinite(v) && v > 0
+    recentN = round(v);
+end
 end
 if nargin < 3 || ~isfinite(seed)
     seed = 20260323;

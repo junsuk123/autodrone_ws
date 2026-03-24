@@ -73,15 +73,25 @@ if isempty(datasetPath)
 end
 
 datasetTbl = readtable(datasetPath);
+datasetRawCount = height(datasetTbl);
+[datasetTbl, recentNUsed] = autosimPaperApplyRecentWindow(datasetTbl);
 nTotalScenario = height(datasetTbl);
 traceTbl = table();
 dmetTblRaw = table(); %#ok<NASGU>
 
 if ~isempty(tracePath)
     traceTbl = readtable(tracePath);
+    if isfinite(recentNUsed) && recentNUsed > 0 && height(traceTbl) > round(recentNUsed)
+        traceTbl = traceTbl(end - round(recentNUsed) + 1:end, :);
+    end
 end
 if ~isempty(dmetPath)
     dmetTblRaw = readtable(dmetPath); %#ok<NASGU>
+end
+
+if isfinite(recentNUsed) && recentNUsed > 0
+    fprintf('[AutoSimPaperPlots] recent window: last %d rows (raw=%d, used=%d)\n', ...
+        round(recentNUsed), datasetRawCount, nTotalScenario);
 end
 
 gtSafe = buildGtSafe(datasetTbl);
@@ -455,6 +465,40 @@ function roots = autosimPaperDiscoverDataRoots(rootDir, dataRoot)
         roots(end+1, 1) = parallelOutputData; %#ok<AGROW>
     end
     roots = unique(roots, 'stable');
+end
+
+
+function [T, recentN] = autosimPaperApplyRecentWindow(T)
+recentN = autosimPaperResolveRecentDatasetN();
+if ~(isfinite(recentN) && recentN > 0)
+    return;
+end
+n = height(T);
+if n <= 0
+    return;
+end
+k = min(n, round(recentN));
+T = T(n - k + 1:n, :);
+end
+
+
+function recentN = autosimPaperResolveRecentDatasetN()
+recentN = inf;
+if exist('recentDatasetN', 'var')
+    vLocal = double(recentDatasetN);
+    if isfinite(vLocal) && vLocal > 0
+        recentN = round(vLocal);
+        return;
+    end
+end
+raw = string(getenv('AUTOSIM_RECENT_DATASET_N'));
+if strlength(raw) == 0
+    return;
+end
+v = str2double(raw);
+if isfinite(v) && v > 0
+    recentN = round(v);
+end
 end
 
 
