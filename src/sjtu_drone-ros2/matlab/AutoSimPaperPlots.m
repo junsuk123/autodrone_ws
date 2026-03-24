@@ -310,7 +310,7 @@ lg6 = legend(ax6, hWind, 'Location', 'northeast', 'FontSize', FONT_LEGEND, 'Box'
 
 exportgraphics(fig6, fullfile(outputDir, 'paper_fig6_decision_wind_risk.png'), 'Resolution', 220);
 
-% === fig7: Decision composition per wind band ===
+% === fig7: Relative correctness and error bias per wind band ===
 windVec7  = pickNumeric(datasetTbl, {'mean_wind_speed','wind_speed_cmd','max_wind_speed'}, nan(n,1));
 srcVec7   = repmat("", n, 1);
 if ismember('action_source', datasetTbl.Properties.VariableNames)
@@ -349,57 +349,75 @@ for b = 1:nB7
     bTotal7(b) = sum(mask);
 end
 
-fig7 = figure('Name', 'WindBandDecisionBreakdown', 'Color', 'w', 'Position', [200 200 960 460]);
+fig7 = figure('Name', 'WindBandDecisionBreakdown', 'Color', 'w', 'Position', [200 200 980 480]);
 ax7L = axes(fig7);
 hold(ax7L, 'on');
 
-tpRate7 = nan(nB7, 1);
-fnRate7 = nan(nB7, 1);
-tpRate7b = nan(nB7, 1);
-fnRate7b = nan(nB7, 1);
+tpOverTn7 = nan(nB7, 1);
+fnOverFp7 = nan(nB7, 1);
+tpOverTn7b = nan(nB7, 1);
+fnOverFp7b = nan(nB7, 1);
 for b = 1:nB7
     if bTotal7(b) > 0
-        tpRate7(b) = 100 * bCounts7(b,1) / bTotal7(b);
-        fnRate7(b) = 100 * (bCounts7(b,3) + bCounts7(b,4)) / bTotal7(b);
-        tpRate7b(b) = 100 * bCounts7b(b,1) / bTotal7(b);
-        fnRate7b(b) = 100 * (bCounts7b(b,3) + bCounts7b(b,4)) / bTotal7(b);
+        fnTotal = bCounts7(b,3) + bCounts7(b,4);
+        fnTotalB = bCounts7b(b,3) + bCounts7b(b,4);
+
+        tpOverTn7(b) = safeDiv(bCounts7(b,1), bCounts7(b,5));
+        fnOverFp7(b) = safeDiv(fnTotal, bCounts7(b,2));
+
+        tpOverTn7b(b) = safeDiv(bCounts7b(b,1), bCounts7b(b,5));
+        fnOverFp7b(b) = safeDiv(fnTotalB, bCounts7b(b,2));
     end
 end
 
-pTP = plot(ax7L, 1:nB7, tpRate7, '-o', ...
+pTP = plot(ax7L, 1:nB7, tpOverTn7, '-o', ...
     'LineWidth', 2.2, ...
     'Color', [0.15 0.62 0.22], ...
     'MarkerFaceColor', [0.15 0.62 0.22], ...
     'MarkerSize', 7, ...
-    'DisplayName', 'TP ratio');
+    'DisplayName', 'TP/TN');
 
-pFN = plot(ax7L, 1:nB7, fnRate7, '-s', ...
+pFN = plot(ax7L, 1:nB7, fnOverFp7, '-s', ...
     'LineWidth', 2.2, ...
     'Color', [0.90 0.46 0.10], ...
     'MarkerFaceColor', [0.90 0.46 0.10], ...
     'MarkerSize', 7, ...
-    'DisplayName', 'FN ratio');
+    'DisplayName', 'FN/FP');
 
-pTPb = plot(ax7L, 1:nB7, tpRate7b, '--o', ...
+pTPb = plot(ax7L, 1:nB7, tpOverTn7b, '--o', ...
     'LineWidth', 1.8, ...
     'Color', [0.10 0.35 0.72], ...
     'MarkerFaceColor', [0.10 0.35 0.72], ...
     'MarkerSize', 6, ...
-    'DisplayName', 'TP ratio (threshold)');
+    'DisplayName', 'TP/TN (threshold)');
 
-pFNb = plot(ax7L, 1:nB7, fnRate7b, '--s', ...
+pFNb = plot(ax7L, 1:nB7, fnOverFp7b, '--s', ...
     'LineWidth', 1.8, ...
     'Color', [0.55 0.30 0.08], ...
     'MarkerFaceColor', [0.55 0.30 0.08], ...
     'MarkerSize', 6, ...
-    'DisplayName', 'FN ratio (threshold)');
+    'DisplayName', 'FN/FP (threshold)');
+
+hRef = yline(ax7L, 1.0, ':', 'x1 balance', ...
+    'Color', [0.45 0.45 0.45], ...
+    'LineWidth', 1.1, ...
+    'LabelHorizontalAlignment', 'left', ...
+    'LabelVerticalAlignment', 'bottom');
 
 set(ax7L, 'XTick', 1:nB7, 'XTickLabel', bLabels, 'FontSize', FONT_AX);
 xlabel(ax7L, 'Wind speed band (m/s)', 'FontSize', FONT_LABEL);
-ylabel(ax7L, 'Ratio within wind band (%)', 'FontSize', FONT_LABEL);
-title(ax7L, 'TP/FN Ratio per Wind Band (Ontology+AI)', 'FontSize', FONT_TITLE);
+ylabel(ax7L, 'Relative ratio (x)', 'FontSize', FONT_LABEL);
+title(ax7L, 'TP/TN and FN/FP per Wind Band', 'FontSize', FONT_TITLE);
 annotateTotalScenario(ax7L, nTotalScenario, FONT_AX);
-ylim(ax7L, [0 100]);
+
+yCandidates = [tpOverTn7; fnOverFp7; tpOverTn7b; fnOverFp7b];
+yCandidates = yCandidates(isfinite(yCandidates));
+if isempty(yCandidates)
+    ylim(ax7L, [0 2]);
+else
+    yTop = max(2.0, 1.15 * max(yCandidates));
+    ylim(ax7L, [0 yTop]);
+end
 grid(ax7L, 'on');
 
 for b = 1:nB7
@@ -411,7 +429,7 @@ for b = 1:nB7
 end
 
 legend(ax7L, [pTP pFN pTPb pFNb], ...
-    {'TP ratio (Ontology+AI)', 'FN ratio (Ontology+AI)', 'TP ratio (Threshold)', 'FN ratio (Threshold)'}, ...
+    {'TP/TN (Ontology+AI)', 'FN/FP (Ontology+AI)', 'TP/TN (Threshold)', 'FN/FP (Threshold)'}, ...
     'Location', 'northoutside', 'Orientation', 'horizontal', 'FontSize', FONT_LEGEND, 'Box', 'off');
 
 exportgraphics(fig7, fullfile(outputDir, 'paper_fig7_wind_band_breakdown.png'), 'Resolution', 220);

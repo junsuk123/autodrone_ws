@@ -29,6 +29,12 @@ AUTOSIM_MULTI_DRONE_NAMESPACE_PREFIX="${AUTOSIM_MULTI_DRONE_NAMESPACE_PREFIX:-dr
 AUTOSIM_MULTI_DRONE_SPAWN_TAGS="${AUTOSIM_MULTI_DRONE_SPAWN_TAGS:-true}"
 AUTOSIM_MULTI_DRONE_USE_WORLD_TAG_AS_FIRST="${AUTOSIM_MULTI_DRONE_USE_WORLD_TAG_AS_FIRST:-false}"
 AUTOSIM_PRIMARY_DRONE_INDEX="${AUTOSIM_PRIMARY_DRONE_INDEX:-1}"
+AUTOSIM_WORKER_LAUNCH_STAGGER_SEC="${AUTOSIM_WORKER_LAUNCH_STAGGER_SEC:-2}"
+AUTOSIM_FORCE_SOFTWARE_GL="${AUTOSIM_FORCE_SOFTWARE_GL:-auto}"
+
+if ! [[ "$AUTOSIM_WORKER_LAUNCH_STAGGER_SEC" =~ ^[0-9]+$ ]]; then
+  AUTOSIM_WORKER_LAUNCH_STAGGER_SEC=2
+fi
 
 gpu_count=0
 if command -v nvidia-smi >/dev/null 2>&1; then
@@ -105,6 +111,14 @@ fi
 if [[ "$AUTOSIM_MAX_WORKERS" =~ ^[0-9]+$ ]] && (( AUTOSIM_MAX_WORKERS >= 1 )) && (( WORKERS > AUTOSIM_MAX_WORKERS )); then
   echo "[AUTOSIM] Requested workers=$WORKERS exceeds AUTOSIM_MAX_WORKERS=$AUTOSIM_MAX_WORKERS. Clamping."
   WORKERS="$AUTOSIM_MAX_WORKERS"
+fi
+
+if [[ "$AUTOSIM_FORCE_SOFTWARE_GL" == "auto" ]]; then
+  if (( WORKERS > 1 )); then
+    AUTOSIM_FORCE_SOFTWARE_GL="true"
+  else
+    AUTOSIM_FORCE_SOFTWARE_GL="false"
+  fi
 fi
 
 if [[ "$AUTOSIM_USE_GUI" == "auto" ]]; then
@@ -276,6 +290,8 @@ echo "[AUTOSIM] Worker auto-tune: cpu_limit=$cpu_limit mem_limit=$mem_limit -> a
 echo "[AUTOSIM] GPU mode: enable=$AUTOSIM_ENABLE_GPU gpu_count=$gpu_count"
 echo "[AUTOSIM] Worker ROS domains: $DOMAIN_BASE..$((DOMAIN_BASE + WORKERS - 1))"
 echo "[AUTOSIM] Visualization defaults: use_gui=$AUTOSIM_USE_GUI use_rviz=$AUTOSIM_USE_RVIZ"
+echo "[AUTOSIM] Worker launch stagger: ${AUTOSIM_WORKER_LAUNCH_STAGGER_SEC}s"
+echo "[AUTOSIM] Force software GL: $AUTOSIM_FORCE_SOFTWARE_GL"
 echo "[AUTOSIM] CLI inspect tip: export ROS_DOMAIN_ID=$DOMAIN_BASE"
 echo "[AUTOSIM] Launching workers: $WORKERS"
 
@@ -322,13 +338,20 @@ for ((i=1; i<=WORKERS; i++)); do
     export AUTOSIM_MULTI_DRONE_USE_WORLD_TAG_AS_FIRST="$AUTOSIM_MULTI_DRONE_USE_WORLD_TAG_AS_FIRST"
     export AUTOSIM_PRIMARY_DRONE_INDEX="$AUTOSIM_PRIMARY_DRONE_INDEX"
 
+    if [[ "$AUTOSIM_FORCE_SOFTWARE_GL" == "1" || "$AUTOSIM_FORCE_SOFTWARE_GL" == "true" || "$AUTOSIM_FORCE_SOFTWARE_GL" == "yes" ]]; then
+      export LIBGL_ALWAYS_SOFTWARE=1
+      export QT_QUICK_BACKEND=software
+    fi
+
     exec "$MATLAB_CMD" -batch "$run_cmd"
   ) >"$log_file" 2>&1 &
 
   pid="$!"
   printf "%s\t%s\t%s\t%s\t%s\n" "$pid" "$i" "$domain_id" "$gazebo_port" "$log_file" >> "$PID_TABLE"
   echo "[AUTOSIM] Worker $i started pid=$pid domain=$domain_id gazebo_port=$gazebo_port gpu=${gpu_device:-none}"
-  sleep 1
+  if (( i < WORKERS )) && (( AUTOSIM_WORKER_LAUNCH_STAGGER_SEC > 0 )); then
+    sleep "$AUTOSIM_WORKER_LAUNCH_STAGGER_SEC"
+  fi
 
 done
 

@@ -183,40 +183,6 @@ function [trainTbl, valTbl, info] = autosimValidationSplit70_30(T, trainRatio, s
 if nargin < 2 || ~isfinite(trainRatio)
     trainRatio = 0.7;
 end
-
-
-function [T, recentN] = autosimValidationApplyRecentWindow(T)
-recentN = autosimValidationResolveRecentDatasetN();
-if ~(isfinite(recentN) && recentN > 0)
-    return;
-end
-n = height(T);
-if n <= 0
-    return;
-end
-k = min(n, round(recentN));
-T = T(n - k + 1:n, :);
-end
-
-
-function recentN = autosimValidationResolveRecentDatasetN()
-recentN = inf;
-if exist('recentDatasetN', 'var')
-    vLocal = double(recentDatasetN);
-    if isfinite(vLocal) && vLocal > 0
-        recentN = round(vLocal);
-        return;
-    end
-end
-raw = string(getenv('AUTOSIM_RECENT_DATASET_N'));
-if strlength(raw) == 0
-    return;
-end
-v = str2double(raw);
-if isfinite(v) && v > 0
-    recentN = round(v);
-end
-end
 if nargin < 3 || ~isfinite(seed)
     seed = 20260323;
 end
@@ -281,6 +247,40 @@ info = struct();
 info.train_ratio = height(trainTbl) / max(1, n);
 info.val_ratio = height(valTbl) / max(1, n);
 info.seed = seed;
+end
+
+
+function [T, recentN] = autosimValidationApplyRecentWindow(T)
+recentN = autosimValidationResolveRecentDatasetN();
+if ~(isfinite(recentN) && recentN > 0)
+    return;
+end
+n = height(T);
+if n <= 0
+    return;
+end
+k = min(n, round(recentN));
+T = T(n - k + 1:n, :);
+end
+
+
+function recentN = autosimValidationResolveRecentDatasetN()
+recentN = inf;
+if exist('recentDatasetN', 'var')
+    vLocal = double(recentDatasetN);
+    if isfinite(vLocal) && vLocal > 0
+        recentN = round(vLocal);
+        return;
+    end
+end
+raw = string(getenv('AUTOSIM_RECENT_DATASET_N'));
+if strlength(raw) == 0
+    return;
+end
+v = str2double(raw);
+if isfinite(v) && v > 0
+    recentN = round(v);
+end
 end
 
 
