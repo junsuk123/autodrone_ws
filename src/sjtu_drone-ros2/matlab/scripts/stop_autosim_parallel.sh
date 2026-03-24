@@ -21,10 +21,25 @@ if [[ -n "$SESSION_ROOT" ]]; then
   SESSION_ROOT="$(sanitize_arg "$SESSION_ROOT")"
 fi
 
+is_truthy() {
+  local v="${1:-}"
+  v="${v,,}"
+  [[ "$v" == "1" || "$v" == "true" || "$v" == "yes" || "$v" == "on" ]]
+}
+
 if [[ -z "$SESSION_ROOT" ]]; then
-  while IFS= read -r path; do
-    [[ -n "$path" ]] && PID_TABLES+=("$path")
-  done < <(find "$MATLAB_DIR/parallel_runs" -maxdepth 2 -type f -name workers.tsv 2>/dev/null | sort)
+  if is_truthy "${AUTOSIM_STOP_ALL_SESSIONS:-}"; then
+    while IFS= read -r path; do
+      [[ -n "$path" ]] && PID_TABLES+=("$path")
+    done < <(find "$MATLAB_DIR/parallel_runs" -maxdepth 2 -type f -name workers.tsv 2>/dev/null | sort)
+    echo "[AUTOSIM] Stop scope: all sessions (AUTOSIM_STOP_ALL_SESSIONS=true)"
+  else
+    latest_table="$(find "$MATLAB_DIR/parallel_runs" -maxdepth 2 -type f -name workers.tsv -printf '%T@ %p\n' 2>/dev/null | sort -n | tail -n 1 | cut -d' ' -f2-)"
+    if [[ -n "$latest_table" ]]; then
+      PID_TABLES+=("$latest_table")
+      echo "[AUTOSIM] Stop scope: latest session only"
+    fi
+  fi
 
   if [[ ${#PID_TABLES[@]} -eq 0 ]]; then
     echo "[AUTOSIM] No parallel session found."

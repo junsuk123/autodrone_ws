@@ -104,7 +104,7 @@ if ~isfield(cfg, 'launch_use_gui')
     cfg.launch_use_gui = false;
 end
 if ~isfield(cfg, 'launch_use_rviz')
-    cfg.launch_use_rviz = true;
+    cfg.launch_use_rviz = false;
 end
 if ~isfield(cfg, 'launch_use_teleop')
     cfg.launch_use_teleop = true;
@@ -119,7 +119,7 @@ if ~isfield(cfg, 'multi_drone_spawn_tags')
     cfg.multi_drone_spawn_tags = true;
 end
 if ~isfield(cfg, 'multi_drone_use_world_tag_as_first')
-    cfg.multi_drone_use_world_tag_as_first = true;
+    cfg.multi_drone_use_world_tag_as_first = false;
 end
 if ~isfield(cfg, 'primary_drone_index')
     cfg.primary_drone_index = 1;
@@ -180,6 +180,11 @@ if isfield(cfg, 'drone_count') && isfinite(cfg.drone_count) && cfg.drone_count >
     independentMode = false;
     if isfield(cfg, 'independent_per_drone')
         independentMode = logical(cfg.independent_per_drone);
+    end
+
+    if independentMode && droneCount > 1 && isfield(cfg, 'launch_use_rviz') && logical(cfg.launch_use_rviz)
+        warning('[AutoSimCollect] launch_use_rviz=true requested, but forcing false in independent multi-worker mode for stability.');
+        cfg.launch_use_rviz = false;
     end
 
     if independentMode && droneCount > 1

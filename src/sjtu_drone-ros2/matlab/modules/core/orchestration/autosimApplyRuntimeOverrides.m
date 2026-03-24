@@ -108,6 +108,12 @@ function [cfg, info] = autosimApplyRuntimeOverrides(cfg)
     end
     cfg.launch.use_gui = autosimEnvBool('AUTOSIM_USE_GUI', defaultUseGui);
     cfg.launch.use_rviz = autosimEnvBool('AUTOSIM_USE_RVIZ', defaultUseRviz);
+    if workerCount > 1 && cfg.launch.use_rviz
+        allowParallelRviz = autosimEnvBool('AUTOSIM_ALLOW_PARALLEL_RVIZ', false);
+        if ~allowParallelRviz
+            cfg.launch.use_rviz = false;
+        end
+    end
     defaultUseTeleop = false;
     if isfield(cfg.launch, 'use_teleop')
         defaultUseTeleop = logical(cfg.launch.use_teleop);

@@ -60,6 +60,10 @@ fprintf('[AUTOSIM MAIN] Launch command: %s\n', launchCmd);
 
 [st, out] = system(launchCmd);
 if st ~= 0
+    if autosimMainIsLaunchInterrupted(st, out)
+        fprintf('[AUTOSIM MAIN] Launch interrupted by user. Skipping parallel orchestration.\n');
+        return;
+    end
     error('Failed to start parallel AutoSim workers:\n%s', out);
 end
 
@@ -126,6 +130,29 @@ function tf = autosimMainIsUserTermination(ME)
 tf = false;
 if nargin < 1 || isempty(ME)
     return;
+end
+
+function tf = autosimMainIsLaunchInterrupted(statusCode, outputText)
+tf = false;
+
+if nargin >= 1 && isfinite(statusCode) && round(statusCode) == 130
+    tf = true;
+    return;
+end
+
+msg = "";
+if nargin >= 2 && ~isempty(outputText)
+    try
+        msg = lower(string(outputText));
+    catch
+        msg = "";
+    end
+end
+
+tf = contains(msg, "^c") || ...
+     contains(msg, "interrupt") || ...
+     contains(msg, "terminated by user") || ...
+     contains(msg, "operation terminated by user");
 end
 
 try

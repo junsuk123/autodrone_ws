@@ -15,7 +15,7 @@ MEM_RESERVE_GB="${MEM_RESERVE_GB:-4}"
 MEM_PER_WORKER_GB="${MEM_PER_WORKER_GB:-6}"
 AUTOSIM_ENABLE_GPU="${AUTOSIM_ENABLE_GPU:-auto}"
 WORKERS_PER_GPU="${WORKERS_PER_GPU:-1}"
-AUTOSIM_MAX_WORKERS="${AUTOSIM_MAX_WORKERS:-3}"
+AUTOSIM_MAX_WORKERS="${AUTOSIM_MAX_WORKERS:-}"
 AUTOSIM_ENABLE_PROGRESS_PLOT="${AUTOSIM_ENABLE_PROGRESS_PLOT:-false}"
 AUTOSIM_ENABLE_SCENARIO_LIVE_VIZ="${AUTOSIM_ENABLE_SCENARIO_LIVE_VIZ:-false}"
 AUTOSIM_USE_GUI="${AUTOSIM_USE_GUI:-auto}"
@@ -29,13 +29,48 @@ AUTOSIM_MULTI_DRONE_NAMESPACE_PREFIX="${AUTOSIM_MULTI_DRONE_NAMESPACE_PREFIX:-dr
 AUTOSIM_MULTI_DRONE_SPAWN_TAGS="${AUTOSIM_MULTI_DRONE_SPAWN_TAGS:-true}"
 AUTOSIM_MULTI_DRONE_USE_WORLD_TAG_AS_FIRST="${AUTOSIM_MULTI_DRONE_USE_WORLD_TAG_AS_FIRST:-false}"
 AUTOSIM_PRIMARY_DRONE_INDEX="${AUTOSIM_PRIMARY_DRONE_INDEX:-1}"
-AUTOSIM_WORKER_LAUNCH_STAGGER_SEC="${AUTOSIM_WORKER_LAUNCH_STAGGER_SEC:-2}"
+AUTOSIM_WORKER_LAUNCH_STAGGER_SEC="${AUTOSIM_WORKER_LAUNCH_STAGGER_SEC:-4}"
 AUTOSIM_FORCE_SOFTWARE_GL="${AUTOSIM_FORCE_SOFTWARE_GL:-auto}"
+AUTOSIM_ALLOW_PARALLEL_RVIZ="${AUTOSIM_ALLOW_PARALLEL_RVIZ:-false}"
 AUTOSIM_DYNAMIC_WORKER_SCALE="${AUTOSIM_DYNAMIC_WORKER_SCALE:-true}"
 AUTOSIM_MEMORY_PROBE_WAIT_SEC="${AUTOSIM_MEMORY_PROBE_WAIT_SEC:-8}"
+AUTOSIM_MEMORY_MONITOR_INTERVAL_SEC="${AUTOSIM_MEMORY_MONITOR_INTERVAL_SEC:-10}"
+AUTOSIM_SCALE_STEP="${AUTOSIM_SCALE_STEP:-1}"
+AUTOSIM_CPU_TARGET_UTIL_PCT="${AUTOSIM_CPU_TARGET_UTIL_PCT:-75}"
+AUTOSIM_CPU_HARD_LIMIT_PCT="${AUTOSIM_CPU_HARD_LIMIT_PCT:-90}"
 
 if ! [[ "$AUTOSIM_WORKER_LAUNCH_STAGGER_SEC" =~ ^[0-9]+$ ]]; then
-  AUTOSIM_WORKER_LAUNCH_STAGGER_SEC=2
+  AUTOSIM_WORKER_LAUNCH_STAGGER_SEC=4
+fi
+if ! [[ "$AUTOSIM_MEMORY_MONITOR_INTERVAL_SEC" =~ ^[0-9]+$ ]]; then
+  AUTOSIM_MEMORY_MONITOR_INTERVAL_SEC=10
+fi
+if (( AUTOSIM_MEMORY_MONITOR_INTERVAL_SEC < 1 )); then
+  AUTOSIM_MEMORY_MONITOR_INTERVAL_SEC=1
+fi
+if ! [[ "$AUTOSIM_SCALE_STEP" =~ ^[0-9]+$ ]]; then
+  AUTOSIM_SCALE_STEP=1
+fi
+if (( AUTOSIM_SCALE_STEP < 1 )); then
+  AUTOSIM_SCALE_STEP=1
+fi
+if ! [[ "$AUTOSIM_CPU_TARGET_UTIL_PCT" =~ ^[0-9]+$ ]]; then
+  AUTOSIM_CPU_TARGET_UTIL_PCT=75
+fi
+if ! [[ "$AUTOSIM_CPU_HARD_LIMIT_PCT" =~ ^[0-9]+$ ]]; then
+  AUTOSIM_CPU_HARD_LIMIT_PCT=90
+fi
+if (( AUTOSIM_CPU_TARGET_UTIL_PCT < 1 )); then
+  AUTOSIM_CPU_TARGET_UTIL_PCT=1
+fi
+if (( AUTOSIM_CPU_TARGET_UTIL_PCT > 95 )); then
+  AUTOSIM_CPU_TARGET_UTIL_PCT=95
+fi
+if (( AUTOSIM_CPU_HARD_LIMIT_PCT <= AUTOSIM_CPU_TARGET_UTIL_PCT )); then
+  AUTOSIM_CPU_HARD_LIMIT_PCT="$((AUTOSIM_CPU_TARGET_UTIL_PCT + 10))"
+fi
+if (( AUTOSIM_CPU_HARD_LIMIT_PCT > 99 )); then
+  AUTOSIM_CPU_HARD_LIMIT_PCT=99
 fi
 
 gpu_count=0
@@ -96,7 +131,7 @@ fi
 if (( auto_workers_probe < 1 )); then auto_workers_probe=1; fi
 if (( auto_workers < 1 )); then auto_workers=1; fi
 
-if [[ "$AUTOSIM_MAX_WORKERS" =~ ^[0-9]+$ ]] && (( AUTOSIM_MAX_WORKERS >= 1 )); then
+if [[ -n "$AUTOSIM_MAX_WORKERS" ]] && [[ "$AUTOSIM_MAX_WORKERS" =~ ^[0-9]+$ ]] && (( AUTOSIM_MAX_WORKERS >= 1 )); then
   if (( auto_workers_probe > AUTOSIM_MAX_WORKERS )); then
     auto_workers_probe="$AUTOSIM_MAX_WORKERS"
   fi
@@ -125,17 +160,22 @@ if [[ "$WORKERS_ARG" != "auto" ]] && (( REQUESTED_WORKERS > auto_workers_probe )
   echo "[AUTOSIM] Dynamic probe will launch one worker first, then scale up safely."
 fi
 
-if [[ "$AUTOSIM_MAX_WORKERS" =~ ^[0-9]+$ ]] && (( AUTOSIM_MAX_WORKERS >= 1 )) && (( REQUESTED_WORKERS > AUTOSIM_MAX_WORKERS )); then
+if [[ -n "$AUTOSIM_MAX_WORKERS" ]] && [[ "$AUTOSIM_MAX_WORKERS" =~ ^[0-9]+$ ]] && (( AUTOSIM_MAX_WORKERS >= 1 )) && (( REQUESTED_WORKERS > AUTOSIM_MAX_WORKERS )); then
   echo "[AUTOSIM] Requested workers=$REQUESTED_WORKERS exceeds AUTOSIM_MAX_WORKERS=$AUTOSIM_MAX_WORKERS. Clamping."
   REQUESTED_WORKERS="$AUTOSIM_MAX_WORKERS"
 fi
 
-if [[ "$AUTOSIM_FORCE_SOFTWARE_GL" == "auto" ]]; then
-  if (( REQUESTED_WORKERS > 1 )); then
-    AUTOSIM_FORCE_SOFTWARE_GL="true"
+if (( REQUESTED_WORKERS > 1 )) && [[ "$AUTOSIM_USE_RVIZ" == "1" || "$AUTOSIM_USE_RVIZ" == "true" || "$AUTOSIM_USE_RVIZ" == "yes" ]]; then
+  if [[ "$AUTOSIM_ALLOW_PARALLEL_RVIZ" == "1" || "$AUTOSIM_ALLOW_PARALLEL_RVIZ" == "true" || "$AUTOSIM_ALLOW_PARALLEL_RVIZ" == "yes" ]]; then
+    echo "[AUTOSIM] Parallel RViz override enabled (AUTOSIM_ALLOW_PARALLEL_RVIZ=$AUTOSIM_ALLOW_PARALLEL_RVIZ)."
   else
-    AUTOSIM_FORCE_SOFTWARE_GL="false"
+    echo "[AUTOSIM] For stability, forcing AUTOSIM_USE_RVIZ=false in parallel runs."
+    AUTOSIM_USE_RVIZ="false"
   fi
+fi
+
+if [[ "$AUTOSIM_FORCE_SOFTWARE_GL" == "auto" ]]; then
+  AUTOSIM_FORCE_SOFTWARE_GL="false"
 fi
 
 if [[ "$AUTOSIM_USE_GUI" == "auto" ]]; then
@@ -294,6 +334,8 @@ timestamp=$timestamp
 workers_requested=$REQUESTED_WORKERS
 cpu_total=$cpu_total
 cpu_limit=$cpu_limit
+cpu_target_util_pct=$AUTOSIM_CPU_TARGET_UTIL_PCT
+cpu_hard_limit_pct=$AUTOSIM_CPU_HARD_LIMIT_PCT
 mem_avail_gb=$mem_avail_gb
 mem_limit=$mem_limit
 auto_workers=$auto_workers
@@ -308,6 +350,7 @@ echo "[AUTOSIM] Session root: $SESSION_ROOT"
 echo "[AUTOSIM] Worker auto-tune: cpu_limit=$cpu_limit mem_limit=$mem_limit -> probe_auto=$auto_workers_probe gpu_auto=$auto_workers"
 echo "[AUTOSIM] GPU mode: enable=$AUTOSIM_ENABLE_GPU gpu_count=$gpu_count"
 echo "[AUTOSIM] Requested workers: $REQUESTED_WORKERS"
+echo "[AUTOSIM] CPU hybrid policy: target=${AUTOSIM_CPU_TARGET_UTIL_PCT}% hard=${AUTOSIM_CPU_HARD_LIMIT_PCT}%"
 echo "[AUTOSIM] Visualization defaults: use_gui=$AUTOSIM_USE_GUI use_rviz=$AUTOSIM_USE_RVIZ"
 echo "[AUTOSIM] Worker launch stagger: ${AUTOSIM_WORKER_LAUNCH_STAGGER_SEC}s"
 echo "[AUTOSIM] Force software GL: $AUTOSIM_FORCE_SOFTWARE_GL"
@@ -367,6 +410,8 @@ launch_worker() {
 
   local pid="$!"
   printf "%s\t%s\t%s\t%s\t%s\n" "$pid" "$i" "$domain_id" "$gazebo_port" "$log_file" >> "$PID_TABLE"
+  LAST_LAUNCHED_PID="$pid"
+  LAST_LAUNCHED_WORKER_ID="$i"
   echo "[AUTOSIM] Worker $i started pid=$pid domain=$domain_id gazebo_port=$gazebo_port gpu=${gpu_device:-none}"
 }
 
@@ -375,56 +420,241 @@ if [[ -n "$SCENARIO_COUNT" ]]; then
   export AUTOSIM_SCENARIO_COUNT="$SCENARIO_COUNT"
 fi
 
-if (( REQUESTED_WORKERS > 1 )) && [[ "$AUTOSIM_DYNAMIC_WORKER_SCALE" == "1" || "$AUTOSIM_DYNAMIC_WORKER_SCALE" == "true" || "$AUTOSIM_DYNAMIC_WORKER_SCALE" == "yes" ]]; then
-  echo "[AUTOSIM] Launching worker 1 for memory probe..."
-  launch_worker 1 "$REQUESTED_WORKERS"
+LAST_LAUNCHED_PID=""
+LAST_LAUNCHED_WORKER_ID=""
+
+kill_pid_graceful() {
+  local pid="$1"
+  if [[ -z "$pid" ]]; then
+    return
+  fi
+  if ! kill -0 "$pid" 2>/dev/null; then
+    return
+  fi
+
+  kill "$pid" 2>/dev/null || true
+  for _ in {1..10}; do
+    if ! kill -0 "$pid" 2>/dev/null; then
+      return
+    fi
+    sleep 0.2
+  done
+  kill -9 "$pid" 2>/dev/null || true
+}
+
+reap_workers() {
+  local -a new_pids=()
+  local -a new_ids=()
+  local idx pid wid
+  for idx in "${!ACTIVE_PIDS[@]}"; do
+    pid="${ACTIVE_PIDS[$idx]}"
+    wid="${ACTIVE_WORKER_IDS[$idx]}"
+    if [[ -n "$pid" ]] && kill -0 "$pid" 2>/dev/null; then
+      new_pids+=("$pid")
+      new_ids+=("$wid")
+    fi
+  done
+  ACTIVE_PIDS=("${new_pids[@]}")
+  ACTIVE_WORKER_IDS=("${new_ids[@]}")
+}
+
+read_cpu_counters() {
+  awk '/^cpu / {for(i=2;i<=11;i++) s+=$i; idle=$5+$6; printf "%s %s\n", s, idle; exit}' /proc/stat 2>/dev/null
+}
+
+update_cpu_util_pct() {
+  local now_total now_idle
+  read -r now_total now_idle < <(read_cpu_counters)
+  if [[ -z "${now_total:-}" || -z "${now_idle:-}" ]]; then
+    CURRENT_CPU_UTIL_PCT=0
+    return
+  fi
+
+  local delta_total="$((now_total - prev_cpu_total))"
+  local delta_idle="$((now_idle - prev_cpu_idle))"
+  prev_cpu_total="$now_total"
+  prev_cpu_idle="$now_idle"
+
+  if (( delta_total <= 0 )); then
+    CURRENT_CPU_UTIL_PCT=0
+    return
+  fi
+
+  local raw
+  raw="$(awk -v dt="$delta_total" -v di="$delta_idle" 'BEGIN{u=((dt-di)*100.0)/dt; if(u<0)u=0; if(u>100)u=100; printf "%.2f", u}')"
+  smoothed_cpu_util="$(awk -v s="$smoothed_cpu_util" -v r="$raw" 'BEGIN{printf "%.2f", (3.0*s + r)/4.0}')"
+  CURRENT_CPU_UTIL_PCT="$smoothed_cpu_util"
+}
+
+compute_target_workers() {
+  local active_count="$1"
+  local mem_now_kb="$2"
+  local est_kb="$fallback_worker_kb"
+  local used_kb=0
+  local observed_kb=0
+  local target="$active_count"
+  local mem_target="$active_count"
+  local cpu_target="$active_count"
+
+  if (( active_count > 0 )); then
+    used_kb="$((mem_start_kb - mem_now_kb))"
+    if (( used_kb < 0 )); then
+      used_kb=0
+    fi
+    observed_kb="$((used_kb / active_count))"
+    if (( observed_kb < fallback_worker_kb / 2 )); then
+      observed_kb="$fallback_worker_kb"
+    fi
+    if (( dynamic_worker_kb < 1 )); then
+      dynamic_worker_kb="$observed_kb"
+    else
+      dynamic_worker_kb="$(((3 * dynamic_worker_kb + observed_kb) / 4))"
+    fi
+    if (( dynamic_worker_kb < 1 )); then
+      dynamic_worker_kb=1
+    fi
+    est_kb="$dynamic_worker_kb"
+  else
+    dynamic_worker_kb="$fallback_worker_kb"
+    est_kb="$dynamic_worker_kb"
+  fi
+
+  if (( mem_now_kb <= reserve_kb )); then
+    local deficit_kb="$((reserve_kb - mem_now_kb))"
+    local need_drop="$(((deficit_kb + est_kb - 1) / est_kb))"
+    mem_target="$((active_count - need_drop))"
+  else
+    local addable="$(((mem_now_kb - reserve_kb) / est_kb))"
+    mem_target="$((active_count + addable))"
+  fi
+
+  local cpu_util_int
+  cpu_util_int="$(awk -v u="$CURRENT_CPU_UTIL_PCT" 'BEGIN{printf "%d", int(u+0.5)}')"
+  if (( cpu_util_int >= AUTOSIM_CPU_HARD_LIMIT_PCT )); then
+    local over="$((cpu_util_int - AUTOSIM_CPU_HARD_LIMIT_PCT))"
+    local need_drop="$(((over + 9) / 10))"
+    cpu_target="$((active_count - need_drop))"
+  elif (( cpu_util_int >= AUTOSIM_CPU_TARGET_UTIL_PCT )); then
+    cpu_target="$active_count"
+  else
+    local headroom="$((AUTOSIM_CPU_TARGET_UTIL_PCT - cpu_util_int))"
+    local addable="$((headroom / 10))"
+    cpu_target="$((active_count + addable))"
+  fi
+
+  target="$mem_target"
+  if (( cpu_target < target )); then
+    target="$cpu_target"
+  fi
+
+  if (( target < 1 )); then
+    target=1
+  fi
+  if [[ -n "$AUTOSIM_MAX_WORKERS" ]] && [[ "$AUTOSIM_MAX_WORKERS" =~ ^[0-9]+$ ]] && (( AUTOSIM_MAX_WORKERS >= 1 )) && (( target > AUTOSIM_MAX_WORKERS )); then
+    target="$AUTOSIM_MAX_WORKERS"
+  fi
+  printf '%s' "$target"
+}
+
+start_worker_with_new_id() {
+  local total_hint="$1"
+  local worker_id="$NEXT_WORKER_ID"
+  NEXT_WORKER_ID="$((NEXT_WORKER_ID + 1))"
+  launch_worker "$worker_id" "$total_hint"
+  ACTIVE_PIDS+=("$LAST_LAUNCHED_PID")
+  ACTIVE_WORKER_IDS+=("$worker_id")
+  TOTAL_LAUNCHED="$((TOTAL_LAUNCHED + 1))"
+}
+
+stop_latest_worker() {
+  local active_count="${#ACTIVE_PIDS[@]}"
+  if (( active_count <= 1 )); then
+    return
+  fi
+  local idx="$((active_count - 1))"
+  local pid="${ACTIVE_PIDS[$idx]}"
+  local wid="${ACTIVE_WORKER_IDS[$idx]}"
+  echo "[AUTOSIM] Scaling down: stopping worker_id=$wid pid=$pid"
+  kill_pid_graceful "$pid"
+  unset 'ACTIVE_PIDS[idx]'
+  unset 'ACTIVE_WORKER_IDS[idx]'
+  ACTIVE_PIDS=("${ACTIVE_PIDS[@]}")
+  ACTIVE_WORKER_IDS=("${ACTIVE_WORKER_IDS[@]}")
+}
+
+reserve_kb="$((MEM_RESERVE_GB * 1024 * 1024))"
+fallback_worker_kb="$((MEM_PER_WORKER_GB * 1024 * 1024))"
+if (( fallback_worker_kb < 1 )); then
+  fallback_worker_kb=1
+fi
+
+ACTIVE_PIDS=()
+ACTIVE_WORKER_IDS=()
+NEXT_WORKER_ID=1
+TOTAL_LAUNCHED=0
+PEAK_WORKERS=0
+dynamic_worker_kb="$fallback_worker_kb"
+mem_start_kb="$mem_avail_kb"
+CURRENT_CPU_UTIL_PCT=0
+smoothed_cpu_util=0
+read -r prev_cpu_total prev_cpu_idle < <(read_cpu_counters)
+if [[ -z "${prev_cpu_total:-}" || -z "${prev_cpu_idle:-}" ]]; then
+  prev_cpu_total=0
+  prev_cpu_idle=0
+fi
+
+if [[ "$AUTOSIM_DYNAMIC_WORKER_SCALE" == "1" || "$AUTOSIM_DYNAMIC_WORKER_SCALE" == "true" || "$AUTOSIM_DYNAMIC_WORKER_SCALE" == "yes" ]]; then
+  echo "[AUTOSIM] Dynamic hybrid scaler enabled: interval=${AUTOSIM_MEMORY_MONITOR_INTERVAL_SEC}s reserve=${MEM_RESERVE_GB}GB step=${AUTOSIM_SCALE_STEP} cpu_target=${AUTOSIM_CPU_TARGET_UTIL_PCT}% cpu_hard=${AUTOSIM_CPU_HARD_LIMIT_PCT}%"
+  start_worker_with_new_id 1
+  PEAK_WORKERS=1
+
   if (( AUTOSIM_MEMORY_PROBE_WAIT_SEC > 0 )); then
     sleep "$AUTOSIM_MEMORY_PROBE_WAIT_SEC"
   fi
 
-  mem_probe_kb="$(awk '/MemAvailable:/ {print $2}' /proc/meminfo 2>/dev/null || echo 0)"
-  reserve_kb="$((MEM_RESERVE_GB * 1024 * 1024))"
-  fallback_worker_kb="$((MEM_PER_WORKER_GB * 1024 * 1024))"
-  if (( fallback_worker_kb < 1 )); then
-    fallback_worker_kb=1
-  fi
-
-  observed_worker_kb="$((mem_avail_kb - mem_probe_kb))"
-  min_observed_kb="$((fallback_worker_kb / 4))"
-  if (( observed_worker_kb < min_observed_kb )); then
-    observed_worker_kb="$fallback_worker_kb"
-  fi
-
-  if (( mem_probe_kb <= reserve_kb )); then
-    probe_workers=1
-  else
-    addable="$(((mem_probe_kb - reserve_kb) / observed_worker_kb))"
-    if (( addable < 0 )); then
-      addable=0
+  while true; do
+    reap_workers
+    active_count="${#ACTIVE_PIDS[@]}"
+    if (( active_count == 0 )); then
+      break
     fi
-    probe_workers="$((1 + addable))"
-  fi
 
-  WORKERS="$REQUESTED_WORKERS"
-  if (( WORKERS > auto_workers_probe )); then
-    WORKERS="$auto_workers_probe"
-  fi
-  if (( WORKERS > probe_workers )); then
-    WORKERS="$probe_workers"
-  fi
-  if (( WORKERS < 1 )); then
-    WORKERS=1
-  fi
-
-  echo "[AUTOSIM] Memory probe: pre=${mem_avail_kb}KB post=${mem_probe_kb}KB observed_per_worker=${observed_worker_kb}KB reserve=${reserve_kb}KB"
-  echo "[AUTOSIM] Worker scaling result: requested=$REQUESTED_WORKERS initial_limit=$auto_workers_probe probe_limit=$probe_workers -> launch=$WORKERS"
-
-  for ((i=2; i<=WORKERS; i++)); do
-    launch_worker "$i" "$WORKERS"
-    if (( i < WORKERS )) && (( AUTOSIM_WORKER_LAUNCH_STAGGER_SEC > 0 )); then
-      sleep "$AUTOSIM_WORKER_LAUNCH_STAGGER_SEC"
+    if (( active_count > PEAK_WORKERS )); then
+      PEAK_WORKERS="$active_count"
     fi
+
+    update_cpu_util_pct
+    mem_now_kb="$(awk '/MemAvailable:/ {print $2}' /proc/meminfo 2>/dev/null || echo 0)"
+    target_raw="$(compute_target_workers "$active_count" "$mem_now_kb")"
+    target="$target_raw"
+    if (( target > active_count + AUTOSIM_SCALE_STEP )); then
+      target="$((active_count + AUTOSIM_SCALE_STEP))"
+    fi
+    if (( target < active_count - AUTOSIM_SCALE_STEP )); then
+      target="$((active_count - AUTOSIM_SCALE_STEP))"
+    fi
+
+    echo "[AUTOSIM] scaler tick: cpu=${CURRENT_CPU_UTIL_PCT}% mem_avail=${mem_now_kb}KB active=${active_count} est_per_worker=${dynamic_worker_kb}KB target=${target_raw} apply=${target} next_worker_id=${NEXT_WORKER_ID}"
+
+    if (( target > active_count )); then
+      to_add="$((target - active_count))"
+      for ((k=1; k<=to_add; k++)); do
+        start_worker_with_new_id "$target"
+        if (( AUTOSIM_WORKER_LAUNCH_STAGGER_SEC > 0 )) && (( k < to_add )); then
+          sleep "$AUTOSIM_WORKER_LAUNCH_STAGGER_SEC"
+        fi
+      done
+    elif (( target < active_count )); then
+      to_remove="$((active_count - target))"
+      for ((k=1; k<=to_remove; k++)); do
+        stop_latest_worker
+      done
+    fi
+
+    sleep "$AUTOSIM_MEMORY_MONITOR_INTERVAL_SEC"
   done
+
+  WORKERS=0
 else
   WORKERS="$REQUESTED_WORKERS"
   echo "[AUTOSIM] Launching workers: $WORKERS"
@@ -434,10 +664,17 @@ else
       sleep "$AUTOSIM_WORKER_LAUNCH_STAGGER_SEC"
     fi
   done
+  TOTAL_LAUNCHED="$WORKERS"
+  PEAK_WORKERS="$WORKERS"
 fi
 
 echo "workers=$WORKERS" >> "$SESSION_ROOT/session_info.txt"
-echo "[AUTOSIM] Worker ROS domains: $DOMAIN_BASE..$((DOMAIN_BASE + WORKERS - 1))"
+echo "workers_launched_total=$TOTAL_LAUNCHED" >> "$SESSION_ROOT/session_info.txt"
+echo "workers_peak=$PEAK_WORKERS" >> "$SESSION_ROOT/session_info.txt"
+echo "worker_id_policy=monotonic_no_reuse" >> "$SESSION_ROOT/session_info.txt"
+if (( TOTAL_LAUNCHED > 0 )); then
+  echo "[AUTOSIM] Worker ROS domains (monotonic IDs): $DOMAIN_BASE..$((DOMAIN_BASE + TOTAL_LAUNCHED - 1))"
+fi
 
 echo "[AUTOSIM] PID table: $PID_TABLE"
 echo "[AUTOSIM] Stop command: $SCRIPT_DIR/stop_autosim_parallel.sh $SESSION_ROOT"
