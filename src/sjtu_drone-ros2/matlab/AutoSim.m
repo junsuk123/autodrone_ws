@@ -75,6 +75,10 @@ if windLimitInfo.applied
         windLimitInfo.hover_limit_mps, windLimitInfo.landing_limit_mps);
 end
 
+% Worker start cleanup: kill stale per-worker Gazebo/ROS remnants before creating ROS context.
+autosimCleanupProcesses(cfg);
+pause(cfg.process.kill_settle_sec);
+
 fprintf('\n[AUTOSIM] Start at %s\n', datestr(now, 'yyyy-mm-dd HH:MM:SS'));
 fprintf('[AUTOSIM] Scenario count: %d\n', cfg.scenario.count);
 

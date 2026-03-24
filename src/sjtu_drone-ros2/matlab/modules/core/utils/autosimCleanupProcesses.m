@@ -13,6 +13,7 @@ function autosimCleanupProcesses(cfg, launchPid)
     end
 
     if cleanupScope == "instance"
+        autosimCleanupInstanceProcesses(cfg);
         autosimRefreshRos2Daemon();
         pause(max(0.2, cfg.process.kill_settle_sec));
         return;
@@ -76,6 +77,75 @@ function autosimCleanupProcesses(cfg, launchPid)
     end
 
     pause(max(0.2, cfg.process.kill_settle_sec));
+end
+
+
+function autosimCleanupInstanceProcesses(cfg)
+    ns = "";
+    domainId = nan;
+    gazeboPort = nan;
+
+    if isfield(cfg, 'runtime') && isstruct(cfg.runtime)
+        if isfield(cfg.runtime, 'drone_namespace')
+            ns = string(cfg.runtime.drone_namespace);
+        end
+        if isfield(cfg.runtime, 'domain_id')
+            domainId = double(cfg.runtime.domain_id);
+        end
+        if isfield(cfg.runtime, 'gazebo_port')
+            gazeboPort = double(cfg.runtime.gazebo_port);
+        end
+    end
+
+    ns = strtrim(ns);
+    nsPattern = regexprep(char(ns), '([\\.^$|()\[\]{}*+?])', '\\$1');
+    scopeMsg = sprintf('ns=%s domain=%s port=%s', char(defaultText(ns, "n/a")), numText(domainId), numText(gazeboPort));
+    fprintf('[AUTOSIM] Instance cleanup (%s)\n', scopeMsg);
+
+    cmdParts = "set +m; ";
+    if strlength(ns) > 0
+        cmdParts = cmdParts + ...
+            "pkill -9 -f \"[r]os2 launch sjtu_drone_bringup.*" + string(nsPattern) + "\" || true; " + ...
+            "pkill -9 -f \"[a]priltag.*" + string(nsPattern) + "\" || true; " + ...
+            "pkill -9 -f \"[s]pawn_drone.*" + string(nsPattern) + "\" || true; " + ...
+            "pkill -9 -f \"[s]pawn_apriltag.*" + string(nsPattern) + "\" || true; " + ...
+            "pkill -9 -f \"[r]obot_state_publisher.*" + string(nsPattern) + "\" || true; " + ...
+            "pkill -9 -f \"[j]oint_state_publisher.*" + string(nsPattern) + "\" || true; " + ...
+            "pkill -9 -f \"[s]tatic_transform_publisher.*" + string(nsPattern) + "\" || true; ";
+    end
+    if isfinite(domainId)
+        cmdParts = cmdParts + ...
+            "pkill -9 -f \"ROS_DOMAIN_ID=" + string(round(domainId)) + ".*ros2 launch sjtu_drone_bringup\" || true; ";
+    end
+    if isfinite(gazeboPort)
+        ptxt = string(round(gazeboPort));
+        cmdParts = cmdParts + ...
+            "pkill -9 -f \"GAZEBO_MASTER_URI=http://127.0.0.1:" + ptxt + "\" || true; " + ...
+            "for p in $(ss -ltnp \"( sport = :" + ptxt + " )\" 2>/dev/null | awk -F'pid=' 'NF>1 {split($2,a,\",\"); print a[1]}' | tr -d '[:space:]' | grep -E '^[0-9]+$' | sort -u); do kill -9 $p >/dev/null 2>&1 || true; done; ";
+    end
+    system(char("bash -i -c \"" + cmdParts + "\" 2>/dev/null"));
+
+    % Retry once after short settle to catch delayed children.
+    pause(0.3);
+    system(char("bash -i -c \"" + cmdParts + "\" 2>/dev/null"));
+end
+
+
+function t = numText(v)
+    if isfinite(v)
+        t = sprintf('%d', round(v));
+    else
+        t = 'n/a';
+    end
+end
+
+
+function out = defaultText(v, fallback)
+    if strlength(v) > 0
+        out = v;
+    else
+        out = fallback;
+    end
 end
 
 

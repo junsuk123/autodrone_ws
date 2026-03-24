@@ -123,6 +123,53 @@ pid_listen_on_port() {
   return 1
 }
 
+resolve_worker_namespace() {
+  local worker_id="$1"
+  local ns_prefix="$2"
+  local ns_id=""
+
+  if [[ "$worker_id" =~ ^[0-9]+$ ]]; then
+    ns_id="$(printf '%02d' "$worker_id")"
+  else
+    ns_id="$worker_id"
+  fi
+
+  printf '/%s%s' "$ns_prefix" "$ns_id"
+}
+
+kill_worker_scoped_processes() {
+  local worker_id="$1"
+  local domain_id="$2"
+  local gazebo_port="$3"
+  local ns_prefix="$4"
+  local worker_ns=""
+
+  worker_ns="$(resolve_worker_namespace "$worker_id" "$ns_prefix")"
+  echo "[AUTOSIM] worker=$worker_id scoped cleanup (ns=$worker_ns domain=$domain_id port=$gazebo_port)"
+
+  kill_pattern_graceful "[r]os2 launch sjtu_drone_bringup.*${worker_ns}" "worker=$worker_id ros2 launch"
+  kill_pattern_graceful "[a]priltag.*${worker_ns}" "worker=$worker_id apriltag"
+  kill_pattern_graceful "[s]pawn_drone.*${worker_ns}" "worker=$worker_id spawn_drone"
+  kill_pattern_graceful "[s]pawn_apriltag.*${worker_ns}" "worker=$worker_id spawn_apriltag"
+  kill_pattern_graceful "[r]obot_state_publisher.*${worker_ns}" "worker=$worker_id robot_state_publisher"
+  kill_pattern_graceful "[j]oint_state_publisher.*${worker_ns}" "worker=$worker_id joint_state_publisher"
+  kill_pattern_graceful "[s]tatic_transform_publisher.*${worker_ns}" "worker=$worker_id static_transform_publisher"
+
+  if [[ -n "$domain_id" && "$domain_id" =~ ^[0-9]+$ ]]; then
+    kill_pattern_graceful "ROS_DOMAIN_ID=${domain_id}.*ros2 launch sjtu_drone_bringup" "worker=$worker_id domain wrapper"
+  fi
+  if [[ -n "$gazebo_port" && "$gazebo_port" =~ ^[0-9]+$ ]]; then
+    kill_pattern_graceful "GAZEBO_MASTER_URI=http://127.0.0.1:${gazebo_port}" "worker=$worker_id gazebo wrapper"
+    while IFS= read -r owner_pid; do
+      if [[ -n "$owner_pid" ]] && kill -0 "$owner_pid" 2>/dev/null; then
+        kill "$owner_pid" 2>/dev/null || true
+        sleep 0.2
+        kill -9 "$owner_pid" 2>/dev/null || true
+      fi
+    done < <(pid_listen_on_port "$gazebo_port")
+  fi
+}
+
 is_port_listening() {
   local port="$1"
   if command -v ss >/dev/null 2>&1; then
@@ -145,10 +192,22 @@ for tbl in "${PID_TABLES[@]}"; do
   fi
 
   echo "[AUTOSIM] Stopping workers from: $tbl"
+  ns_prefix="drone_w"
+  session_root_local="$(dirname "$tbl")"
+  session_info_local="$session_root_local/session_info.txt"
+  if [[ -f "$session_info_local" ]]; then
+    parsed_prefix="$(awk -F'=' '/^multi_drone_namespace_prefix=/{print $2; exit}' "$session_info_local" | tr -d '[:space:]')"
+    if [[ -n "$parsed_prefix" ]]; then
+      ns_prefix="$parsed_prefix"
+    fi
+  fi
+
   while IFS=$'\t' read -r pid worker_id domain_id gazebo_port log_file; do
     if [[ -z "$pid" ]]; then
       continue
     fi
+
+    kill_worker_scoped_processes "$worker_id" "$domain_id" "$gazebo_port" "$ns_prefix"
 
     if kill -0 "$pid" 2>/dev/null; then
       kill_tree "$pid"
@@ -156,6 +215,9 @@ for tbl in "${PID_TABLES[@]}"; do
     else
       echo "[AUTOSIM] worker=$worker_id pid=$pid already exited"
     fi
+
+    # Post-pass in case children were re-parented before worker PID exit.
+    kill_worker_scoped_processes "$worker_id" "$domain_id" "$gazebo_port" "$ns_prefix"
 
     if [[ -n "$gazebo_port" && "$gazebo_port" =~ ^[0-9]+$ ]]; then
       GAZEBO_PORTS+=("$gazebo_port")
