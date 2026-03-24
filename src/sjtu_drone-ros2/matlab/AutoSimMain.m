@@ -27,6 +27,8 @@ mainCfg.collection.primary_drone_index = 1;
 mainCfg.collection.dynamic_worker_scale = true;
 mainCfg.collection.memory_probe_wait_sec = 8;
 mainCfg.collection.allow_scale_above_requested = false;
+mainCfg.collection.enable_progress_plot = true;
+mainCfg.collection.enable_scenario_live_viz = false;
 
 % Pipeline stages (main always executes all stages).
 mainCfg.run_collection = true;

@@ -133,6 +133,12 @@ end
 if ~isfield(cfg, 'allow_scale_above_requested')
     cfg.allow_scale_above_requested = false;
 end
+if ~isfield(cfg, 'enable_progress_plot')
+    cfg.enable_progress_plot = true;
+end
+if ~isfield(cfg, 'enable_scenario_live_viz')
+    cfg.enable_scenario_live_viz = false;
+end
 end
 
 function autosimCollectCleanupOnExit(cfg, thisDir)
@@ -227,6 +233,16 @@ if isfield(cfg, 'dynamic_worker_scale')
 end
 if isfield(cfg, 'allow_scale_above_requested')
     setenv('AUTOSIM_ALLOW_SCALE_ABOVE_REQUESTED', autosimCollectBoolText(logical(cfg.allow_scale_above_requested)));
+end
+if isfield(cfg, 'enable_progress_plot')
+    val = autosimCollectBoolText(logical(cfg.enable_progress_plot));
+    setenv('AUTOSIM_MAIN_ENABLE_PROGRESS_PLOT', val);
+    setenv('AUTOSIM_ENABLE_PROGRESS_PLOT', val);
+end
+if isfield(cfg, 'enable_scenario_live_viz')
+    val = autosimCollectBoolText(logical(cfg.enable_scenario_live_viz));
+    setenv('AUTOSIM_MAIN_ENABLE_SCENARIO_LIVE_VIZ', val);
+    setenv('AUTOSIM_ENABLE_SCENARIO_LIVE_VIZ', val);
 end
 if isfield(cfg, 'memory_probe_wait_sec') && isfinite(cfg.memory_probe_wait_sec) && cfg.memory_probe_wait_sec >= 0
     setenv('AUTOSIM_MEMORY_PROBE_WAIT_SEC', num2str(round(double(cfg.memory_probe_wait_sec))));

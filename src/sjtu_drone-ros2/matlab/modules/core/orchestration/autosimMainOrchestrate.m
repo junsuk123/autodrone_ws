@@ -260,6 +260,8 @@ cfg.trainMergedAtEnd = true;
 cfg.mergedTrainMinSamples = 20;
 cfg.rosLocalhostOnly = false;
 cfg.enableDomainBridge = false;
+cfg.enableProgressPlot = autosimMainEnvBool('AUTOSIM_MAIN_ENABLE_PROGRESS_PLOT', cfg.enableProgressPlot);
+cfg.enableScenarioLiveViz = autosimMainEnvBool('AUTOSIM_MAIN_ENABLE_SCENARIO_LIVE_VIZ', cfg.enableScenarioLiveViz);
 
 workersEnv = strtrim(getenv('AUTOSIM_MAIN_WORKERS'));
 if ~isempty(workersEnv)
@@ -312,6 +314,15 @@ trainMergedEnv = strtrim(lower(getenv('AUTOSIM_MAIN_TRAIN_MERGED_AT_END')));
 if ~isempty(trainMergedEnv)
     cfg.trainMergedAtEnd = any(strcmp(trainMergedEnv, {'1', 'true', 'yes', 'y', 'on'}));
 end
+end
+
+function tf = autosimMainEnvBool(envName, defaultValue)
+raw = strtrim(lower(getenv(envName)));
+if isempty(raw)
+    tf = logical(defaultValue);
+    return;
+end
+tf = any(strcmp(raw, {'1', 'true', 'yes', 'y', 'on'}));
 end
 
 function txt = autosimMainBoolText(tf)
