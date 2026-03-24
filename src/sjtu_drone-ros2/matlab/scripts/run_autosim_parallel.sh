@@ -34,6 +34,7 @@ AUTOSIM_FORCE_SOFTWARE_GL="${AUTOSIM_FORCE_SOFTWARE_GL:-auto}"
 AUTOSIM_ALLOW_PARALLEL_RVIZ="${AUTOSIM_ALLOW_PARALLEL_RVIZ:-false}"
 AUTOSIM_DYNAMIC_WORKER_SCALE="${AUTOSIM_DYNAMIC_WORKER_SCALE:-true}"
 AUTOSIM_ALLOW_SCALE_ABOVE_REQUESTED="${AUTOSIM_ALLOW_SCALE_ABOVE_REQUESTED:-false}"
+AUTOSIM_SPLIT_SCENARIOS_ACROSS_WORKERS="${AUTOSIM_SPLIT_SCENARIOS_ACROSS_WORKERS:-true}"
 AUTOSIM_MEMORY_PROBE_WAIT_SEC="${AUTOSIM_MEMORY_PROBE_WAIT_SEC:-8}"
 AUTOSIM_MEMORY_MONITOR_INTERVAL_SEC="${AUTOSIM_MEMORY_MONITOR_INTERVAL_SEC:-10}"
 AUTOSIM_SCALE_STEP="${AUTOSIM_SCALE_STEP:-1}"
@@ -154,6 +155,38 @@ fi
 if ! [[ "$REQUESTED_WORKERS" =~ ^[0-9]+$ ]] || (( REQUESTED_WORKERS < 1 )); then
   echo "[AUTOSIM] Invalid worker count: $REQUESTED_WORKERS"
   exit 1
+fi
+
+if [[ -n "$SCENARIO_COUNT" ]] && ! [[ "$SCENARIO_COUNT" =~ ^[0-9]+$ ]]; then
+  echo "[AUTOSIM] Invalid SCENARIO_COUNT: $SCENARIO_COUNT"
+  exit 1
+fi
+
+if [[ -n "$SCENARIO_COUNT" ]]; then
+  split_enabled="false"
+  case "${AUTOSIM_SPLIT_SCENARIOS_ACROSS_WORKERS,,}" in
+    1|true|yes|y|on) split_enabled="true" ;;
+  esac
+
+  if [[ "$split_enabled" == "true" ]]; then
+    if (( SCENARIO_COUNT < REQUESTED_WORKERS )); then
+      echo "[AUTOSIM] Scenario split: total scenarios($SCENARIO_COUNT) < requested workers($REQUESTED_WORKERS)."
+      echo "[AUTOSIM] Clamping workers to $SCENARIO_COUNT so each worker runs at least one scenario."
+      REQUESTED_WORKERS="$SCENARIO_COUNT"
+      if (( REQUESTED_WORKERS < 1 )); then
+        REQUESTED_WORKERS=1
+      fi
+    fi
+
+    dyn_enabled="false"
+    case "${AUTOSIM_DYNAMIC_WORKER_SCALE,,}" in
+      1|true|yes|y|on) dyn_enabled="true" ;;
+    esac
+    if [[ "$dyn_enabled" == "true" ]]; then
+      echo "[AUTOSIM] Scenario split mode active: forcing AUTOSIM_DYNAMIC_WORKER_SCALE=false (no worker replenishment)."
+      AUTOSIM_DYNAMIC_WORKER_SCALE="false"
+    fi
+  fi
 fi
 
 if [[ "$WORKERS_ARG" != "auto" ]] && (( REQUESTED_WORKERS > auto_workers_probe )); then
@@ -318,17 +351,14 @@ preflight_cleanup_and_verify() {
 }
 
 WORKERS="$REQUESTED_WORKERS"
+SCENARIO_PER_WORKER_BASE=""
+SCENARIO_PER_WORKER_REMAINDER=""
+TOTAL_SCENARIOS=""
 
-# Distribute scenario count equally across workers
 if [[ -n "$SCENARIO_COUNT" ]]; then
-  SCENARIO_PER_WORKER=$((SCENARIO_COUNT / WORKERS))
-  if (( SCENARIO_PER_WORKER < 1 )); then
-    SCENARIO_PER_WORKER=1
-  fi
   TOTAL_SCENARIOS="$SCENARIO_COUNT"
-else
-  SCENARIO_PER_WORKER=""
-  TOTAL_SCENARIOS=""
+  SCENARIO_PER_WORKER_BASE=$((SCENARIO_COUNT / WORKERS))
+  SCENARIO_PER_WORKER_REMAINDER=$((SCENARIO_COUNT % WORKERS))
 fi
 
 preflight_cleanup_and_verify
@@ -364,7 +394,7 @@ echo "[AUTOSIM] Worker auto-tune: cpu_limit=$cpu_limit mem_limit=$mem_limit -> p
 echo "[AUTOSIM] GPU mode: enable=$AUTOSIM_ENABLE_GPU gpu_count=$gpu_count"
 echo "[AUTOSIM] Requested workers: $REQUESTED_WORKERS"
 if [[ -n "$TOTAL_SCENARIOS" ]]; then
-  echo "[AUTOSIM] Scenario distribution: total=$TOTAL_SCENARIOS workers=$WORKERS per_worker=$SCENARIO_PER_WORKER (balanced split)"
+  echo "[AUTOSIM] Scenario distribution: total=$TOTAL_SCENARIOS workers=$WORKERS base=$SCENARIO_PER_WORKER_BASE remainder=$SCENARIO_PER_WORKER_REMAINDER"
 fi
 echo "[AUTOSIM] Allow scale above requested: $AUTOSIM_ALLOW_SCALE_ABOVE_REQUESTED"
 echo "[AUTOSIM] CPU hybrid policy: target=${AUTOSIM_CPU_TARGET_UTIL_PCT}% hard=${AUTOSIM_CPU_HARD_LIMIT_PCT}%"
@@ -385,6 +415,14 @@ launch_worker() {
   local gazebo_port="$((GAZEBO_PORT_BASE + i - 1))"
   local log_file="$LOG_ROOT/worker_${i}.log"
   local gpu_device=""
+  local worker_scenarios=""
+
+  if [[ -n "$TOTAL_SCENARIOS" ]]; then
+    worker_scenarios="$SCENARIO_PER_WORKER_BASE"
+    if (( i <= SCENARIO_PER_WORKER_REMAINDER )); then
+      worker_scenarios="$((worker_scenarios + 1))"
+    fi
+  fi
 
   (
     if [[ "$AUTOSIM_ENABLE_GPU" == "true" ]] && (( gpu_count > 0 )); then
@@ -416,6 +454,9 @@ launch_worker() {
     export AUTOSIM_MULTI_DRONE_SPAWN_TAGS="$AUTOSIM_MULTI_DRONE_SPAWN_TAGS"
     export AUTOSIM_MULTI_DRONE_USE_WORLD_TAG_AS_FIRST="$AUTOSIM_MULTI_DRONE_USE_WORLD_TAG_AS_FIRST"
     export AUTOSIM_PRIMARY_DRONE_INDEX="$AUTOSIM_PRIMARY_DRONE_INDEX"
+    if [[ -n "$worker_scenarios" ]]; then
+      export AUTOSIM_SCENARIO_COUNT="$worker_scenarios"
+    fi
 
     if [[ "$AUTOSIM_FORCE_SOFTWARE_GL" == "1" || "$AUTOSIM_FORCE_SOFTWARE_GL" == "true" || "$AUTOSIM_FORCE_SOFTWARE_GL" == "yes" ]]; then
       export LIBGL_ALWAYS_SOFTWARE=1
@@ -429,13 +470,15 @@ launch_worker() {
   printf "%s\t%s\t%s\t%s\t%s\n" "$pid" "$i" "$domain_id" "$gazebo_port" "$log_file" >> "$PID_TABLE"
   LAST_LAUNCHED_PID="$pid"
   LAST_LAUNCHED_WORKER_ID="$i"
-  echo "[AUTOSIM] Worker $i started pid=$pid domain=$domain_id gazebo_port=$gazebo_port gpu=${gpu_device:-none}"
+  if [[ -n "$worker_scenarios" ]]; then
+    echo "[AUTOSIM] Worker $i started pid=$pid domain=$domain_id gazebo_port=$gazebo_port gpu=${gpu_device:-none} scenarios=$worker_scenarios"
+  else
+    echo "[AUTOSIM] Worker $i started pid=$pid domain=$domain_id gazebo_port=$gazebo_port gpu=${gpu_device:-none}"
+  fi
 }
 
 run_cmd="run('$MATLAB_DIR/AutoSim.m')"
-if [[ -n "$SCENARIO_PER_WORKER" ]]; then
-  export AUTOSIM_SCENARIO_COUNT="$SCENARIO_PER_WORKER"
-elif [[ -n "$SCENARIO_COUNT" ]]; then
+if [[ -z "$TOTAL_SCENARIOS" && -n "$SCENARIO_COUNT" ]]; then
   export AUTOSIM_SCENARIO_COUNT="$SCENARIO_COUNT"
 fi
 
@@ -698,6 +741,11 @@ fi
 echo "workers=$WORKERS" >> "$SESSION_ROOT/session_info.txt"
 echo "workers_launched_total=$TOTAL_LAUNCHED" >> "$SESSION_ROOT/session_info.txt"
 echo "workers_peak=$PEAK_WORKERS" >> "$SESSION_ROOT/session_info.txt"
+if [[ -n "$TOTAL_SCENARIOS" ]]; then
+  echo "scenario_total=$TOTAL_SCENARIOS" >> "$SESSION_ROOT/session_info.txt"
+  echo "scenario_per_worker_base=$SCENARIO_PER_WORKER_BASE" >> "$SESSION_ROOT/session_info.txt"
+  echo "scenario_per_worker_remainder=$SCENARIO_PER_WORKER_REMAINDER" >> "$SESSION_ROOT/session_info.txt"
+fi
 echo "worker_id_policy=monotonic_no_reuse" >> "$SESSION_ROOT/session_info.txt"
 if (( TOTAL_LAUNCHED > 0 )); then
   echo "[AUTOSIM] Worker ROS domains (monotonic IDs): $DOMAIN_BASE..$((DOMAIN_BASE + TOTAL_LAUNCHED - 1))"
