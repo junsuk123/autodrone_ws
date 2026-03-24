@@ -319,6 +319,18 @@ preflight_cleanup_and_verify() {
 
 WORKERS="$REQUESTED_WORKERS"
 
+# Distribute scenario count equally across workers
+if [[ -n "$SCENARIO_COUNT" ]]; then
+  SCENARIO_PER_WORKER=$((SCENARIO_COUNT / WORKERS))
+  if (( SCENARIO_PER_WORKER < 1 )); then
+    SCENARIO_PER_WORKER=1
+  fi
+  TOTAL_SCENARIOS="$SCENARIO_COUNT"
+else
+  SCENARIO_PER_WORKER=""
+  TOTAL_SCENARIOS=""
+fi
+
 preflight_cleanup_and_verify
 
 timestamp="$(date +%Y%m%d_%H%M%S)"
@@ -351,6 +363,9 @@ echo "[AUTOSIM] Session root: $SESSION_ROOT"
 echo "[AUTOSIM] Worker auto-tune: cpu_limit=$cpu_limit mem_limit=$mem_limit -> probe_auto=$auto_workers_probe gpu_auto=$auto_workers"
 echo "[AUTOSIM] GPU mode: enable=$AUTOSIM_ENABLE_GPU gpu_count=$gpu_count"
 echo "[AUTOSIM] Requested workers: $REQUESTED_WORKERS"
+if [[ -n "$TOTAL_SCENARIOS" ]]; then
+  echo "[AUTOSIM] Scenario distribution: total=$TOTAL_SCENARIOS workers=$WORKERS per_worker=$SCENARIO_PER_WORKER (balanced split)"
+fi
 echo "[AUTOSIM] Allow scale above requested: $AUTOSIM_ALLOW_SCALE_ABOVE_REQUESTED"
 echo "[AUTOSIM] CPU hybrid policy: target=${AUTOSIM_CPU_TARGET_UTIL_PCT}% hard=${AUTOSIM_CPU_HARD_LIMIT_PCT}%"
 echo "[AUTOSIM] Visualization defaults: use_gui=$AUTOSIM_USE_GUI use_rviz=$AUTOSIM_USE_RVIZ"
@@ -418,7 +433,9 @@ launch_worker() {
 }
 
 run_cmd="run('$MATLAB_DIR/AutoSim.m')"
-if [[ -n "$SCENARIO_COUNT" ]]; then
+if [[ -n "$SCENARIO_PER_WORKER" ]]; then
+  export AUTOSIM_SCENARIO_COUNT="$SCENARIO_PER_WORKER"
+elif [[ -n "$SCENARIO_COUNT" ]]; then
   export AUTOSIM_SCENARIO_COUNT="$SCENARIO_COUNT"
 fi
 
