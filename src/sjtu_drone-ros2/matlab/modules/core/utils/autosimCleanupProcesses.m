@@ -102,32 +102,29 @@ function autosimCleanupInstanceProcesses(cfg)
     scopeMsg = sprintf('ns=%s domain=%s port=%s', char(defaultText(ns, "n/a")), numText(domainId), numText(gazeboPort));
     fprintf('[AUTOSIM] Instance cleanup (%s)\n', scopeMsg);
 
-    cmdParts = "set +m; ";
+    cmdParts = {'set +m'};
     if strlength(ns) > 0
-        cmdParts = cmdParts + ...
-            "pkill -9 -f \"[r]os2 launch sjtu_drone_bringup.*" + string(nsPattern) + "\" || true; " + ...
-            "pkill -9 -f \"[a]priltag.*" + string(nsPattern) + "\" || true; " + ...
-            "pkill -9 -f \"[s]pawn_drone.*" + string(nsPattern) + "\" || true; " + ...
-            "pkill -9 -f \"[s]pawn_apriltag.*" + string(nsPattern) + "\" || true; " + ...
-            "pkill -9 -f \"[r]obot_state_publisher.*" + string(nsPattern) + "\" || true; " + ...
-            "pkill -9 -f \"[j]oint_state_publisher.*" + string(nsPattern) + "\" || true; " + ...
-            "pkill -9 -f \"[s]tatic_transform_publisher.*" + string(nsPattern) + "\" || true; ";
-    end
-    if isfinite(domainId)
-        cmdParts = cmdParts + ...
-            "pkill -9 -f \"ROS_DOMAIN_ID=" + string(round(domainId)) + ".*ros2 launch sjtu_drone_bringup\" || true; ";
+        cmdParts{end+1} = sprintf('pkill -9 -f ''[r]os2 launch sjtu_drone_bringup.*%s'' || true', nsPattern); %#ok<AGROW>
+        cmdParts{end+1} = sprintf('pkill -9 -f ''[a]priltag.*%s'' || true', nsPattern); %#ok<AGROW>
+        cmdParts{end+1} = sprintf('pkill -9 -f ''[s]pawn_drone.*%s'' || true', nsPattern); %#ok<AGROW>
+        cmdParts{end+1} = sprintf('pkill -9 -f ''[s]pawn_apriltag.*%s'' || true', nsPattern); %#ok<AGROW>
+        cmdParts{end+1} = sprintf('pkill -9 -f ''[r]obot_state_publisher.*%s'' || true', nsPattern); %#ok<AGROW>
+        cmdParts{end+1} = sprintf('pkill -9 -f ''[j]oint_state_publisher.*%s'' || true', nsPattern); %#ok<AGROW>
+        cmdParts{end+1} = sprintf('pkill -9 -f ''[s]tatic_transform_publisher.*%s'' || true', nsPattern); %#ok<AGROW>
     end
     if isfinite(gazeboPort)
-        ptxt = string(round(gazeboPort));
-        cmdParts = cmdParts + ...
-            "pkill -9 -f \"GAZEBO_MASTER_URI=http://127.0.0.1:" + ptxt + "\" || true; " + ...
-            "for p in $(ss -ltnp \"( sport = :" + ptxt + " )\" 2>/dev/null | awk -F'pid=' 'NF>1 {split($2,a,\",\"); print a[1]}' | tr -d '[:space:]' | grep -E '^[0-9]+$' | sort -u); do kill -9 $p >/dev/null 2>&1 || true; done; ";
+        pnum = round(gazeboPort);
+        cmdParts{end+1} = sprintf(['for p in $(ss -ltnp ''( sport = :%d )'' 2>/dev/null | ' ...
+            'awk -F''pid='' ''NF>1 {split($2,a,","); print a[1]}'' | ' ...
+            'tr -d ''[:space:]'' | grep -E ''^[0-9]+$'' | sort -u); do ' ...
+            'kill -9 $p >/dev/null 2>&1 || true; done'], pnum); %#ok<AGROW>
     end
-    system(char("bash -i -c \"" + cmdParts + "\" 2>/dev/null"));
+    cmd = sprintf('bash -i -c "%s" 2>/dev/null', strjoin(cmdParts, '; '));
+    system(cmd);
 
     % Retry once after short settle to catch delayed children.
     pause(0.3);
-    system(char("bash -i -c \"" + cmdParts + "\" 2>/dev/null"));
+    system(cmd);
 end
 
 

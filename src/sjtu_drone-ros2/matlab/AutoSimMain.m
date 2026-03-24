@@ -11,12 +11,12 @@ mainCfg = struct();
 mainCfg.dataset_recent_n = 1000;
 % Data collection settings (editable in main).
 mainCfg.collection = struct();
-mainCfg.collection.scenario_count = 333;
+mainCfg.collection.scenario_count = 3;
 mainCfg.collection.drone_count = 3;
 mainCfg.collection.independent_per_drone = true;
 mainCfg.collection.merge_last_runs = 5;
 mainCfg.collection.launch_use_gui = false;
-mainCfg.collection.launch_use_rviz = false;
+mainCfg.collection.launch_use_rviz = true;
 mainCfg.collection.launch_use_teleop = false;
 mainCfg.collection.multi_drone_spacing_m = 10.0;
 mainCfg.collection.multi_drone_namespace_prefix = 'drone_w';
