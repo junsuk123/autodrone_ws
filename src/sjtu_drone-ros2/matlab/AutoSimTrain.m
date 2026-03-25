@@ -51,7 +51,7 @@ if isempty(allTbl)
     error('AutoSimTrain:NoDataset', 'No usable FinalDataset found for training.');
 end
 allTblRawCount = height(allTbl);
-[allTbl, recentNUsed] = autosimTrainApplyRecentWindow(allTbl);
+[allTbl, recentNUsed, trainWindowInfo] = autosimTrainApplyRecentWindow(allTbl);
 allTbl = autosimEnsureOntologyFeatureColumns(allTbl, cfg);
 
 [trainTbl, valTbl, splitInfo] = autosimTrainSplit70_30(allTbl, trainCfg.train_ratio, trainCfg.split_seed);
@@ -91,6 +91,11 @@ splitSummary.n_val = height(valTbl);
 splitSummary.train_ratio = splitInfo.train_ratio;
 splitSummary.val_ratio = splitInfo.val_ratio;
 splitSummary.seed = splitInfo.seed;
+splitSummary.validation_reserved_n = trainWindowInfo.validation_reserved_n;
+splitSummary.train_pool_n = trainWindowInfo.train_pool_n;
+splitSummary.train_window_requested_n = trainWindowInfo.requested_recent_n;
+splitSummary.train_window_used_n = trainWindowInfo.used_recent_n;
+splitSummary.train_window_shrunk = logical(trainWindowInfo.was_shrunk);
 splitSummary.source_files = strjoin(sourceFiles, ';');
 if droneMeta.is_multi
     splitSummary.collection_multi_drone_count = droneMeta.count;
@@ -98,6 +103,9 @@ if droneMeta.is_multi
 end
 splitSummaryCsv = fullfile(cfg.paths.data_root, sprintf('autosim_train_split_%s_%s.csv', tag, ts));
 writetable(splitSummary, splitSummaryCsv);
+
+trainPlotPng = fullfile(cfg.paths.plot_root, sprintf('autosim_train_overview_%s_%s.png', tag, ts));
+autosimTrainSaveOverviewPlot(trainPlotPng, trainTbl, valTbl, allTblRawCount, trainWindowInfo);
 
 if isfield(learnInfo, 'model_updated') && learnInfo.model_updated
     finalModelPath = fullfile(cfg.paths.model_dir, sprintf('autosim_model_final_%s_%s.mat', tag, ts));
@@ -111,11 +119,17 @@ fprintf('[AutoSimTrain] Data source mode: %s\n', sourceMode);
 if isfinite(recentNUsed) && recentNUsed > 0
     fprintf('[AutoSimTrain] Recent window: last %d rows (raw=%d, used=%d)\n', round(recentNUsed), allTblRawCount, height(allTbl));
 end
+fprintf('[AutoSimTrain] Validation reserved rows: %d\n', trainWindowInfo.validation_reserved_n);
+if trainWindowInfo.was_shrunk
+    fprintf('[AutoSimTrain] Training window shrunk: requested=%d used=%d (pool=%d)\n', ...
+        trainWindowInfo.requested_recent_n, trainWindowInfo.used_recent_n, trainWindowInfo.train_pool_n);
+end
 fprintf('[AutoSimTrain] All dataset:   %s (rows=%d)\n', mergedCsv, height(allTbl));
 fprintf('[AutoSimTrain] Train dataset: %s (rows=%d)\n', trainCsv, height(trainTbl));
 fprintf('[AutoSimTrain] Val dataset:   %s (rows=%d)\n', valCsv, height(valTbl));
 fprintf('[AutoSimTrain] Training summary: %s\n', summaryCsv);
 fprintf('[AutoSimTrain] Split summary:    %s\n', splitSummaryCsv);
+fprintf('[AutoSimTrain] Training plot:    %s\n', trainPlotPng);
 end
 
 function [tbl, sourceFiles, sourceMode] = autosimTrainLoadDataset(thisDir)
@@ -263,17 +277,51 @@ if isstruct(learnInfo)
 end
 end
 
-function [T, recentN] = autosimTrainApplyRecentWindow(T)
-recentN = autosimTrainResolveRecentDatasetN();
-if ~(isfinite(recentN) && recentN > 0)
-    return;
-end
+function [T, recentN, info] = autosimTrainApplyRecentWindow(T)
+info = struct();
+info.validation_reserved_n = 0;
+info.train_pool_n = height(T);
+info.requested_recent_n = nan;
+info.used_recent_n = height(T);
+info.was_shrunk = false;
+
 n = height(T);
 if n <= 0
+    recentN = inf;
+    info.used_recent_n = 0;
     return;
 end
-k = min(n, round(recentN));
-T = T(n - k + 1:n, :);
+
+reserveN = autosimTrainResolveValidationReservedN();
+if isfinite(reserveN) && reserveN > 0
+    reserveN = min(n, round(reserveN));
+    info.validation_reserved_n = reserveN;
+    if n <= reserveN
+        error('AutoSimTrain:InsufficientTrainRows', ...
+            'Not enough data for training after reserving %d validation rows (total=%d).', reserveN, n);
+    end
+    T = T(1:n-reserveN, :);
+end
+
+poolN = height(T);
+info.train_pool_n = poolN;
+recentN = autosimTrainResolveRecentDatasetN();
+if ~(isfinite(recentN) && recentN > 0)
+    info.used_recent_n = poolN;
+    return;
+end
+
+reqN = round(recentN);
+info.requested_recent_n = reqN;
+if poolN <= 0
+    info.used_recent_n = 0;
+    return;
+end
+
+k = min(poolN, reqN);
+T = T(poolN - k + 1:poolN, :);
+info.used_recent_n = k;
+info.was_shrunk = poolN < reqN;
 end
 
 function recentN = autosimTrainResolveRecentDatasetN()
@@ -285,6 +333,64 @@ end
 v = str2double(raw);
 if isfinite(v) && v > 0
     recentN = round(v);
+end
+end
+
+function reserveN = autosimTrainResolveValidationReservedN()
+reserveN = 0;
+raw = string(getenv('AUTOSIM_VALIDATION_FIXED_N'));
+if strlength(raw) == 0
+    return;
+end
+v = str2double(raw);
+if isfinite(v) && v > 0
+    reserveN = round(v);
+end
+end
+
+function autosimTrainSaveOverviewPlot(outPng, trainTbl, valTbl, rawCount, info)
+try
+    outDir = fileparts(outPng);
+    if ~exist(outDir, 'dir')
+        mkdir(outDir);
+    end
+
+    fig = figure('Color', 'w', 'Name', 'AutoSim Train Overview', ...
+        'Position', [120, 120, 1080, 440], 'Visible', 'on');
+
+    ax1 = subplot(1, 2, 1, 'Parent', fig);
+    counts = [height(trainTbl), height(valTbl)];
+    bh = bar(ax1, counts, 0.58); %#ok<NASGU>
+    ax1.XTick = [1, 2];
+    ax1.XTickLabel = {'Train used', 'Validation holdout'};
+    ylabel(ax1, 'Scenario Rows');
+    title(ax1, 'Train/Validation Scenario Count');
+    grid(ax1, 'on');
+    ylim(ax1, [0, max(1, 1.15 * max(counts))]);
+    text(ax1, 1, counts(1), sprintf('  %d', counts(1)), 'VerticalAlignment', 'bottom', 'FontWeight', 'bold');
+    text(ax1, 2, counts(2), sprintf('  %d', counts(2)), 'VerticalAlignment', 'bottom', 'FontWeight', 'bold');
+
+    ax2 = subplot(1, 2, 2, 'Parent', fig);
+    labels = categorical({'Raw all', 'Train pool', 'Train used'});
+    values = [rawCount, info.train_pool_n, height(trainTbl)];
+    bar(ax2, labels, values, 0.55);
+    ylabel(ax2, 'Rows');
+    title(ax2, sprintf('Training Window (reserved val=%d)', info.validation_reserved_n));
+    grid(ax2, 'on');
+    ylim(ax2, [0, max(1, 1.15 * max(values))]);
+
+    if info.was_shrunk
+        shrinkText = sprintf('Train window shrunk: requested=%d, used=%d', ...
+            info.requested_recent_n, info.used_recent_n);
+    else
+        shrinkText = sprintf('Train window used=%d', info.used_recent_n);
+    end
+    annotation(fig, 'textbox', [0.06 0.01 0.88 0.08], ...
+        'String', shrinkText, 'EdgeColor', 'none', 'HorizontalAlignment', 'center');
+
+    exportgraphics(fig, outPng, 'Resolution', 180);
+catch ME
+    warning('[AutoSimTrain] Failed to save training overview plot: %s', ME.message);
 end
 end
 

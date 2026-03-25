@@ -6,10 +6,11 @@ function AutoSimMain()
 % ================= USER SETTINGS (edit here) =================
 mainCfg = struct();
 
-% Use only recent N rows from FinalDataset for train/validation/plots.
-% Set to Inf (or <=0) to use full dataset.
+% Use up to recent N rows for training.
+% If total data is insufficient, training rows are reduced automatically
+% after reserving validation_recent_n rows for validation.
 mainCfg.dataset_recent_n = 5000;
-% Validation is fixed to this many recent scenarios regardless of train window.
+% Validation is fixed to this many recent scenarios.
 mainCfg.validation_recent_n = 1000;
 % Data collection settings (editable in main).
 mainCfg.collection = struct();
@@ -73,6 +74,14 @@ try
     end
 
     recentN = double(mainCfg.dataset_recent_n);
+    validationRecentN = round(double(mainCfg.validation_recent_n));
+    if ~(isfinite(validationRecentN) && validationRecentN > 0)
+        error('[AutoSimMain] validation_recent_n must be a positive finite integer.');
+    end
+
+    % Share fixed validation size with training so train can shrink first when data is limited.
+    setenv('AUTOSIM_VALIDATION_FIXED_N', sprintf('%d', validationRecentN));
+
     if isfinite(recentN) && recentN > 0
         setenv('AUTOSIM_RECENT_DATASET_N', sprintf('%d', round(recentN)));
         fprintf('[AutoSimMain] Recent dataset window enabled: last %d rows\n', round(recentN));
@@ -87,13 +96,8 @@ try
     end
 
     if mainCfg.run_validation
-        validationRecentN = round(double(mainCfg.validation_recent_n));
-        if isfinite(validationRecentN) && validationRecentN > 0
-            setenv('AUTOSIM_RECENT_DATASET_N', sprintf('%d', validationRecentN));
-            fprintf('[AutoSimMain] Validation dataset fixed: last %d rows\n', validationRecentN);
-        else
-            error('[AutoSimMain] validation_recent_n must be a positive finite integer.');
-        end
+        setenv('AUTOSIM_RECENT_DATASET_N', sprintf('%d', validationRecentN));
+        fprintf('[AutoSimMain] Validation dataset fixed: last %d rows\n', validationRecentN);
 
         fprintf('[AutoSimMain] Stage 3/4: validation start (fixed recent window, no split)\n');
         autosim_keep_workspace = true; %#ok<NASGU>

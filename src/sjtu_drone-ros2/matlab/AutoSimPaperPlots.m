@@ -373,10 +373,10 @@ for b = 1:nB7
     end
 end
 
-tpOverTn7Pct = 100 * tpOverTn7;
-fnOverFp7Pct = 100 * fnOverFp7;
-tpOverTn7bPct = 100 * tpOverTn7b;
-fnOverFp7bPct = 100 * fnOverFp7b;
+tpOverTn7Pct = ratioToPairPercent(tpOverTn7);
+fnOverFp7Pct = ratioToPairPercent(fnOverFp7);
+tpOverTn7bPct = ratioToPairPercent(tpOverTn7b);
+fnOverFp7bPct = ratioToPairPercent(fnOverFp7b);
 
 pTP = plot(ax7L, 1:nB7, tpOverTn7Pct, '-o', ...
     'LineWidth', 2.2, ...
@@ -406,7 +406,7 @@ pFNb = plot(ax7L, 1:nB7, fnOverFp7bPct, '--s', ...
     'MarkerSize', 6, ...
     'DisplayName', 'FN/FP (threshold)');
 
-hRef = yline(ax7L, 100.0, ':', '100% balance', ...
+hRef = yline(ax7L, 50.0, ':', '50% balance', ...
     'Color', [0.45 0.45 0.45], ...
     'LineWidth', 1.1, ...
     'LabelHorizontalAlignment', 'left', ...
@@ -421,12 +421,9 @@ annotateTotalScenario(ax7L, nTotalScenario, FONT_AX);
 yCandidates = [tpOverTn7Pct; fnOverFp7Pct; tpOverTn7bPct; fnOverFp7bPct];
 yCandidates = yCandidates(isfinite(yCandidates));
 if isempty(yCandidates)
-    ylim(ax7L, [0 200]);
+    ylim(ax7L, [0 100]);
 else
-    yRef = prctile(yCandidates, 95);
-    yTop = max(200.0, 1.15 * yRef);
-    yTop = min(yTop, 2000.0);
-    ylim(ax7L, [0 yTop]);
+    ylim(ax7L, [0 100]);
 end
 grid(ax7L, 'on');
 
@@ -1082,6 +1079,16 @@ function v = safeDivForPlot(a, b, ratioCap)
             v = ratioCap;
         end
     end
+end
+
+
+function p = ratioToPairPercent(r)
+p = nan(size(r));
+mask = isfinite(r) & (r >= 0);
+if ~any(mask)
+    return;
+end
+p(mask) = 100 .* (r(mask) ./ (1 + r(mask)));
 end
 
 
