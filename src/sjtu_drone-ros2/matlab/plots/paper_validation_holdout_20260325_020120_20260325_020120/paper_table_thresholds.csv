@@ -1,0 +1,2 @@
+wind_threshold_data,wind_threshold,hover_wind_limit,landing_wind_limit,tag_error_threshold,roll_threshold_deg,pitch_threshold_deg,mass_kg,max_total_thrust_n,thrust_margin_n,air_density_kgpm3,drag_coefficient,frontal_area_m2,landing_limit_factor
+2.61269670514266,2.61269670514266,17.5200240594205,8.76001202971023,0.499935780492033,1.98104999556482,1.93859858834157,1.477,30,15.51063,1.225,1.1,0.075,0.5

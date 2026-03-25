@@ -191,11 +191,6 @@ if isfield(cfg, 'drone_count') && isfinite(cfg.drone_count) && cfg.drone_count >
         independentMode = logical(cfg.independent_per_drone);
     end
 
-    if independentMode && droneCount > 1 && isfield(cfg, 'launch_use_rviz') && logical(cfg.launch_use_rviz)
-        warning('[AutoSimCollect] launch_use_rviz=true requested, but forcing false in independent multi-worker mode for stability.');
-        cfg.launch_use_rviz = false;
-    end
-
     if independentMode && droneCount > 1
         % One Gazebo per worker, one drone per Gazebo.
         setenv('AUTOSIM_MAIN_WORKERS', droneCountTxt);
@@ -203,6 +198,12 @@ if isfield(cfg, 'drone_count') && isfinite(cfg.drone_count) && cfg.drone_count >
         setenv('AUTOSIM_MULTI_DRONE_COUNT', '1');
         setenv('AUTOSIM_MAIN_PRIMARY_DRONE_INDEX', '1');
         setenv('AUTOSIM_PRIMARY_DRONE_INDEX', '1');
+
+        if isfield(cfg, 'launch_use_rviz') && logical(cfg.launch_use_rviz)
+            % Keep RViz available for sanity-check in parallel via single-worker mode.
+            setenv('AUTOSIM_PARALLEL_RVIZ_MODE', 'single');
+            setenv('AUTOSIM_ALLOW_PARALLEL_RVIZ', 'false');
+        end
     else
         setenv('AUTOSIM_MAIN_WORKERS', '1');
         setenv('AUTOSIM_MAIN_MULTI_DRONE_COUNT', droneCountTxt);

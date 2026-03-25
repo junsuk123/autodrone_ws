@@ -32,6 +32,7 @@ AUTOSIM_PRIMARY_DRONE_INDEX="${AUTOSIM_PRIMARY_DRONE_INDEX:-1}"
 AUTOSIM_WORKER_LAUNCH_STAGGER_SEC="${AUTOSIM_WORKER_LAUNCH_STAGGER_SEC:-4}"
 AUTOSIM_FORCE_SOFTWARE_GL="${AUTOSIM_FORCE_SOFTWARE_GL:-auto}"
 AUTOSIM_ALLOW_PARALLEL_RVIZ="${AUTOSIM_ALLOW_PARALLEL_RVIZ:-false}"
+AUTOSIM_PARALLEL_RVIZ_MODE="${AUTOSIM_PARALLEL_RVIZ_MODE:-single}"
 AUTOSIM_DYNAMIC_WORKER_SCALE="${AUTOSIM_DYNAMIC_WORKER_SCALE:-true}"
 AUTOSIM_ALLOW_SCALE_ABOVE_REQUESTED="${AUTOSIM_ALLOW_SCALE_ABOVE_REQUESTED:-false}"
 AUTOSIM_SPLIT_SCENARIOS_ACROSS_WORKERS="${AUTOSIM_SPLIT_SCENARIOS_ACROSS_WORKERS:-true}"
@@ -199,12 +200,25 @@ if [[ -n "$AUTOSIM_MAX_WORKERS" ]] && [[ "$AUTOSIM_MAX_WORKERS" =~ ^[0-9]+$ ]] &
   REQUESTED_WORKERS="$AUTOSIM_MAX_WORKERS"
 fi
 
+PARALLEL_SINGLE_RVIZ_ACTIVE="false"
 if (( REQUESTED_WORKERS > 1 )) && [[ "$AUTOSIM_USE_RVIZ" == "1" || "$AUTOSIM_USE_RVIZ" == "true" || "$AUTOSIM_USE_RVIZ" == "yes" ]]; then
   if [[ "$AUTOSIM_ALLOW_PARALLEL_RVIZ" == "1" || "$AUTOSIM_ALLOW_PARALLEL_RVIZ" == "true" || "$AUTOSIM_ALLOW_PARALLEL_RVIZ" == "yes" ]]; then
     echo "[AUTOSIM] Parallel RViz override enabled (AUTOSIM_ALLOW_PARALLEL_RVIZ=$AUTOSIM_ALLOW_PARALLEL_RVIZ)."
   else
-    echo "[AUTOSIM] For stability, forcing AUTOSIM_USE_RVIZ=false in parallel runs."
-    AUTOSIM_USE_RVIZ="false"
+    case "${AUTOSIM_PARALLEL_RVIZ_MODE,,}" in
+      single)
+        PARALLEL_SINGLE_RVIZ_ACTIVE="true"
+        echo "[AUTOSIM] Parallel RViz mode=single: only worker 1 will launch RViz."
+        ;;
+      off|none|false|0)
+        echo "[AUTOSIM] Parallel RViz mode=off: forcing AUTOSIM_USE_RVIZ=false in parallel runs."
+        AUTOSIM_USE_RVIZ="false"
+        ;;
+      *)
+        PARALLEL_SINGLE_RVIZ_ACTIVE="true"
+        echo "[AUTOSIM] Unknown AUTOSIM_PARALLEL_RVIZ_MODE=$AUTOSIM_PARALLEL_RVIZ_MODE, fallback to single-worker RViz."
+        ;;
+    esac
   fi
 fi
 
@@ -416,12 +430,17 @@ launch_worker() {
   local log_file="$LOG_ROOT/worker_${i}.log"
   local gpu_device=""
   local worker_scenarios=""
+  local worker_use_rviz="$AUTOSIM_USE_RVIZ"
 
   if [[ -n "$TOTAL_SCENARIOS" ]]; then
     worker_scenarios="$SCENARIO_PER_WORKER_BASE"
     if (( i <= SCENARIO_PER_WORKER_REMAINDER )); then
       worker_scenarios="$((worker_scenarios + 1))"
     fi
+  fi
+
+  if [[ "$PARALLEL_SINGLE_RVIZ_ACTIVE" == "true" ]] && (( i > 1 )); then
+    worker_use_rviz="false"
   fi
 
   (
@@ -447,7 +466,7 @@ launch_worker() {
     export AUTOSIM_ENABLE_PROGRESS_PLOT="$AUTOSIM_ENABLE_PROGRESS_PLOT"
     export AUTOSIM_ENABLE_SCENARIO_LIVE_VIZ="$AUTOSIM_ENABLE_SCENARIO_LIVE_VIZ"
     export AUTOSIM_USE_GUI="$AUTOSIM_USE_GUI"
-    export AUTOSIM_USE_RVIZ="$AUTOSIM_USE_RVIZ"
+    export AUTOSIM_USE_RVIZ="$worker_use_rviz"
     export AUTOSIM_MULTI_DRONE_COUNT="$AUTOSIM_MULTI_DRONE_COUNT"
     export AUTOSIM_MULTI_DRONE_SPACING_M="$AUTOSIM_MULTI_DRONE_SPACING_M"
     export AUTOSIM_MULTI_DRONE_NAMESPACE_PREFIX="$AUTOSIM_MULTI_DRONE_NAMESPACE_PREFIX"
@@ -471,9 +490,9 @@ launch_worker() {
   LAST_LAUNCHED_PID="$pid"
   LAST_LAUNCHED_WORKER_ID="$i"
   if [[ -n "$worker_scenarios" ]]; then
-    echo "[AUTOSIM] Worker $i started pid=$pid domain=$domain_id gazebo_port=$gazebo_port gpu=${gpu_device:-none} scenarios=$worker_scenarios"
+    echo "[AUTOSIM] Worker $i started pid=$pid domain=$domain_id gazebo_port=$gazebo_port gpu=${gpu_device:-none} rviz=$worker_use_rviz scenarios=$worker_scenarios"
   else
-    echo "[AUTOSIM] Worker $i started pid=$pid domain=$domain_id gazebo_port=$gazebo_port gpu=${gpu_device:-none}"
+    echo "[AUTOSIM] Worker $i started pid=$pid domain=$domain_id gazebo_port=$gazebo_port gpu=${gpu_device:-none} rviz=$worker_use_rviz"
   fi
 }
 

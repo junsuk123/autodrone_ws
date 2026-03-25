@@ -323,6 +323,9 @@ bEdges  = [0, 1.5, 2.0, 2.5, 3.0, Inf];
 bLabels = {'0–1.5', '1.5–2.0', '2.0–2.5', '2.5–3.0', '≥3.0'};
 nB7 = numel(bLabels);
 
+% Show all non-empty bands while keeping extreme ratio spikes bounded.
+ratioCap = 20.0;
+
 % cols: [TP_active | FP_active | FN_passive(timeout/forced) | FN_active | TN]
 bCounts7    = zeros(nB7, 5);
 bCounts7b   = zeros(nB7, 5);
@@ -362,43 +365,48 @@ for b = 1:nB7
         fnTotal = bCounts7(b,3) + bCounts7(b,4);
         fnTotalB = bCounts7b(b,3) + bCounts7b(b,4);
 
-        tpOverTn7(b) = safeDiv(bCounts7(b,1), bCounts7(b,5));
-        fnOverFp7(b) = safeDiv(fnTotal, bCounts7(b,2));
+        tpOverTn7(b) = safeDivForPlot(bCounts7(b,1), bCounts7(b,5), ratioCap);
+        fnOverFp7(b) = safeDivForPlot(fnTotal, bCounts7(b,2), ratioCap);
 
-        tpOverTn7b(b) = safeDiv(bCounts7b(b,1), bCounts7b(b,5));
-        fnOverFp7b(b) = safeDiv(fnTotalB, bCounts7b(b,2));
+        tpOverTn7b(b) = safeDivForPlot(bCounts7b(b,1), bCounts7b(b,5), ratioCap);
+        fnOverFp7b(b) = safeDivForPlot(fnTotalB, bCounts7b(b,2), ratioCap);
     end
 end
 
-pTP = plot(ax7L, 1:nB7, tpOverTn7, '-o', ...
+tpOverTn7Pct = 100 * tpOverTn7;
+fnOverFp7Pct = 100 * fnOverFp7;
+tpOverTn7bPct = 100 * tpOverTn7b;
+fnOverFp7bPct = 100 * fnOverFp7b;
+
+pTP = plot(ax7L, 1:nB7, tpOverTn7Pct, '-o', ...
     'LineWidth', 2.2, ...
     'Color', [0.15 0.62 0.22], ...
     'MarkerFaceColor', [0.15 0.62 0.22], ...
     'MarkerSize', 7, ...
     'DisplayName', 'TP/TN');
 
-pFN = plot(ax7L, 1:nB7, fnOverFp7, '-s', ...
+pFN = plot(ax7L, 1:nB7, fnOverFp7Pct, '-s', ...
     'LineWidth', 2.2, ...
     'Color', [0.90 0.46 0.10], ...
     'MarkerFaceColor', [0.90 0.46 0.10], ...
     'MarkerSize', 7, ...
     'DisplayName', 'FN/FP');
 
-pTPb = plot(ax7L, 1:nB7, tpOverTn7b, '--o', ...
+pTPb = plot(ax7L, 1:nB7, tpOverTn7bPct, '--o', ...
     'LineWidth', 1.8, ...
     'Color', [0.10 0.35 0.72], ...
     'MarkerFaceColor', [0.10 0.35 0.72], ...
     'MarkerSize', 6, ...
     'DisplayName', 'TP/TN (threshold)');
 
-pFNb = plot(ax7L, 1:nB7, fnOverFp7b, '--s', ...
+pFNb = plot(ax7L, 1:nB7, fnOverFp7bPct, '--s', ...
     'LineWidth', 1.8, ...
     'Color', [0.55 0.30 0.08], ...
     'MarkerFaceColor', [0.55 0.30 0.08], ...
     'MarkerSize', 6, ...
     'DisplayName', 'FN/FP (threshold)');
 
-hRef = yline(ax7L, 1.0, ':', 'x1 balance', ...
+hRef = yline(ax7L, 100.0, ':', '100% balance', ...
     'Color', [0.45 0.45 0.45], ...
     'LineWidth', 1.1, ...
     'LabelHorizontalAlignment', 'left', ...
@@ -406,22 +414,25 @@ hRef = yline(ax7L, 1.0, ':', 'x1 balance', ...
 
 set(ax7L, 'XTick', 1:nB7, 'XTickLabel', bLabels, 'FontSize', FONT_AX);
 xlabel(ax7L, 'Wind speed band (m/s)', 'FontSize', FONT_LABEL);
-ylabel(ax7L, 'Relative ratio (x)', 'FontSize', FONT_LABEL);
+ylabel(ax7L, 'Relative ratio (%)', 'FontSize', FONT_LABEL);
 title(ax7L, 'TP/TN and FN/FP per Wind Band', 'FontSize', FONT_TITLE);
 annotateTotalScenario(ax7L, nTotalScenario, FONT_AX);
 
-yCandidates = [tpOverTn7; fnOverFp7; tpOverTn7b; fnOverFp7b];
+yCandidates = [tpOverTn7Pct; fnOverFp7Pct; tpOverTn7bPct; fnOverFp7bPct];
 yCandidates = yCandidates(isfinite(yCandidates));
 if isempty(yCandidates)
-    ylim(ax7L, [0 2]);
+    ylim(ax7L, [0 200]);
 else
-    yTop = max(2.0, 1.15 * max(yCandidates));
+    yRef = prctile(yCandidates, 95);
+    yTop = max(200.0, 1.15 * yRef);
+    yTop = min(yTop, 2000.0);
     ylim(ax7L, [0 yTop]);
 end
 grid(ax7L, 'on');
 
 for b = 1:nB7
-    text(ax7L, b, 2.5, sprintf('n=%d', round(bTotal7(b))), ...
+    yMark = ax7L.YLim(1) + 0.08 * (ax7L.YLim(2) - ax7L.YLim(1));
+    text(ax7L, b, yMark, sprintf('n=%d', round(bTotal7(b))), ...
         'HorizontalAlignment', 'center', ...
         'VerticalAlignment', 'bottom', ...
         'FontSize', max(12, FONT_AX - 8), ...
@@ -1045,6 +1056,31 @@ function v = safeDiv(a, b)
         v = nan;
     else
         v = a / b;
+    end
+end
+
+
+function v = safeDivForPlot(a, b, ratioCap)
+    if a <= 0 && b <= 0
+        v = 0;
+        return;
+    end
+
+    if b <= 0
+        v = ratioCap;
+        return;
+    end
+
+    v = a / b;
+    if ~isfinite(v)
+        v = nan;
+        return;
+    end
+
+    if nargin >= 3 && isfinite(ratioCap) && ratioCap > 0
+        if v > ratioCap
+            v = ratioCap;
+        end
     end
 end
 

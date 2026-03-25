@@ -8,11 +8,13 @@ mainCfg = struct();
 
 % Use only recent N rows from FinalDataset for train/validation/plots.
 % Set to Inf (or <=0) to use full dataset.
-mainCfg.dataset_recent_n = 1000;
+mainCfg.dataset_recent_n = 5000;
+% Validation is fixed to this many recent scenarios regardless of train window.
+mainCfg.validation_recent_n = 1000;
 % Data collection settings (editable in main).
 mainCfg.collection = struct();
-mainCfg.collection.scenario_count = 10;
-mainCfg.collection.drone_count = 3;
+mainCfg.collection.scenario_count = 1;
+mainCfg.collection.drone_count = 1;
 mainCfg.collection.independent_per_drone = true;
 mainCfg.collection.merge_last_runs = 5;
 mainCfg.collection.launch_use_gui = false;
@@ -85,6 +87,14 @@ try
     end
 
     if mainCfg.run_validation
+        validationRecentN = round(double(mainCfg.validation_recent_n));
+        if isfinite(validationRecentN) && validationRecentN > 0
+            setenv('AUTOSIM_RECENT_DATASET_N', sprintf('%d', validationRecentN));
+            fprintf('[AutoSimMain] Validation dataset fixed: last %d rows\n', validationRecentN);
+        else
+            error('[AutoSimMain] validation_recent_n must be a positive finite integer.');
+        end
+
         fprintf('[AutoSimMain] Stage 3/4: validation start (FinalDataset all, split=7:3)\n');
         autosim_keep_workspace = true; %#ok<NASGU>
         autoPlot = false; %#ok<NASGU>
