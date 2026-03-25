@@ -35,6 +35,9 @@ end
 if ~exist('autoPlot', 'var')
     autoPlot = false;
 end
+if ~exist('validationUseFullWindow', 'var')
+    validationUseFullWindow = false;
+end
 if ~exist('modelPath', 'var')
     modelPath = "";
 end
@@ -48,9 +51,15 @@ allTblRawCount = height(allTbl);
 allTbl = autosimEnsureOntologyFeatureColumns(allTbl, cfg);
 droneMeta = autosimValidationResolveDroneMeta(cfg, allTbl);
 
-[trainTbl, valTbl, splitInfo] = autosimValidationSplit70_30(allTbl, 0.7, splitSeed); %#ok<ASGLU>
-if isempty(valTbl)
-    error('AutoSimValidation:EmptyValidationSplit', 'Validation split is empty.');
+if logical(validationUseFullWindow)
+    trainTbl = allTbl([],:);
+    valTbl = allTbl;
+    splitInfo = struct('train_ratio', 0.0, 'val_ratio', 1.0, 'seed', splitSeed);
+else
+    [trainTbl, valTbl, splitInfo] = autosimValidationSplit70_30(allTbl, 0.7, splitSeed); %#ok<ASGLU>
+    if isempty(valTbl)
+        error('AutoSimValidation:EmptyValidationSplit', 'Validation split is empty.');
+    end
 end
 
 modelPath = autosimValidationResolveModelPath(modelPath, rootDir, cfg.paths.model_dir);
@@ -148,6 +157,11 @@ splitTbl.n_val = height(valTbl);
 splitTbl.train_ratio = splitInfo.train_ratio;
 splitTbl.val_ratio = splitInfo.val_ratio;
 splitTbl.seed = splitInfo.seed;
+if logical(validationUseFullWindow)
+    splitTbl.split_mode = "full_recent_window";
+else
+    splitTbl.split_mode = "stratified_70_30";
+end
 splitTbl.source_files = strjoin(sourceFiles, ';');
 if droneMeta.is_multi
     splitTbl.collection_multi_drone_count = droneMeta.count;
@@ -159,7 +173,8 @@ fprintf('[AutoSimValidation] model: %s\n', char(modelPath));
 if isfinite(recentNUsed) && recentNUsed > 0
     fprintf('[AutoSimValidation] recent window: last %d rows (raw=%d, used=%d)\n', round(recentNUsed), allTblRawCount, height(allTbl));
 end
-fprintf('[AutoSimValidation] all=%d train=%d val=%d (seed=%d)\n', height(allTbl), height(trainTbl), height(valTbl), round(splitSeed));
+fprintf('[AutoSimValidation] all=%d train=%d val=%d (seed=%d, mode=%s)\n', ...
+    height(allTbl), height(trainTbl), height(valTbl), round(splitSeed), char(string(splitTbl.split_mode(1))));
 fprintf('[AutoSimValidation] summary: %s\n', summaryCsv);
 fprintf('[AutoSimValidation] accuracy=%.4f precision=%.4f recall=%.4f specificity=%.4f balanced=%.4f unsafe_landing=%.4f\n', ...
     metrics.accuracy, metrics.precision, metrics.recall, metrics.specificity, metrics.balanced_accuracy, metrics.unsafe_landing_rate);

@@ -95,8 +95,9 @@ try
             error('[AutoSimMain] validation_recent_n must be a positive finite integer.');
         end
 
-        fprintf('[AutoSimMain] Stage 3/4: validation start (FinalDataset all, split=7:3)\n');
+        fprintf('[AutoSimMain] Stage 3/4: validation start (fixed recent window, no split)\n');
         autosim_keep_workspace = true; %#ok<NASGU>
+        validationUseFullWindow = true; %#ok<NASGU>
         autoPlot = false; %#ok<NASGU>
         run(fullfile(thisDir, 'AutoSimValidation.m'));
     end
