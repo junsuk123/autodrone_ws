@@ -63,6 +63,14 @@ fi
 if ! [[ "$AUTOSIM_CPU_HARD_LIMIT_PCT" =~ ^[0-9]+$ ]]; then
   AUTOSIM_CPU_HARD_LIMIT_PCT=90
 fi
+if ! [[ "$DOMAIN_BASE" =~ ^[0-9]+$ ]]; then
+  echo "[AUTOSIM] Invalid DOMAIN_BASE=$DOMAIN_BASE. Fallback to 60."
+  DOMAIN_BASE=60
+fi
+if (( DOMAIN_BASE < 10 )); then
+  echo "[AUTOSIM] DOMAIN_BASE=$DOMAIN_BASE is too low and may collide with default ROS/Gazebo setups. Using 60."
+  DOMAIN_BASE=60
+fi
 if (( AUTOSIM_CPU_TARGET_UTIL_PCT < 1 )); then
   AUTOSIM_CPU_TARGET_UTIL_PCT=1
 fi
@@ -236,7 +244,23 @@ fi
 
 if [[ "$AUTOSIM_USE_RVIZ" == "auto" ]]; then
   if (( REQUESTED_WORKERS > 1 )); then
-    AUTOSIM_USE_RVIZ="false"
+    if [[ "$AUTOSIM_ALLOW_PARALLEL_RVIZ" == "1" || "$AUTOSIM_ALLOW_PARALLEL_RVIZ" == "true" || "$AUTOSIM_ALLOW_PARALLEL_RVIZ" == "yes" ]]; then
+      AUTOSIM_USE_RVIZ="true"
+    else
+      case "${AUTOSIM_PARALLEL_RVIZ_MODE,,}" in
+        single)
+          AUTOSIM_USE_RVIZ="true"
+          PARALLEL_SINGLE_RVIZ_ACTIVE="true"
+          echo "[AUTOSIM] Auto RViz in parallel: single-worker mode enabled (worker 1 only)."
+          ;;
+        off|none|false|0)
+          AUTOSIM_USE_RVIZ="false"
+          ;;
+        *)
+          AUTOSIM_USE_RVIZ="false"
+          ;;
+      esac
+    fi
   else
     AUTOSIM_USE_RVIZ="true"
   fi

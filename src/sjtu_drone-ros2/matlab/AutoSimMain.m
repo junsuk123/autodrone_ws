@@ -14,8 +14,8 @@ mainCfg.dataset_recent_n = 5000;
 mainCfg.validation_recent_n = 1000;
 % Data collection settings (editable in main).
 mainCfg.collection = struct();
-mainCfg.collection.scenario_count = 1;
-mainCfg.collection.drone_count = 1;
+mainCfg.collection.scenario_count = 100;
+mainCfg.collection.drone_count = 2;
 mainCfg.collection.independent_per_drone = true;
 mainCfg.collection.merge_last_runs = 5;
 mainCfg.collection.launch_use_gui = false;
@@ -31,7 +31,7 @@ mainCfg.collection.dynamic_worker_scale = true;
 mainCfg.collection.memory_probe_wait_sec = 8;
 mainCfg.collection.allow_scale_above_requested = false;
 mainCfg.collection.enable_progress_plot = true;
-mainCfg.collection.enable_scenario_live_viz = false;
+mainCfg.collection.enable_scenario_live_viz = true;
 
 % Pipeline stages (main always executes all stages).
 mainCfg.run_collection = true;

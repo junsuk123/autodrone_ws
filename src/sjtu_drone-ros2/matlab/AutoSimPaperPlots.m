@@ -352,93 +352,106 @@ for b = 1:nB7
     bTotal7(b) = sum(mask);
 end
 
-fig7 = figure('Name', 'WindBandDecisionBreakdown', 'Color', 'w', 'Position', [200 200 980 480]);
-ax7L = axes(fig7);
-hold(ax7L, 'on');
+fig7 = figure('Name', 'WindBandDecisionBreakdown', 'Color', 'w', 'Position', [180 180 1180 520]);
+ax7 = axes(fig7);
+hold(ax7, 'on');
 
-tpOverTn7 = nan(nB7, 1);
-fnOverFp7 = nan(nB7, 1);
-tpOverTn7b = nan(nB7, 1);
-fnOverFp7b = nan(nB7, 1);
+attemptCount7 = nan(nB7, 1);
+holdCount7 = nan(nB7, 1);
+unsafeAttemptRate7 = nan(nB7, 1);
+unsafeAttemptRate7b = nan(nB7, 1);
 for b = 1:nB7
     if bTotal7(b) > 0
         fnTotal = bCounts7(b,3) + bCounts7(b,4);
         fnTotalB = bCounts7b(b,3) + bCounts7b(b,4);
 
-        tpOverTn7(b) = safeDivForPlot(bCounts7(b,1), bCounts7(b,5), ratioCap);
-        fnOverFp7(b) = safeDivForPlot(fnTotal, bCounts7(b,2), ratioCap);
+        attemptCount7(b) = bCounts7(b,1) + bCounts7(b,2);  % TP + FP
+        holdCount7(b) = bCounts7(b,5) + fnTotal;           % TN + FN
 
-        tpOverTn7b(b) = safeDivForPlot(bCounts7b(b,1), bCounts7b(b,5), ratioCap);
-        fnOverFp7b(b) = safeDivForPlot(fnTotalB, bCounts7b(b,2), ratioCap);
+        unsafeAttemptRate7(b) = 100 * safeDiv(bCounts7(b,2), bCounts7(b,2) + bCounts7(b,5));
+        unsafeAttemptRate7b(b) = 100 * safeDiv(bCounts7b(b,2), bCounts7b(b,2) + bCounts7b(b,5));
     end
 end
 
-tpOverTn7Pct = ratioToPairPercent(tpOverTn7);
-fnOverFp7Pct = ratioToPairPercent(fnOverFp7);
-tpOverTn7bPct = ratioToPairPercent(tpOverTn7b);
-fnOverFp7bPct = ratioToPairPercent(fnOverFp7b);
+validBandMask = bTotal7 > 0;
+if ~any(validBandMask)
+    validBandMask(:) = true;
+end
+plotLabels = bLabels(validBandMask);
+plotN = bTotal7(validBandMask);
+attemptPlot = attemptCount7(validBandMask);
+holdPlot = holdCount7(validBandMask);
+riskPlot = unsafeAttemptRate7(validBandMask);
+riskPlotB = unsafeAttemptRate7b(validBandMask);
+x = 1:numel(plotLabels);
 
-pTP = plot(ax7L, 1:nB7, tpOverTn7Pct, '-o', ...
-    'LineWidth', 2.2, ...
-    'Color', [0.15 0.62 0.22], ...
-    'MarkerFaceColor', [0.15 0.62 0.22], ...
-    'MarkerSize', 7, ...
-    'DisplayName', 'TP/TN');
+yyaxis(ax7, 'left');
+countBars = bar(ax7, x, [attemptPlot, holdPlot], 0.70, 'grouped');
+set(countBars(1), ...
+    'FaceColor', [0.15 0.56 0.86], ...
+    'EdgeColor', [0.09 0.39 0.65], ...
+    'DisplayName', 'Attempt count (TP+FP)');
+set(countBars(2), ...
+    'FaceColor', [0.29 0.70 0.33], ...
+    'EdgeColor', [0.20 0.52 0.24], ...
+    'DisplayName', 'Hold count (TN+FN)');
 
-pFN = plot(ax7L, 1:nB7, fnOverFp7Pct, '-s', ...
-    'LineWidth', 2.2, ...
-    'Color', [0.90 0.46 0.10], ...
-    'MarkerFaceColor', [0.90 0.46 0.10], ...
-    'MarkerSize', 7, ...
-    'DisplayName', 'FN/FP');
-
-pTPb = plot(ax7L, 1:nB7, tpOverTn7bPct, '--o', ...
-    'LineWidth', 1.8, ...
-    'Color', [0.10 0.35 0.72], ...
-    'MarkerFaceColor', [0.10 0.35 0.72], ...
-    'MarkerSize', 6, ...
-    'DisplayName', 'TP/TN (threshold)');
-
-pFNb = plot(ax7L, 1:nB7, fnOverFp7bPct, '--s', ...
-    'LineWidth', 1.8, ...
-    'Color', [0.55 0.30 0.08], ...
-    'MarkerFaceColor', [0.55 0.30 0.08], ...
-    'MarkerSize', 6, ...
-    'DisplayName', 'FN/FP (threshold)');
-
-hRef = yline(ax7L, 50.0, ':', '50% balance', ...
-    'Color', [0.45 0.45 0.45], ...
-    'LineWidth', 1.1, ...
-    'LabelHorizontalAlignment', 'left', ...
-    'LabelVerticalAlignment', 'bottom');
-
-set(ax7L, 'XTick', 1:nB7, 'XTickLabel', bLabels, 'FontSize', FONT_AX);
-xlabel(ax7L, 'Wind speed band (m/s)', 'FontSize', FONT_LABEL);
-ylabel(ax7L, 'Relative ratio (%)', 'FontSize', FONT_LABEL);
-title(ax7L, 'TP/TN and FN/FP per Wind Band', 'FontSize', FONT_TITLE);
-annotateTotalScenario(ax7L, nTotalScenario, FONT_AX);
-
-yCandidates = [tpOverTn7Pct; fnOverFp7Pct; tpOverTn7bPct; fnOverFp7bPct];
+ylabel(ax7, 'Decision count (Ontology+AI)', 'FontSize', FONT_LABEL);
+yCandidates = [attemptPlot; holdPlot];
 yCandidates = yCandidates(isfinite(yCandidates));
 if isempty(yCandidates)
-    ylim(ax7L, [0 100]);
+    ylim(ax7, [0 1]);
 else
-    ylim(ax7L, [0 100]);
+    ylim(ax7, [0 max(1, 1.15 * max(yCandidates))]);
 end
-grid(ax7L, 'on');
 
-for b = 1:nB7
-    yMark = ax7L.YLim(1) + 0.08 * (ax7L.YLim(2) - ax7L.YLim(1));
-    text(ax7L, b, yMark, sprintf('n=%d', round(bTotal7(b))), ...
+yyaxis(ax7, 'right');
+pRisk = plot(ax7, x, riskPlot, '-^', ...
+    'LineWidth', 2.2, ...
+    'Color', [0.86 0.20 0.20], ...
+    'MarkerFaceColor', [0.86 0.20 0.20], ...
+    'MarkerSize', 7, ...
+    'DisplayName', 'Unsafe attempt rate FP/(FP+TN)');
+
+pRiskB = plot(ax7, x, riskPlotB, '--^', ...
+    'LineWidth', 2.0, ...
+    'Color', [0.25 0.25 0.25], ...
+    'MarkerFaceColor', [0.25 0.25 0.25], ...
+    'MarkerSize', 6, ...
+    'DisplayName', 'Unsafe attempt rate (threshold)');
+
+ylabel(ax7, 'Unsafe attempt rate (%)', 'FontSize', FONT_LABEL);
+ylim(ax7, [0 100]);
+for i = 1:numel(x)
+    if isfinite(riskPlot(i))
+        text(ax7, x(i), riskPlot(i), sprintf(' %.1f%%', riskPlot(i)), ...
+            'VerticalAlignment', 'bottom', ...
+            'FontSize', max(11, FONT_AX - 9), ...
+            'Color', [0.86 0.20 0.20]);
+    end
+end
+
+set(ax7, 'XTick', x, 'XTickLabel', plotLabels, 'FontSize', FONT_AX);
+xlabel(ax7, 'Wind speed band (m/s)', 'FontSize', FONT_LABEL);
+title(ax7, 'Decision Shift and Unsafe Attempt Risk by Wind Band', 'FontSize', FONT_TITLE);
+annotateTotalScenario(ax7, nTotalScenario, FONT_AX);
+grid(ax7, 'on');
+
+for i = 1:numel(x)
+    yyaxis(ax7, 'left');
+    yMark = ax7.YLim(1) + 0.08 * (ax7.YLim(2) - ax7.YLim(1));
+    text(ax7, x(i), yMark, sprintf('n=%d', round(plotN(i))), ...
         'HorizontalAlignment', 'center', ...
         'VerticalAlignment', 'bottom', ...
         'FontSize', max(12, FONT_AX - 8), ...
         'Color', [0.30 0.30 0.30]);
 end
 
-legend(ax7L, [pTP pFN pTPb pFNb], ...
-    {'TP/TN (Ontology+AI)', 'FN/FP (Ontology+AI)', 'TP/TN (Threshold)', 'FN/FP (Threshold)'}, ...
-    'Location', 'northoutside', 'Orientation', 'horizontal', 'FontSize', FONT_LEGEND, 'Box', 'off');
+legend(ax7, [countBars(1) countBars(2) pRisk pRiskB], ...
+    {'Attempt count (TP+FP)', 'Hold count (TN+FN)', ...
+     'Unsafe attempt rate FP/(FP+TN)', 'Unsafe attempt rate (threshold)'}, ...
+    'Location', 'northoutside', 'Orientation', 'horizontal', ...
+    'FontSize', FONT_LEGEND, 'Box', 'off');
 
 exportgraphics(fig7, fullfile(outputDir, 'paper_fig7_wind_band_breakdown.png'), 'Resolution', 220);
 
@@ -1053,6 +1066,15 @@ function v = safeDiv(a, b)
         v = nan;
     else
         v = a / b;
+    end
+end
+
+
+function v = safeDivVec(a, b)
+    v = nan(size(a));
+    mask = isfinite(a) & isfinite(b) & (b > 0);
+    if any(mask)
+        v(mask) = a(mask) ./ b(mask);
     end
 end
 
