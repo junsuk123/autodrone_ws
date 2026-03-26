@@ -434,6 +434,7 @@ SESSION_ROOT="$MATLAB_DIR/parallel_runs/$timestamp"
 OUTPUT_ROOT="$SESSION_ROOT/output"
 LOG_ROOT="$SESSION_ROOT/logs"
 PID_TABLE="$SESSION_ROOT/workers.tsv"
+RECOVERY_LOG="$SESSION_ROOT/recovery_events.log"
 mkdir -p "$OUTPUT_ROOT" "$LOG_ROOT"
 
 cat > "$SESSION_ROOT/session_info.txt" <<EOF
@@ -454,8 +455,10 @@ gazebo_port_base=$GAZEBO_PORT_BASE
 EOF
 
 printf "pid\tworker_id\tdomain_id\tgazebo_port\tlog_file\n" > "$PID_TABLE"
+echo "# ts_iso event worker_id reason restart_count max_respawn pid domain_id gazebo_port" > "$RECOVERY_LOG"
 
 echo "[AUTOSIM] Session root: $SESSION_ROOT"
+echo "[AUTOSIM] Recovery events log: $RECOVERY_LOG"
 echo "[AUTOSIM] Worker auto-tune: cpu_limit=$cpu_limit mem_limit=$mem_limit -> probe_auto=$auto_workers_probe gpu_auto=$auto_workers"
 echo "[AUTOSIM] GPU mode: enable=$AUTOSIM_ENABLE_GPU gpu_count=$gpu_count"
 echo "[AUTOSIM] Requested workers: $REQUESTED_WORKERS"
@@ -576,6 +579,26 @@ kill_pid_graceful() {
   kill -9 "$pid" 2>/dev/null || true
 }
 
+log_recovery_event() {
+  local event="$1"
+  local wid="${2:-na}"
+  local reason="${3:-na}"
+  local restart_count="${4:-na}"
+  local pid="${5:-na}"
+  local ts_iso
+  ts_iso="$(date -Iseconds)"
+  local domain_id="na"
+  local gazebo_port="na"
+
+  if [[ "$wid" =~ ^[0-9]+$ ]]; then
+    domain_id="$((DOMAIN_BASE + wid - 1))"
+    gazebo_port="$((GAZEBO_PORT_BASE + wid - 1))"
+  fi
+
+  printf "%s %s %s %s %s %s %s %s %s\n" \
+    "$ts_iso" "$event" "$wid" "$reason" "$restart_count" "$AUTOSIM_WORKER_MAX_RESPAWN" "$pid" "$domain_id" "$gazebo_port" >> "$RECOVERY_LOG"
+}
+
 worker_ns_from_id() {
   local wid="$1"
   printf "/%s%02d" "$AUTOSIM_MULTI_DRONE_NAMESPACE_PREFIX" "$wid"
@@ -685,6 +708,7 @@ check_and_recover_workers() {
     restart_count="${WORKER_RESTART_COUNT[$wid]:-0}"
     if (( restart_count >= AUTOSIM_WORKER_MAX_RESPAWN )); then
       echo "[AUTOSIM] Worker $wid spawn-failure=$reason but max respawn reached ($restart_count/$AUTOSIM_WORKER_MAX_RESPAWN)."
+      log_recovery_event "max_respawn_reached" "$wid" "$reason" "$restart_count" "$pid"
       continue
     fi
 
@@ -696,6 +720,7 @@ check_and_recover_workers() {
     echo "[AUTOSIM] Worker $wid spawn failure detected ($reason). Safe restart in progress..."
     WORKER_LAST_RESTART_TS[$wid]="$now_sec"
     WORKER_RESTART_COUNT[$wid]="$((restart_count + 1))"
+    log_recovery_event "spawn_failure_detected" "$wid" "$reason" "${WORKER_RESTART_COUNT[$wid]}" "$pid"
 
     kill_pid_graceful "$pid"
     cleanup_worker_instance_by_id "$wid"
@@ -705,6 +730,7 @@ check_and_recover_workers() {
     WORKER_SPAWN_CONFIRMED[$wid]=0
 
     echo "[AUTOSIM] Worker $wid restarted (attempt ${WORKER_RESTART_COUNT[$wid]}/$AUTOSIM_WORKER_MAX_RESPAWN) pid=$LAST_LAUNCHED_PID"
+    log_recovery_event "worker_restarted" "$wid" "$reason" "${WORKER_RESTART_COUNT[$wid]}" "$LAST_LAUNCHED_PID"
   done
 }
 
@@ -722,6 +748,7 @@ start_worker_supervisor_background() {
   ) >/dev/null 2>&1 &
   WORKER_SUPERVISOR_PID="$!"
   echo "[AUTOSIM] Worker supervisor started (pid=$WORKER_SUPERVISOR_PID)"
+  log_recovery_event "supervisor_started" "na" "na" "na" "$WORKER_SUPERVISOR_PID"
 }
 
 reap_workers() {
@@ -996,12 +1023,14 @@ fi
 if [[ -n "$WORKER_SUPERVISOR_PID" ]]; then
   echo "worker_supervisor_pid=$WORKER_SUPERVISOR_PID" >> "$SESSION_ROOT/session_info.txt"
 fi
+echo "recovery_log=$RECOVERY_LOG" >> "$SESSION_ROOT/session_info.txt"
 echo "worker_id_policy=monotonic_no_reuse" >> "$SESSION_ROOT/session_info.txt"
 if (( TOTAL_LAUNCHED > 0 )); then
   echo "[AUTOSIM] Worker ROS domains (monotonic IDs): $DOMAIN_BASE..$((DOMAIN_BASE + TOTAL_LAUNCHED - 1))"
 fi
 
 echo "[AUTOSIM] PID table: $PID_TABLE"
+echo "[AUTOSIM] Recovery events: $RECOVERY_LOG"
 echo "[AUTOSIM] Stop command: $SCRIPT_DIR/stop_autosim_parallel.sh $SESSION_ROOT"
 echo "[AUTOSIM] Unified worker logs: $SCRIPT_DIR/tail_autosim_parallel_logs.sh $SESSION_ROOT"
 echo "[AUTOSIM] Worker progress: $SCRIPT_DIR/show_autosim_worker_progress.sh $SESSION_ROOT -w 2"
