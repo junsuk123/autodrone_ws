@@ -9,13 +9,13 @@ mainCfg = struct();
 % Use up to recent N rows for training.
 % If total data is insufficient, training rows are reduced automatically
 % after reserving validation_recent_n rows for validation.
-mainCfg.dataset_recent_n = 5000;
+mainCfg.dataset_recent_n = 10000;
 % Validation is fixed to this many recent scenarios.
 mainCfg.validation_recent_n = 1000;
 % Data collection settings (editable in main).
 mainCfg.collection = struct();
-mainCfg.collection.scenario_count = 1000;
-mainCfg.collection.drone_count = 3;
+mainCfg.collection.scenario_count = 5000;
+mainCfg.collection.drone_count = 5;
 mainCfg.collection.independent_per_drone = true;
 mainCfg.collection.merge_last_runs = 5;
 mainCfg.collection.launch_use_gui = false;
